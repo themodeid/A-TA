@@ -1,0 +1,116 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME}
+    # ports dihapus agar tidak terekspos ke internet.
+    # Jika butuh connect dari GUI Tool (seperti TablePlus) di lokal, silakan uncomment baris di bawah:
+    # ports:
+    #   - "${REDIS_PORT}:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5 # Dikurangi dari 10 agar fail-fast jika ada masalah
+      start_period: 5s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    # ports dihapus untuk alasan keamanan runtime.
+    # Jika butuh connect dari DBeaver/TablePlus di lokal, silakan uncomment baris di bawah:
+    # ports:
+    #   - "${POSTGRES_PORT}:5432"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"] # Gunakan $$ agar tidak di-parse sebagai variabel host oleh Docker Compose
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./be
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_PORT=${BACKEND_PORT}
+    container_name: ${BACKEND_CONTAINER_NAME}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      PORT: ${BACKEND_PORT}
+      DATABASE_URL: ${DATABASE_URL_DOCKER}
+      REDIS_URL: ${REDIS_URL_DOCKER}
+      CORS_ORIGIN: http://${FRONTEND_PUBLIC_HOST}:${FRONTEND_PORT}
+    volumes:
+      - ./be:/app
+      - /app/node_modules # Anonymous volume untuk mencegah bentrok node_modules host vs container
+    command: npm run dev
+    healthcheck:
+      test:
+        - "CMD"
+        - "wget"
+        - "--no-verbose"
+        - "--tries=1"
+        - "--spider"
+        - "http://127.0.0.1:${BACKEND_PORT}/api/health"
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+      args:
+        - FRONTEND_PORT=${FRONTEND_PORT}
+        # Dihapus hardcode localhost di bagian args build, dioper via env runtime jika memungkinkan,
+        # atau disamakan dengan variabel host.
+        - NEXT_PUBLIC_API_URL=http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
+    container_name: ${FRONTEND_CONTAINER_NAME}
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy # Sekarang frontend baru jalan setelah backend benar-benar siap
+    env_file:
+      - .env
+    environment:
+      PORT: ${FRONTEND_PORT}
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
+      INTERNAL_API_URL: http://backend:${BACKEND_PORT}${API_KONTAK_PATH} # Hardcode nama service 'backend' lebih aman daripada variabel host internal
+      WATCHPACK_POLLING: ${WATCHPACK_POLLING}
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING}
+    volumes:
+      - ./fe:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
