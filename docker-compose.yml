@@ -2,10 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME}
-    # ports dihapus agar tidak terekspos ke internet.
-    # Jika butuh connect dari GUI Tool (seperti TablePlus) di lokal, silakan uncomment baris di bawah:
-    # ports:
-    #   - "${REDIS_PORT}:6379"
+
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -15,16 +12,12 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5 # Dikurangi dari 10 agar fail-fast jika ada masalah
+      retries: 5
       start_period: 5s
 
   postgres:
     image: postgres:15-alpine
     container_name: ${POSTGRES_CONTAINER_NAME}
-    # ports dihapus untuk alasan keamanan runtime.
-    # Jika butuh connect dari DBeaver/TablePlus di lokal, silakan uncomment baris di bawah:
-    # ports:
-    #   - "${POSTGRES_PORT}:5432"
     restart: unless-stopped
     env_file:
       - .env
@@ -65,7 +58,7 @@ services:
       CORS_ORIGIN: http://${FRONTEND_PUBLIC_HOST}:${FRONTEND_PORT}
     volumes:
       - ./be:/app
-      - /app/node_modules # Anonymous volume untuk mencegah bentrok node_modules host vs container
+      - /app/node_modules
     command: npm run dev
     healthcheck:
       test:
@@ -86,8 +79,6 @@ services:
       dockerfile: Dockerfile
       args:
         - FRONTEND_PORT=${FRONTEND_PORT}
-        # Dihapus hardcode localhost di bagian args build, dioper via env runtime jika memungkinkan,
-        # atau disamakan dengan variabel host.
         - NEXT_PUBLIC_API_URL=http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
     container_name: ${FRONTEND_CONTAINER_NAME}
     ports:
@@ -95,14 +86,14 @@ services:
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_healthy # Sekarang frontend baru jalan setelah backend benar-benar siap
+        condition: service_healthy
     env_file:
       - .env
     environment:
       PORT: ${FRONTEND_PORT}
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
-      INTERNAL_API_URL: http://backend:${BACKEND_PORT}${API_KONTAK_PATH} # Hardcode nama service 'backend' lebih aman daripada variabel host internal
+      INTERNAL_API_URL: http://backend:${BACKEND_PORT}${API_KONTAK_PATH}
       WATCHPACK_POLLING: ${WATCHPACK_POLLING}
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING}
     volumes:
