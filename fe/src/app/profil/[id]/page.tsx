@@ -35,7 +35,9 @@ export default function ProfilPage() {
         const res = await axios.get(`${API_URL}/${id}`);
         if (!ignore) setKontak(res.data.data);
       } catch (error) {
-        setErrorMessage("Backend tidak dapat dihubungi atau data tidak ditemukan");
+        setErrorMessage(
+          "Backend tidak dapat dihubungi atau data tidak ditemukan",
+        );
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -61,6 +63,7 @@ export default function ProfilPage() {
       await axios.put(`${API_URL}/${id}`, {
         nama: formData.get("nama"),
         umur: Number(formData.get("umur")),
+        hobi: formData.get("hobi"),
       });
 
       router.push("/");
@@ -126,6 +129,14 @@ export default function ProfilPage() {
             type="number"
             name="umur"
             defaultValue={kontak?.umur ?? 0}
+            disabled={!kontak || saving}
+            className="w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border border-[#222] text-white text-sm disabled:opacity-40"
+            required
+          />
+
+          <input
+            name="hobi"
+            defaultValue={kontak?.hobi ?? ""}
             disabled={!kontak || saving}
             className="w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border border-[#222] text-white text-sm disabled:opacity-40"
             required

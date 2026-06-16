@@ -159,40 +159,50 @@ app.post(
   }),
 );
 
-// ================= READ ALL =================
+// ================= READ ALL (WITH PAGINATION) =================
 app.get(
   "/api/kontak",
-  catchAsync(async (_req, res) => {
-    const key = "kontak:list";
+  catchAsync(async (req, res) => {
+    // 1. Ambil query page, default ke halaman 1
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+
+    // 2. Bedakan key cache per halaman! Ini krusial agar data tidak bercampur.
+    const key = `kontak:list:page:${page}`;
     const cache = await redisClient.get(key);
 
     if (cache) {
-      console.log("⚡ Dari redis");
+      console.log(`⚡ Dari redis (Page ${page})`);
       const safeCache = typeof cache === "string" ? cache : cache.toString();
-
       return res.json({
         source: "redis",
+        page,
         data: JSON.parse(safeCache),
       });
     }
 
-    console.log("🐘 Dari database");
+    console.log(`🐘 Dari database (Page ${page})`);
     const result = await pool.query(
       `SELECT * FROM kontak 
-   WHERE status IS DISTINCT FROM 'deleted' 
-   ORDER BY id DESC LIMIT 10`,
+       WHERE status IS DISTINCT FROM 'deleted' 
+       ORDER BY id DESC 
+       LIMIT $1 OFFSET $2`,
+      [limit, offset],
     );
 
     await redisClient.set(key, JSON.stringify(result.rows), {
-      EX: 60,
+      EX: 60, // Cache bertahan 60 detik
     });
 
     res.json({
       source: "database",
+      page,
       data: result.rows,
     });
   }),
 );
+
 // ================= READ ONE =================
 app.get(
   "/api/kontak/:id",

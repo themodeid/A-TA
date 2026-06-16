@@ -7,8 +7,8 @@ type Kontak = {
   id: number;
   nama: string;
   umur: number;
+  hobi: string;
 };
-
 
 export default async function HomePage() {
   const API_URL = getServerApiUrl();
@@ -31,13 +31,14 @@ export default async function HomePage() {
     const apiUrl = getServerApiUrl();
     const nama = formData.get("nama");
     const umur = Number(formData.get("umur"));
+    const hobi = formData.get("hobi");
 
     if (!nama || !umur) {
       return;
     }
 
     try {
-      await axios.post(apiUrl, { nama, umur });
+      await axios.post(apiUrl, { nama, umur, hobi });
       revalidatePath("/");
     } catch {
       return;
@@ -76,6 +77,14 @@ export default async function HomePage() {
             className="w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border border-[#222] text-white text-sm placeholder:text-gray-500 disabled:opacity-40"
           />
 
+          <input
+            type="text"
+            name="hobi"
+            placeholder="Hobi"
+            disabled={!!errorMessage}
+            className="w-full px-4 py-3 rounded-xl bg-[#1a1a1a] border border-[#222] text-white text-sm placeholder:text-gray-500 disabled:opacity-40"
+          />
+
           <button
             type="submit"
             disabled={!!errorMessage}
@@ -100,6 +109,7 @@ export default async function HomePage() {
                 <div>
                   <p className="text-sm font-medium text-white">{k.nama}</p>
                   <p className="text-xs text-gray-400">Umur: {k.umur}</p>
+                  <p className="text-xs text-gray-400">Hobi: {k.hobi}</p>
                 </div>
 
                 <Link

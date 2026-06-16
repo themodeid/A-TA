@@ -99,7 +99,6 @@ services:
     volumes:
       - ./fe:/app
       - /app/node_modules
-      - /app/.next
     command: npm run dev
 
 volumes:
