@@ -22,6 +22,18 @@ function requiredInt(name: string): number {
   return value;
 }
 
+function requiredOptionalInt(name: string, defaultValue: number): number {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    return defaultValue;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    throw new Error(`Environment variable ${name} must be a valid number.`);
+  }
+  return num;
+}
+
 export const env = {
   nodeEnv: required("NODE_ENV"),
   port: requiredInt("PORT"),
@@ -32,7 +44,7 @@ export const env = {
   jsonBodyLimit: required("JSON_BODY_LIMIT"),
   startupRetries: requiredInt("STARTUP_RETRIES"),
   startupDelayMs: requiredInt("STARTUP_DELAY_MS"),
-  rateLimitWindowMs: requiredInt("RATE_LIMIT_WINDOW_MS"),
-  rateLimitMax: requiredInt("RATE_LIMIT_MAX"),
+  rateLimitWindowMs: requiredOptionalInt("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000),
+  rateLimitMax: requiredOptionalInt("RATE_LIMIT_MAX", 100),
   dbWaitAttempts: requiredInt("DB_WAIT_ATTEMPTS"),
 } as const;

@@ -73,33 +73,33 @@ services:
       retries: 3
       start_period: 5s
 
-  frontend:
-    build:
-      context: ./fe
-      dockerfile: Dockerfile
-      args:
-        - FRONTEND_PORT=${FRONTEND_PORT}
-        - NEXT_PUBLIC_API_URL=http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
-    container_name: ${FRONTEND_CONTAINER_NAME}
-    ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      PORT: ${FRONTEND_PORT}
-      HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
-      INTERNAL_API_URL: http://backend:${BACKEND_PORT}${API_KONTAK_PATH}
-      WATCHPACK_POLLING: ${WATCHPACK_POLLING}
-      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING}
-    volumes:
-      - ./fe:/app
-      - /app/node_modules
-    command: npm run dev
+  # frontend:
+  #   build:
+  #     context: ./fe
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - FRONTEND_PORT=${FRONTEND_PORT}
+  #       - NEXT_PUBLIC_API_URL=http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
+  #   container_name: ${FRONTEND_CONTAINER_NAME}
+  #   ports:
+  #     - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     PORT: ${FRONTEND_PORT}
+  #     HOSTNAME: 0.0.0.0
+  #     NEXT_PUBLIC_API_URL: http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}
+  #     INTERNAL_API_URL: http://backend:${BACKEND_PORT}${API_KONTAK_PATH}
+  #     WATCHPACK_POLLING: ${WATCHPACK_POLLING}
+  #     CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING}
+  #   volumes:
+  #     - ./fe:/app
+  #     - /app/node_modules
+  #   command: npm run dev
 
 volumes:
   postgres_data:
