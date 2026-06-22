@@ -11,6 +11,36 @@ import { Pool } from "pg";
 import { RedisClientType, createClient } from "redis";
 import { Server } from "http";
 import { env } from "./config/env";
+import { GoogleGenAI, Type } from "@google/genai";
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const crudTools = {
+  functionDeclarations: [
+    {
+      name: "buatKontak Baru",
+      description: "Membuat kontak baru ke dalam sistem.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          nama: { type: Type.STRING, description: "Nama lengkap kontak" },
+          umur: { type: Type.NUMBER, description: "Umur dalam angka" },
+          hobi: { type: Type.STRING, description: "Hobi kontak jika ada" },
+        },
+        required: ["nama"],
+      },
+    },
+    {
+      name: "bacaSemuaKontak",
+      description: "Mengambil data seluruh kontak yang ada di database.",
+      parameters: { type: Type.OBJECT, properties: {} },
+    },
+    {
+      name: "analisisHobiKontak",
+      description: "Menganalisis tren hobi atau pola dari seluruh data kontak.",
+      parameters: { type: Type.OBJECT, properties: {} },
+    },
+  ],
+};
 
 const pool = new Pool({
   connectionString: env.databaseUrl,
@@ -136,6 +166,76 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok template menyala" });
 });
 
+app.post(
+  "/api/chat",
+  catchAsync(async (req, res) => {
+    const { message } = req.body; // Pesan dari user
+    if (!message) throw new AppError("Pesan tidak boleh kosong", 400);
+
+    // 1. Kirim pesan ke Gemini beserta definisi tools yang tersedia
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: message,
+      config: {
+        tools: [crudTools],
+      },
+    });
+
+    const functionCalls = response.functionCalls;
+
+    // 2. Jika AI memutuskan untuk memanggil fungsi (Auto CRUD / Analisis)
+    if (functionCalls && functionCalls.length > 0) {
+      const call = functionCalls[0];
+
+      // --- FITUR 1: AUTO CRUD (CREATE) ---
+      if (call.name === "buatKontakBaru") {
+        const { nama, umur, hobi } = call.args as any;
+
+        // Eksekusi ke DB (Gunakan query yang sudah aman dari SQL Injection)
+        const result = await pool.query(
+          `INSERT INTO kontak (nama, umur, hobi) VALUES ($1, $2, $3) RETURNING *`,
+          [nama, umur, hobi],
+        );
+
+        // Jangan lupa bersihkan cache Redis seperti di endpoint utama!
+        const keys = await redisClient.keys("kontak:list:page:*");
+        if (keys.length > 0) await redisClient.del(keys);
+
+        return res.json({
+          message: `Berhasil menjalankan perintah otomatis.`,
+          aiResponse: `Aku sudah menambahkan kontak ${nama} ke database.`,
+          data: result.rows[0],
+        });
+      }
+
+      // --- FITUR 2: ANALISIS DATA ---
+      if (call.name === "analisisHobiKontak") {
+        // Ambil data asli dari DB untuk dianalisis oleh AI
+        const dataKontak = await pool.query(
+          `SELECT nama, umur, hobi FROM kontak WHERE status IS DISTINCT FROM 'deleted'`,
+        );
+
+        // Kirim balik datanya ke AI untuk meminta kesimpulan/analisis
+        const analisaResponse = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: `Berikut adalah data kontak: ${JSON.stringify(dataKontak.rows)}. Tolong berikan analisis singkat mengenai tren hobi atau pola umur mereka dengan gaya yang santai.`,
+        });
+
+        return res.json({
+          message: "Analisis berhasil diselesaikan.",
+          aiResponse: analisaResponse.text,
+        });
+      }
+    }
+
+    // 3. Jika user cuma sekadar menyapa ("Halo", "Siapa kamu?"), jawab normal
+    res.json({
+      message: "Chat biasa",
+      aiResponse: response.text,
+    });
+  }),
+);
+
 // ================= CREATE =================
 app.post(
   "/api/kontak",
@@ -150,7 +250,10 @@ app.post(
       [nama, umur, hobi],
     );
 
-    await redisClient.del("kontak:list");
+    const keys = await redisClient.keys("kontak:list:page:*");
+    if (keys.length > 0) {
+      await redisClient.del(keys);
+    }
 
     res.status(201).json({
       message: "kontak berhasil dibuat",
@@ -279,7 +382,10 @@ app.put(
       throw new AppError("Data tidak ditemukan", 404);
     }
 
-    await redisClient.del("kontak:list");
+    const updateKeys = await redisClient.keys("kontak:list:page:*");
+    if (updateKeys.length > 0) {
+      await redisClient.del(updateKeys);
+    }
     await redisClient.del(`kontak:${id}`);
 
     res.json({
@@ -310,8 +416,8 @@ app.delete(
       throw new AppError("Data tidak ditemukan", 404);
     }
 
-    // 2. WAJIB: Hapus cache di Redis agar data yang sudah "dihapus" tidak muncul lagi di GET
-    await redisClient.del("kontak:list");
+    const deleteKeys = await redisClient.keys("kontak:list:page:*");
+    if (deleteKeys.length > 0) await redisClient.del(deleteKeys);
     await redisClient.del(`kontak:${id}`);
 
     res.json({
