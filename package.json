@@ -6,7 +6,7 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "docker:db": "docker compose up -d postgres redis",
+    "docker:db": "docker compose up -d postgres",
     "docker:restart": "docker compose restart",
     "docker:ps": "docker compose ps"
   }

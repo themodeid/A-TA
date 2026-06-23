@@ -39,7 +39,7 @@ export const env = {
   port: requiredInt("PORT"),
   publicHost: required("APP_PUBLIC_HOST"),
   databaseUrl: required("DATABASE_URL"),
-  redisUrl: required("REDIS_URL"),
+  // redisUrl: required("REDIS_URL"),
   corsOrigin: required("CORS_ORIGIN"),
   jsonBodyLimit: required("JSON_BODY_LIMIT"),
   startupRetries: requiredInt("STARTUP_RETRIES"),

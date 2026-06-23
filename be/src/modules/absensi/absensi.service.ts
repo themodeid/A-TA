@@ -53,20 +53,39 @@ export async function processAbsensiUpload(
   const headerRow = rawRows[headerRowIndex].map((cell) =>
     normalizeHeader(String(cell)),
   );
-  const dataRows = rawRows
-    .slice(headerRowIndex + 1)
-    .filter((row) => row.some((cell) => cell !== ""));
 
-  const rows: BarisAbsensiMentah[] = dataRows.map((row) => {
-    const obj: BarisAbsensiMentah = {};
-    headerRow.forEach((colName, i) => {
-      (obj as any)[colName] = row[i] ?? "";
-    });
-    return obj;
-  });
+  const rawDataRows = rawRows.slice(headerRowIndex + 1);
+  const rows: (BarisAbsensiMentah & { __nomorBarisExcel: number })[] = [];
+
+  // Looping dengan melacak indeks baris asli untuk nomor baris excel yang akurat
+  for (let i = 0; i < rawDataRows.length; i++) {
+    const row = rawDataRows[i];
+    const cellAwal = String(row[0] ?? "").trim();
+
+    // Berhenti jika mendeteksi tabel Rekap Gaji dimulai
+    if (cellAwal.includes("REKAP GAJI") || cellAwal === "ID Pegawai") {
+      break;
+    }
+
+    if (!row.some((cell) => cell !== "")) continue;
+
+    if (cellAwal.startsWith("ABS")) {
+      const obj: any = {};
+      headerRow.forEach((colName, colIdx) => {
+        obj[colName] = row[colIdx] ?? "";
+      });
+
+      // KUNCI: Titipkan nomor baris excel asli ke dalam objek data mentah
+      obj.__nomorBarisExcel = headerRowIndex + i + 2;
+      rows.push(obj);
+    }
+  }
 
   if (rows.length === 0) {
-    throw new AppError("File Excel kosong atau format kolom tidak sesuai", 400);
+    throw new AppError(
+      "Tidak ada data absensi valid yang ditemukan di dalam file",
+      400,
+    );
   }
 
   // 3. Ambil daftar id_pegawai valid
@@ -78,17 +97,21 @@ export async function processAbsensiUpload(
   const barisValid: BarisValid[] = [];
   const barisGagal: BarisGagal[] = [];
 
-  rows.forEach((row, index) => {
-    const nomorBaris = index + 2; // +2 karena baris 1 = header, data mulai baris 2
+  rows.forEach((row) => {
+    // 💡 Menggunakan nomor baris asli yang sudah kita hitung secara dinamis tadi
+    const nomorBaris = row.__nomorBarisExcel;
     const idPegawai = String(row.id_pegawai ?? "").trim();
     const statusKehadiran = String(row.status_kehadiran ?? "").trim();
     const tanggalParsed = parseTanggalExcel(row.tanggal);
+
+    // Salin objek tanpa properti metadata __nomorBarisExcel untuk log error
+    const { __nomorBarisExcel, ...cleanRowData } = row;
 
     if (!idPegawai) {
       barisGagal.push({
         baris: nomorBaris,
         alasan: "id_pegawai kosong",
-        data: row,
+        data: cleanRowData,
       });
       return;
     }
@@ -96,7 +119,7 @@ export async function processAbsensiUpload(
       barisGagal.push({
         baris: nomorBaris,
         alasan: `id_pegawai '${idPegawai}' tidak ditemukan di data master`,
-        data: row,
+        data: cleanRowData,
       });
       return;
     }
@@ -104,7 +127,7 @@ export async function processAbsensiUpload(
       barisGagal.push({
         baris: nomorBaris,
         alasan: "Format tanggal tidak valid (gunakan DD/MM/YYYY)",
-        data: row,
+        data: cleanRowData,
       });
       return;
     }
@@ -112,7 +135,7 @@ export async function processAbsensiUpload(
       barisGagal.push({
         baris: nomorBaris,
         alasan: `Tanggal di luar periode (${periode.tanggal_awal} s/d ${periode.tanggal_akhir})`,
-        data: row,
+        data: cleanRowData,
       });
       return;
     }
@@ -120,7 +143,7 @@ export async function processAbsensiUpload(
       barisGagal.push({
         baris: nomorBaris,
         alasan: `status_kehadiran harus salah satu dari: ${STATUS_VALID.join(", ")}`,
-        data: row,
+        data: cleanRowData,
       });
       return;
     }
@@ -140,13 +163,12 @@ export async function processAbsensiUpload(
     await client.query("BEGIN");
 
     for (const baris of barisValid) {
-      // 💡 Langsung eksekusi tanpa try-catch di dalam loop
       await client.query(
         `INSERT INTO tb_absensi (id_periode, id_pegawai, tanggal, status_kehadiran, keterangan)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id_pegawai, tanggal) DO UPDATE
-         SET status_kehadiran = EXCLUDED.status_kehadiran,
-             keterangan = EXCLUDED.keterangan`,
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id_pegawai, tanggal) DO UPDATE
+           SET status_kehadiran = EXCLUDED.status_kehadiran,
+               keterangan = EXCLUDED.keterangan`,
         [
           idPeriode,
           baris.id_pegawai,
@@ -158,10 +180,9 @@ export async function processAbsensiUpload(
       barisSukses++;
     }
 
-    // Catat log upload absensi
     await client.query(
       `INSERT INTO tb_upload_absensi (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         idPeriode,
         fileName,
