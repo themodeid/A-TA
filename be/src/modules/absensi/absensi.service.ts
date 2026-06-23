@@ -13,12 +13,12 @@ const normalizeHeader = (text: string) =>
 export async function processAbsensiUpload(
   fileBuffer: Buffer,
   fileName: string,
-  idPeriode: number
+  idPeriode: number,
 ) {
   // 1. Pastikan periode ada
   const periodeResult = await pool.query(
     "SELECT id_periode, tanggal_awal, tanggal_akhir FROM tb_periode WHERE id_periode = $1",
-    [idPeriode]
+    [idPeriode],
   );
   if (periodeResult.rows.length === 0) {
     throw new AppError(`Periode dengan id ${idPeriode} tidak ditemukan`, 404);
@@ -33,7 +33,10 @@ export async function processAbsensiUpload(
   const sheet = workbook.Sheets[firstSheetName];
 
   // Baca sebagai array-of-array
-  const rawRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  const rawRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: "",
+  });
 
   const headerRowIndex = rawRows.findIndex((row) => {
     const normalized = row.map((cell) => normalizeHeader(String(cell)));
@@ -43,12 +46,16 @@ export async function processAbsensiUpload(
   if (headerRowIndex === -1) {
     throw new AppError(
       `Header kolom tidak ditemukan. Pastikan file memiliki kolom: ${KOLOM_WAJIB.join(", ")}`,
-      400
+      400,
     );
   }
 
-  const headerRow = rawRows[headerRowIndex].map((cell) => normalizeHeader(String(cell)));
-  const dataRows = rawRows.slice(headerRowIndex + 1).filter((row) => row.some((cell) => cell !== ""));
+  const headerRow = rawRows[headerRowIndex].map((cell) =>
+    normalizeHeader(String(cell)),
+  );
+  const dataRows = rawRows
+    .slice(headerRowIndex + 1)
+    .filter((row) => row.some((cell) => cell !== ""));
 
   const rows: BarisAbsensiMentah[] = dataRows.map((row) => {
     const obj: BarisAbsensiMentah = {};
@@ -64,7 +71,9 @@ export async function processAbsensiUpload(
 
   // 3. Ambil daftar id_pegawai valid
   const pegawaiResult = await pool.query("SELECT id_pegawai FROM tb_pegawai");
-  const idPegawaiValid = new Set(pegawaiResult.rows.map((r: { id_pegawai: string }) => r.id_pegawai));
+  const idPegawaiValid = new Set(
+    pegawaiResult.rows.map((r: { id_pegawai: string }) => r.id_pegawai),
+  );
 
   const barisValid: BarisValid[] = [];
   const barisGagal: BarisGagal[] = [];
@@ -76,7 +85,11 @@ export async function processAbsensiUpload(
     const tanggalParsed = parseTanggalExcel(row.tanggal);
 
     if (!idPegawai) {
-      barisGagal.push({ baris: nomorBaris, alasan: "id_pegawai kosong", data: row });
+      barisGagal.push({
+        baris: nomorBaris,
+        alasan: "id_pegawai kosong",
+        data: row,
+      });
       return;
     }
     if (!idPegawaiValid.has(idPegawai)) {
@@ -127,28 +140,28 @@ export async function processAbsensiUpload(
     await client.query("BEGIN");
 
     for (const baris of barisValid) {
-      try {
-        await client.query(
-          `INSERT INTO tb_absensi (id_periode, id_pegawai, tanggal, status_kehadiran, keterangan)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (id_pegawai, tanggal) DO UPDATE
-             SET status_kehadiran = EXCLUDED.status_kehadiran,
-                 keterangan = EXCLUDED.keterangan`,
-          [idPeriode, baris.id_pegawai, baris.tanggal, baris.status_kehadiran, baris.keterangan]
-        );
-        barisSukses++;
-      } catch (err) {
-        barisGagal.push({
-          baris: -1,
-          alasan: `Gagal insert ke database: ${(err as Error).message}`,
-          data: baris,
-        });
-      }
+      // 💡 Langsung eksekusi tanpa try-catch di dalam loop
+      await client.query(
+        `INSERT INTO tb_absensi (id_periode, id_pegawai, tanggal, status_kehadiran, keterangan)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id_pegawai, tanggal) DO UPDATE
+         SET status_kehadiran = EXCLUDED.status_kehadiran,
+             keterangan = EXCLUDED.keterangan`,
+        [
+          idPeriode,
+          baris.id_pegawai,
+          baris.tanggal,
+          baris.status_kehadiran,
+          baris.keterangan,
+        ],
+      );
+      barisSukses++;
     }
 
+    // Catat log upload absensi
     await client.query(
       `INSERT INTO tb_upload_absensi (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+     VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         idPeriode,
         fileName,
@@ -156,13 +169,16 @@ export async function processAbsensiUpload(
         barisSukses,
         barisGagal.length,
         JSON.stringify(barisGagal),
-      ]
+      ],
     );
 
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
-    throw new AppError(`Gagal memproses upload: ${(err as Error).message}`, 500);
+    throw new AppError(
+      `Gagal memproses upload karena kendala database: ${(err as Error).message}`,
+      500,
+    );
   } finally {
     client.release();
   }
