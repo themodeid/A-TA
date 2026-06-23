@@ -1,133 +1,89 @@
-// ======================================================
-// 🧾 SERVER.TS — SISTEM PENGGAJIAN GURU & KARYAWAN PSKD
-// ======================================================
-
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import rateLimit from "express-rate-limit";
-import { Server } from "http";
-import { env } from "./config/env";
+import path from "path";
 import { pool } from "./config/database";
-import { AppError, globalErrorHandler } from "./utils/error";
-import apiRouter from "./routes";
+import { runMigrations } from "./database/migrationRunner";
+import routes from "./routes";
+import { errorHandler } from "./middlewares/errorHandler";
+import { ENV } from "./config/env";
 
-// ======================================================
-// ⚙️ EXPRESS APP
-// ======================================================
-const app = express();
+export const app = express();
 
-app.use(cors({ origin: env.corsOrigin }));
+app.use(cors({ origin: ENV.CORS_ORIGIN, credentials: true }));
 app.use(morgan("dev"));
-app.use(express.json({ limit: env.jsonBodyLimit }));
+app.use(express.json({ limit: ENV.JSON_BODY_LIMIT || "10kb" }));
 
+// Serve static files dari direktori uploads
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// Handle JSON parsing errors
 app.use(
-  rateLimit({
-    windowMs: env.rateLimitWindowMs,
-    max: env.rateLimitMax,
-  }),
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (err instanceof SyntaxError && "body" in err) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid JSON format",
+        statusCode: 400,
+      });
+    }
+    next(err);
+  },
 );
 
-// ======================================================
-// 🎯 ROUTES
-// ======================================================
+// Router utama aplikasi
+app.use("/api", routes);
 
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok, server penggajian menyala" });
+// 404 handler untuk route yang tidak terdaftar
+app.use((req, res) => {
+  res.status(404).json({
+    status: "error",
+    message: `Route ${req.method} ${req.path} tidak ditemukan`,
+    statusCode: 404,
+  });
 });
 
-app.use("/api", apiRouter);
+// Centralized error handler
+app.use(errorHandler);
 
 // ======================================================
-// 🧯 NOT FOUND + ERROR HANDLER
+// 🚀 SERVER STARTUP LOGIC
 // ======================================================
-app.use((_req, _res, next) => {
-  next(new AppError("Route tidak ditemukan", 404));
-});
-
-app.use(globalErrorHandler);
-
-// ======================================================
-// 🚀 START SERVER
-// ======================================================
-let server: Server;
-
-async function waitUntilReady<T>(
-  label: string,
-  fn: () => Promise<T>,
-  attempts = env.startupRetries,
-  delayMs = env.startupDelayMs,
-): Promise<T> {
-  let lastError: unknown;
-
-  for (let i = 1; i <= attempts; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      console.log(`⏳ ${label} belum siap (${i}/${attempts})...`);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  throw lastError;
-}
-
-async function startServer() {
-  try {
-    await waitUntilReady("Database", async () => {
-      await pool.query("SELECT 1");
-    });
-    console.log("✅ Database PostgreSQL terkoneksi");
-
-    server = app.listen(env.port, "0.0.0.0", () => {
-      console.log(
-        `🚀 Server berjalan di http://${env.publicHost}:${env.port}/api`,
-      );
-    });
-  } catch (err) {
-    console.error("❌ Gagal memulai server:", err);
-    process.exit(1);
-  }
-}
-
-// ======================================================
-// 🛑 GRACEFUL SHUTDOWN
-// ======================================================
-async function handleShutdown(signal: string) {
-  console.log(`\n🛑 Menerima ${signal}. Memulai graceful shutdown...`);
-
-  const forceExitTimeout = setTimeout(() => {
-    console.error("💥 Dipaksa keluar karena graceful shutdown timeout.");
-    process.exit(1);
-  }, 10000);
+async function startServer(): Promise<void> {
+  console.log("===================================");
+  console.log("🔄 Starting server...");
 
   try {
-    if (server) {
-      console.log("⏳ Menutup HTTP server...");
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => {
-          if (err) return reject(err);
-          resolve();
-        });
-      });
-      console.log("✅ HTTP server ditutup.");
-    }
+    // ================= TEST DB CONNECTION
+    await pool.query("SELECT 1");
+    console.log("✅ Database connected successfully");
 
-    console.log("⏳ Menutup Database pool...");
-    await pool.end();
-    console.log("✅ Database pool ditutup.");
+    // ================= RUN MIGRATIONS
+    console.log("🔄 Running database migrations...");
+    await runMigrations();
+    console.log("✅ Migrations completed successfully");
 
-    console.log("🎉 Graceful shutdown selesai. Bye!");
-    clearTimeout(forceExitTimeout);
-    process.exit(0);
-  } catch (err) {
-    console.error("❌ Error saat graceful shutdown:", err);
+    // ================= START HTTP SERVER
+    app.listen(ENV.PORT, () => {
+      console.log("===================================");
+      console.log("🚀 Server is up and running");
+      console.log(`🌐 URL : http://localhost:${ENV.PORT}/api`);
+      console.log(`🕒 Time: ${new Date().toLocaleString()}`);
+      console.log("===================================");
+    });
+  } catch (error) {
+    console.error("===================================");
+    console.error("❌ Server failed to start");
+    console.error("📛 Reason:", error);
+    console.error("===================================");
+
     process.exit(1);
   }
 }
-
-process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-process.on("SIGINT", () => handleShutdown("SIGINT"));
 
 startServer();
