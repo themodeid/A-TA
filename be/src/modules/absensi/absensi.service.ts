@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
-import { pool } from "../config/database";
-import { AppError } from "../utils/error";
-import { parseTanggalExcel } from "../utils/excel";
-import { BarisAbsensiMentah, BarisGagal, BarisValid } from "../types/absensi";
+import { pool } from "../../config/database";
+import { AppError } from "../../utils/error";
+import { parseTanggalExcel } from "../../utils/excel";
+import { BarisAbsensiMentah, BarisGagal, BarisValid } from "./absensi.type";
 
 const STATUS_VALID = ["Hadir", "Izin", "Sakit", "Alpha"];
 const KOLOM_WAJIB = ["id_pegawai", "tanggal", "status_kehadiran"];
@@ -147,7 +147,7 @@ export async function processAbsensiUpload(
     }
 
     await client.query(
-      `INSERT INTO tb_upload_log (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error)
+      `INSERT INTO tb_upload_absensi (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         idPeriode,

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import absensiRoutes from "./absensi";
+import absensiRoutes from "./modules/absensi/absensi.route";
 
 const router = Router();
 
