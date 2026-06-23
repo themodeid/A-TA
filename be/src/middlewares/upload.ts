@@ -1,5 +1,5 @@
 import multer from "multer";
-import { AppError } from "../utils/error";
+import { AppError } from "../utils/appError";
 
 export const uploadExcel = multer({
   storage: multer.memoryStorage(),

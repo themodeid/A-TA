@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "../errors/AppError";
+import { AppError } from "../utils/appError";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 

@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { pool } from "../../config/database";
-import { AppError } from "../../utils/error";
+import { AppError } from "../../utils/appError";
 import { parseTanggalExcel } from "../../utils/excel";
 import { BarisAbsensiMentah, BarisGagal, BarisValid } from "./absensi.type";
 

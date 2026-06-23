@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { catchAsync, AppError } from "../../utils/error";
+import { catchAsync, AppError } from "../../utils/appError";
 import { processAbsensiUpload } from "./absensi.service";
 
 export const uploadAbsensi = catchAsync(
