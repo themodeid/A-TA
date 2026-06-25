@@ -29,10 +29,10 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
 
 -- 4. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
-    id_pegawai VARCHAR(10) PRIMARY KEY,
+    id_pegawai VARCHAR(100) PRIMARY KEY,
     nama_lengkap VARCHAR(100) NOT NULL,
     id_jabatan INTEGER NOT NULL REFERENCES tb_jabatan(id_jabatan),
-    pangkat_golongan VARCHAR(10), -- Contoh: 'III/d', 'III/c'
+    pangkat_golongan VARCHAR(50), -- Contoh: 'III/d', 'III/c'
     status_perkawinan CHAR(2) CHECK (status_perkawinan IN ('K', 'TK')), -- K=Kawin, TK=Tidak Kawin
     jumlah_anak INTEGER DEFAULT 0,
     gaji_pokok_dasar NUMERIC(12, 2) NOT NULL DEFAULT 0, 

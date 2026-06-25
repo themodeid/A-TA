@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { Pool } from "pg";
-import { env } from "../config/env";
+import { ENV } from "../config/env";
 
 const pool = new Pool({
-  connectionString: env.databaseUrl,
+  connectionString: ENV.DATABASE_URL,
 });
 
 const migrationsPath = path.join(__dirname, "migrations");

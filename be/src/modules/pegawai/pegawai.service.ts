@@ -3,6 +3,7 @@ import { parseExcelPegawai } from "./excel.pegawai";
 
 export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
   const pegawaiData = parseExcelPegawai(fileBuffer);
+  console.log("Pegawai data", pegawaiData);
   const client = await pool.connect();
 
   try {
