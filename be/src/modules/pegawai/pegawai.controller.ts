@@ -28,3 +28,26 @@ export const uploadMasterPegawai = async (
     );
   }
 };
+
+export const getMasterPegawai = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await pegawaiService.getMasterPegawai();
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Data master pegawai berhasil diambil",
+      data,
+    });
+  } catch (error: any) {
+    return next(
+      new AppError(
+        `Gagal mengambil data master pegawai: ${error.message}`,
+        500,
+      ),
+    );
+  }
+};

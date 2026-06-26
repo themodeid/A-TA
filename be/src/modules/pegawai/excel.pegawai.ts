@@ -18,7 +18,6 @@ export const parseExcelPegawai = (fileBuffer: Buffer): ExcelPegawaiRow[] => {
   try {
     const workbook = xlsx.read(fileBuffer, { type: "buffer" });
 
-    // 1. Tembak sheet baru yang namanya 'GJ.POKOK LENGKAP'
     const worksheet = workbook.Sheets["GJ.POKOK LENGKAP"];
     if (!worksheet) {
       throw new AppError(
@@ -27,51 +26,61 @@ export const parseExcelPegawai = (fileBuffer: Buffer): ExcelPegawaiRow[] => {
       );
     }
 
-    // range: 2 karena baris 1 dan 2 adalah Judul ("GAJI GURU...", "BULAN...")
-    // Baris 3 (index 2) adalah header kolom asli
-    const rawData = xlsx.utils.sheet_to_json<any>(worksheet, { range: 2 });
+    // MENGGUNAKAN header: 1 agar menghasilkan array multi-dimensi [ [kolom1, kolom2], [kolom1, kolom2] ]
+    const rawData = xlsx.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
 
-    if (rawData.length === 0) {
+    // Baris 0: GAJI GURU/PEGAWAI...
+    // Baris 1: BULAN : JUNI 2026...
+    // Baris 2: NO., NAMA DAN TANGGAL LAHIR... (Header)
+    // Data asli dimulai dari Baris ke-4 (indeks 3)
+    const dataRows = rawData.slice(3);
+
+    if (dataRows.length === 0) {
       throw new AppError(
         "File Excel kosong atau tidak memiliki data valid",
         400,
       );
     }
 
-    return rawData
-      .map((row) => {
-        // 2. Ambil dari nama kolom baru 'NAMA GURU/PEGAWAI'
-        const namaRaw = row["NAMA GURU/PEGAWAI"];
+    return dataRows
+      .map((row, index) => {
+        // Jika baris kosong atau kolom nama tidak ada, skip
+        if (!row || row.length === 0) return null;
 
-        // Skip baris kosong atau baris totalan di bawah
-        if (
-          !namaRaw ||
-          String(namaRaw).trim().toUpperCase().startsWith("NO.") ||
-          String(namaRaw).toLowerCase().includes("total")
-        ) {
+        // Berdasarkan struktur Excel kamu:
+        // Index 0 = NO (ex: 1, 2, 3)
+        // Index 1 = NAMA DAN TANGGAL LAHIR
+        // Index 2 = TK/K/D/J
+        // Index 3 = PANGKAT GOL/RUANG
+        // Index 4 = JLH JIWA
+        // Index 5 = GJ. POKOK (Rp)
+        // Index 8 = TUNJJABT Struktural/Fungsional
+
+        const namaRaw = row[1];
+        if (!namaRaw || String(namaRaw).toLowerCase().includes("total")) {
           return null;
         }
 
-        const namaBersih = String(namaRaw).trim();
+        // Pisahkan nama jika di dalam Excel ada enter (\n) yang menggabungkan Nama & Tanggal Lahir
+        // Contoh: "Drs. Ahmad Fauzi, M.Pd\n01-03-1970" -> Diambil nama depannya saja
+        let namaBersih = String(namaRaw).split("\n")[0].trim();
 
-        // Buat ID unik berbasis nama bersih (hapus spasi, gelar, titik, koma)
-        const idPegawai = namaBersih.toLowerCase().replace(/[^a-z0-9]/g, "");
+        // Bersihkan angka di depan nama jika ada (jika proteksi tambahan)
+        namaBersih = namaBersih.replace(/^\d+[\.\s\)]*/, "").trim();
 
-        // 3. Ambil dari nama kolom baru 'TK/K/D/J'
-        const statusRaw = String(row["TK/K/D/J"] || "TK")
+        if (!namaBersih) return null;
+
+        const idPegawai = String(row[0] || index + 1);
+        const statusRaw = String(row[2] || "TK")
           .toUpperCase()
           .trim();
         const statusPerkawinan = statusRaw.startsWith("K") ? "K" : "TK";
 
-        // Hitung jumlah anak yang lebih akurat berdasarkan JLH JIWA
-        const jumlahJiwa = Number(row["JLH\nJIWA"] || 1);
-        const pengurang = statusPerkawinan === "K" ? 2 : 1; // K = Pegawai + Istri, TK = Pegawai saja
+        const jumlahJiwa = Number(row[4] || 1);
+        const pengurang = statusPerkawinan === "K" ? 2 : 1;
         const jumlahAnak = Math.max(0, jumlahJiwa - pengurang);
 
-        // Map Jabatan sementara berdasarkan besaran tunjangan jabatan di excel jika kolom JABATAN tidak ada langsung di sheet ini
-        const tunjJabatan = Number(
-          row["TUNJJABT\nStruktural/\nFungsional"] || 0,
-        );
+        const tunjJabatan = Number(row[8] || 0);
         let jabatanTetap = "Guru / Staff";
         if (tunjJabatan >= 1000000) {
           jabatanTetap = "Kepala Sekolah / Pimpinan";
@@ -79,18 +88,30 @@ export const parseExcelPegawai = (fileBuffer: Buffer): ExcelPegawaiRow[] => {
           jabatanTetap = "Wakasek / Jabatan Struktural";
         }
 
+        let jenisKelamin: "L" | "P" = "L";
+        const namaLower = namaBersih.toLowerCase();
+        if (
+          namaLower.startsWith("siti") ||
+          namaLower.startsWith("dewi") ||
+          namaLower.startsWith("fitri") ||
+          namaLower.includes("ni ") ||
+          namaLower.includes("puan")
+        ) {
+          jenisKelamin = "P";
+        }
+
         return {
           id_pegawai: idPegawai,
           nama_lengkap: namaBersih,
           nama_jabatan: jabatanTetap,
-          pangkat_golongan: String(row["PANGKAT\nGOL/RUANG"] || "").trim(),
+          pangkat_golongan: String(row[3] || "").trim(),
           status_perkawinan: statusPerkawinan,
           jumlah_anak: jumlahAnak,
-          gaji_pokok_dasar: Number(row["GJ. POKOK\n(Rp)"] || 0), // Menyesuaikan nama kolom baru
-          jenis_kelamin: "L", // Default L, silakan sesuaikan nanti di CMS
+          gaji_pokok_dasar: Number(row[5] || 0),
+          jenis_kelamin: jenisKelamin,
         };
       })
-      .filter((item): item is ExcelPegawaiRow => item !== null); // Bersihkan baris null
+      .filter((item): item is ExcelPegawaiRow => item !== null);
   } catch (error: any) {
     if (error instanceof AppError) throw error;
     throw new AppError(`Gagal memproses file Excel: ${error.message}`, 400);
