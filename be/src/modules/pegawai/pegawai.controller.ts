@@ -2,30 +2,23 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as pegawaiService from "./pegawai.service";
 
-export const uploadMasterPegawai = async (
+export const createPegawai = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
-  if (!req.file) {
-    return next(new AppError("Silakan unggah file Excel terlebih dahulu", 400));
-  }
-
   try {
-    // Controller tinggal panggil service, gak mau tahu urusan query SQL di dalam
-    const totalData = await pegawaiService.processMasterPegawaiSync(
-      req.file.buffer,
-    );
+    const dataPegawai = req.body;
+    const newPegawai = await pegawaiService.createPegawai(dataPegawai);
 
-    return res.status(200).json({
+    return res.status(201).json({
       status: "success",
-      statusCode: 200,
-      message: `Berhasil sinkronisasi ${totalData} data master pegawai`,
+      statusCode: 201,
+      message: "Data pegawai berhasil ditambahkan",
+      data: newPegawai,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal memproses data pegawai: ${error.message}`, 500),
-    );
+    return next(new AppError(`Gagal menambah pegawai: ${error.message}`, 400));
   }
 };
 
@@ -49,5 +42,90 @@ export const getMasterPegawai = async (
         500,
       ),
     );
+  }
+};
+
+export const getPegawaiById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const pegawai = await pegawaiService.getPegawaiById(Number(id));
+
+    if (!pegawai) {
+      return next(
+        new AppError("Pegawai tidak ditemukan atau telah dihapus", 404),
+      );
+    }
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      data: pegawai,
+    });
+  } catch (error: any) {
+    return next(
+      new AppError(`Gagal mengambil data pegawai: ${error.message}`, 500),
+    );
+  }
+};
+
+export const updatePegawai = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const dataUpdate = req.body;
+
+    const updatedPegawai = await pegawaiService.updatePegawai(
+      Number(id),
+      dataUpdate,
+    );
+
+    if (!updatedPegawai) {
+      return next(
+        new AppError("Pegawai tidak ditemukan untuk diperbarui", 404),
+      );
+    }
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Data pegawai berhasil diperbarui",
+      data: updatedPegawai,
+    });
+  } catch (error: any) {
+    return next(
+      new AppError(`Gagal memperbarui pegawai: ${error.message}`, 400),
+    );
+  }
+};
+
+export const deletePegawai = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const isDeleted = await pegawaiService.softDeletePegawai(Number(id));
+
+    if (!isDeleted) {
+      return next(
+        new AppError("Pegawai tidak ditemukan atau sudah dihapus", 404),
+      );
+    }
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Data pegawai berhasil dihapus (Soft Delete)",
+    });
+  } catch (error: any) {
+    return next(new AppError(`Gagal menghapus pegawai: ${error.message}`, 500));
   }
 };
