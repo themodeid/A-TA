@@ -24,7 +24,8 @@ ON CONFLICT (key_parameter) DO NOTHING; -- Aman jika di-run berkali-kali
 CREATE TABLE IF NOT EXISTS tb_jabatan (
     id_jabatan SERIAL PRIMARY KEY,
     nama_jabatan VARCHAR(50) UNIQUE NOT NULL,
-    tunjangan_jabatan_struktural NUMERIC(12, 2) DEFAULT 0
+    tunjangan_jabatan_struktural NUMERIC(12, 2) DEFAULT 0,
+    deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
 -- 4. Master Pegawai
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
     gaji_pokok_dasar NUMERIC(12, 2) NOT NULL DEFAULT 0, 
     jenis_kelamin CHAR(1),
     no_hp VARCHAR(20),
-    email VARCHAR(100)
+    email VARCHAR(100),
+    deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
 -- 5. Master Periode Cut-off

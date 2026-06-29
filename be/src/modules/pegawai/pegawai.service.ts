@@ -9,7 +9,6 @@ export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
   try {
     await client.query("BEGIN");
     for (const pegawai of pegawaiData) {
-      // 1. UPSERT JABATAN
       const { rows: jabatanRows } = await client.query(
         `INSERT INTO tb_jabatan (nama_jabatan) VALUES ($1) 
          ON CONFLICT (nama_jabatan) DO UPDATE SET nama_jabatan = EXCLUDED.nama_jabatan
@@ -18,8 +17,6 @@ export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
       );
       const idJabatan = jabatanRows[0].id_jabatan;
 
-      // 2. UPSERT PEGAWAI
-      // Tambahkan deleted_at = NULL agar jika pegawai yang di-soft delete masuk Excel lagi, otomatis aktif kembali
       await client.query(
         `INSERT INTO tb_pegawai (
           nama_lengkap, id_jabatan, pangkat_golongan, 
