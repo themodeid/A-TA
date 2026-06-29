@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
-import { processAbsensiUpload } from "./absensi.service";
+import { processAbsensiUpload, createPeriodeOtomatis } from "./absensi.service";
 
 export const uploadAbsensi = async (
   req: Request,
@@ -8,45 +8,55 @@ export const uploadAbsensi = async (
   next: NextFunction,
 ) => {
   try {
-    // 1. Validasi keberadaan file
+    // 1. Validasi keberadaan file upload
     if (!req.file) {
       return next(
         new AppError("File tidak ditemukan, mohon unggah file Excel", 400),
       );
     }
 
-    // 2. Ambil id_periode dari berbagai kemungkinan input (body / query)
-    const idPeriodeRaw =
-      req.body.id_periode || req.body.idPeriode || req.query.id_periode;
-    if (!idPeriodeRaw) {
-      return next(new AppError("id_periode harus disertakan", 400));
+    // 2. Ambil parameter bulan dan tahun dari body request
+    const { bulan, tahun } = req.body;
+    if (!bulan || !tahun) {
+      return next(new AppError("Bulan dan tahun wajib disertakan", 400));
     }
 
-    // 3. Validasi angka id_periode
-    const idPeriode = parseInt(String(idPeriodeRaw), 10);
-    if (isNaN(idPeriode)) {
+    const parseBulan = parseInt(String(bulan), 10);
+    const parseTahun = parseInt(String(tahun), 10);
+
+    if (
+      isNaN(parseBulan) ||
+      parseBulan < 1 ||
+      parseBulan > 12 ||
+      isNaN(parseTahun)
+    ) {
       return next(
-        new AppError("id_periode harus berupa angka yang valid", 400),
+        new AppError("Format bulan (1-12) atau tahun tidak valid", 400),
       );
     }
 
-    // 4. Oper data ke service untuk diproses ke database
+    // 3. Jalankan Langkah Otomatis Periode
+    const periode = await createPeriodeOtomatis(parseBulan, parseTahun);
+
+    // B bypass AUTH: Gunakan ID Pengguna default = 1 untuk testing awal
+    const idPenggunaDefault = 1;
+
+    // 4. Oper data ke service upload (Sekarang argumennya PAS: 4 parameter)
     const result = await processAbsensiUpload(
       req.file.buffer,
       req.file.originalname,
-      idPeriode,
+      periode.id_periode,
+      idPenggunaDefault, // <-- Kirim ke sini
     );
 
-    // 5. Kembalikan response sukses beserta detail log sukses/gagal
+    // 5. Kembalikan response sukses
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Absensi berhasil diproses",
+      message: `Absensi untuk periode ${periode.bulan_gaji} (Cut-off ${periode.tanggal_awal} s/d ${periode.tanggal_akhir}) berhasil diproses.`,
       data: result,
     });
   } catch (error) {
-    // Menangkap error async (DB error, runtime error, dll)
-    // dan meneruskannya ke global error handler Express
     return next(error);
   }
 };

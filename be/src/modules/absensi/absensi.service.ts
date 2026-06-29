@@ -4,7 +4,74 @@ import { parseExcelAbsensi } from "./excel.absensi";
 import { BarisAbsensiMentah, BarisGagal, BarisValid } from "./absensi.type";
 
 const STATUS_VALID = ["Hadir", "Izin", "Sakit", "Alpha"];
-const KOLOM_WAJIB = ["id_pegawai", "tanggal", "status_kehadiran"];
+
+/**
+ * Fungsi privat (Internal Service) untuk menghitung tanggal cut-off 16 - 15 otomatis
+ */
+function hitungTanggalPeriode(bulan: number, year: number) {
+  // Tanggal Mulai: Tanggal 16 di bulan SEBELUMNYA
+  let bulanMulai = bulan - 1;
+  let tahunMulai = year;
+
+  if (bulanMulai === 0) {
+    bulanMulai = 12;
+    tahunMulai = year - 1;
+  }
+
+  const tanggalAwal = `${tahunMulai}-${String(bulanMulai).padStart(2, "0")}-16`;
+  const tanggalAkhir = `${year}-${String(bulan).padStart(2, "0")}-15`;
+
+  const namaBulan = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+  const bulanGaji = `${namaBulan[bulan - 1]} ${year}`; // Contoh: "Juni 2026" pas dengan kolom bulan_gaji tb_periode
+
+  return { tanggalAwal, tanggalAkhir, bulanGaji };
+}
+
+/**
+ * Service untuk membuat periode baru otomatis berdasarkan input bulan & tahun
+ */
+export const createPeriodeOtomatis = async (bulan: number, tahun: number) => {
+  const { tanggalAwal, tanggalAkhir, bulanGaji } = hitungTanggalPeriode(
+    bulan,
+    tahun,
+  );
+
+  // Cek apakah periode bulan tersebut sudah pernah dibuat sebelumnya
+  const checkQuery = `SELECT id_periode, bulan_gaji, tanggal_awal, tanggal_akhir, status FROM tb_periode WHERE bulan_gaji = $1;`;
+  const checkResult = await pool.query(checkQuery, [bulanGaji]);
+
+  // JIKA SUDAH ADA: Kembalikan data yang ada agar upload ulang di bulan yang sama bisa berjalan
+  if (checkResult.rows.length > 0) {
+    return checkResult.rows[0];
+  }
+
+  // JIKA BELUM ADA: Buat baru
+  const query = `
+    INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status)
+    VALUES ($1, $2, $3, 'Pengisian Absensi')
+    RETURNING id_periode, bulan_gaji, tanggal_awal, tanggal_akhir, status;
+  `;
+
+  const { rows } = await pool.query(query, [
+    bulanGaji,
+    tanggalAwal,
+    tanggalAkhir,
+  ]);
+  return rows[0];
+};
 
 const normalizeHeader = (text: string) =>
   String(text).trim().toLowerCase().replace(/\s+/g, "_");
@@ -44,12 +111,16 @@ const parseTanggalExcel = (value: any): Date | null => {
   return null;
 };
 
+// 1. Sesuaikan Kolom Wajib di paling atas file service-mu
+const KOLOM_WAJIB = ["no", "nama_guru/karyawan", "h", "a", "i", "s"];
+
 export async function processAbsensiUpload(
   fileBuffer: Buffer,
   fileName: string,
   idPeriode: number,
+  idPengguna: number,
 ) {
-  // 1. Pastikan periode ada dan statusnya masih 'Pengisian Absensi' atau 'AKTIF'
+  // (Bagian 1: Validasi periode tetap sama seperti kodemu yang dulu)
   const periodeResult = await pool.query(
     "SELECT id_periode, tanggal_awal, tanggal_akhir, status FROM tb_periode WHERE id_periode = $1",
     [idPeriode],
@@ -57,22 +128,12 @@ export async function processAbsensiUpload(
   if (periodeResult.rows.length === 0) {
     throw new AppError(`Periode dengan id ${idPeriode} tidak ditemukan`, 404);
   }
-
   const periode = periodeResult.rows[0];
-  if (periode.status !== "Pengisian Absensi") {
-    throw new AppError(
-      `Periode sudah tidak dapat diubah. Status saat ini: ${periode.status}`,
-      400,
-    );
-  }
 
-  const tanggalAwal = new Date(periode.tanggal_awal);
-  const tanggalAkhir = new Date(periode.tanggal_akhir);
-
-  // 2. Gunakan parser yang sudah kamu buat (Menghindari Double-Parsing)
+  // 2. Parse Excel/CSV menggunakan parser yang kamu punya
   const rawRows = parseExcelAbsensi(fileBuffer);
 
-  // Cari index baris tempat header berada
+  // Cari baris tempat header berada (NO, NAMA GURU/KARYAWAN, dst...)
   const headerRowIndex = rawRows.findIndex((row: any) => {
     const normalized = row.map((cell: any) => normalizeHeader(String(cell)));
     return KOLOM_WAJIB.every((kolom) => normalized.includes(kolom));
@@ -80,7 +141,7 @@ export async function processAbsensiUpload(
 
   if (headerRowIndex === -1) {
     throw new AppError(
-      `Header kolom tidak ditemukan. Pastikan file memiliki kolom: ${KOLOM_WAJIB.join(", ")}`,
+      "Format header Excel tidak cocok. Pastikan ada kolom NO, NAMA GURU/KARYAWAN, H, A, I, S",
       400,
     );
   }
@@ -88,210 +149,113 @@ export async function processAbsensiUpload(
   const headerRow = rawRows[headerRowIndex].map((cell: any) =>
     normalizeHeader(String(cell)),
   );
+  const rawDataRows = rawRows.slice(headerRowIndex + 2); // +2 karena di filemu ada baris "Sel, Rab, Kam" di bawah header utama
 
-  const rawDataRows = rawRows.slice(headerRowIndex + 1);
-  const rows: (BarisAbsensiMentah & { __nomorBarisExcel: number })[] = [];
-
-  // Looping baris data
-  for (let i = 0; i < rawDataRows.length; i++) {
-    const row = rawDataRows[i];
-    const cellAwal = String(row[0] ?? "").trim();
-
-    // Berhenti jika mendeteksi tabel Rekap Gaji dimulai atau selesai baris data
-    if (cellAwal.includes("REKAP GAJI") || cellAwal === "ID Pegawai") {
-      break;
-    }
-
-    if (!row.some((cell) => cell !== "")) continue;
-
-    // Sesuai dengan id_pegawai di master kamu (Jika berupa angka, sesuaikan deteksinya)
-    if (cellAwal !== "") {
-      const obj: any = {};
-      headerRow.forEach((colName, colIdx) => {
-        obj[colName] = row[colIdx] ?? "";
-      });
-
-      obj.__nomorBarisExcel = headerRowIndex + i + 2;
-      rows.push(obj);
-    }
-  }
-
-  if (rows.length === 0) {
-    throw new AppError(
-      "Tidak ada data absensi yang ditemukan di dalam file",
-      400,
-    );
-  }
-
-  // 3. Ambil daftar id_pegawai valid dari database (Pastikan bertipe String untuk pencarian Set)
+  // Ambil data master pegawai dari DB buat validasi ID
   const pegawaiResult = await pool.query(
     "SELECT id_pegawai FROM tb_pegawai WHERE deleted_at IS NULL",
   );
   const idPegawaiValid = new Set(
-    pegawaiResult.rows.map((r: { id_pegawai: any }) =>
-      String(r.id_pegawai).trim(),
-    ),
+    pegawaiResult.rows.map((r: any) => String(r.id_pegawai).trim()),
   );
 
-  const barisValid: BarisValid[] = [];
-  const barisGagal: BarisGagal[] = [];
-
-  rows.forEach((row) => {
-    const nomorBaris = row.__nomorBarisExcel;
-    const idPegawaiRaw = String(row.id_pegawai ?? "").trim();
-
-    // Ekstrak angka saja jika id_pegawai di excel kamu mengandung teks seperti "ABS001" -> "001" -> 1
-    const idPegawaiClean = idPegawaiRaw.replace(/\D/g, "");
-    const statusKehadiran = String(row.status_kehadiran ?? "").trim();
-    const tanggalParsed = parseTanggalExcel(row.tanggal);
-
-    const { __nomorBarisExcel, ...cleanRowData } = row;
-
-    if (!idPegawaiRaw) {
-      barisGagal.push({
-        baris: nomorBaris,
-        alasan: "id_pegawai kosong",
-        data: cleanRowData,
-      });
-      return;
-    }
-    if (!idPegawaiValid.has(idPegawaiClean)) {
-      barisGagal.push({
-        baris: nomorBaris,
-        alasan: `id_pegawai '${idPegawaiRaw}' tidak terdaftar atau telah dihapus`,
-        data: cleanRowData,
-      });
-      return;
-    }
-    if (!tanggalParsed) {
-      barisGagal.push({
-        baris: nomorBaris,
-        alasan: "Format tanggal tidak valid (gunakan DD/MM/YYYY)",
-        data: cleanRowData,
-      });
-      return;
-    }
-    if (tanggalParsed < tanggalAwal || tanggalParsed > tanggalAkhir) {
-      barisGagal.push({
-        baris: nomorBaris,
-        alasan: `Tanggal di luar periode aktif`,
-        data: cleanRowData,
-      });
-      return;
-    }
-    if (!STATUS_VALID.includes(statusKehadiran)) {
-      barisGagal.push({
-        baris: nomorBaris,
-        alasan: `status_kehadiran harus salah satu dari: ${STATUS_VALID.join(", ")}`,
-        data: cleanRowData,
-      });
-      return;
-    }
-
-    barisValid.push({
-      id_pegawai: idPegawaiClean,
-      tanggal: tanggalParsed.toISOString().slice(0, 10),
-      status_kehadiran: statusKehadiran,
-      keterangan: String(row.keterangan ?? "-").trim() || "-",
-    });
-  });
-
-  // 4. Insert data rekap absensi ke database menggunakan Transaction
+  const barisGagal: any[] = [];
   const client = await pool.connect();
-  let barisSukses = 0;
+
   try {
     await client.query("BEGIN");
 
-    // Catat log upload file terlebih dahulu untuk mendapatkan id_upload
+    // Bikin log upload
     const uploadLogResult = await client.query(
       `INSERT INTO tb_upload_absensi (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error, status_proses)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id_upload`,
-      [
-        idPeriode,
-        fileName,
-        rows.length,
-        0,
-        barisGagal.length,
-        JSON.stringify(barisGagal),
-        "processing",
-      ],
+      [idPeriode, fileName, rawDataRows.length, 0, 0, "[]", "processing"],
     );
     const idUpload = uploadLogResult.rows[0].id_upload;
 
-    // Kelompokkan data harian menjadi data summary per pegawai untuk tb_absensi_summary
-    const summaryMap = new Map<string, any>();
+    let barisSuksesHitung = 0;
 
-    barisValid.forEach((item) => {
-      if (!summaryMap.has(item.id_pegawai)) {
-        summaryMap.set(item.id_pegawai, {
-          hadir_wfo: 0,
-          hadir_wfh: 0,
-          izin: 0,
-          sakit: 0,
-          alpha: 0,
+    // 3. Looping data horizontal langsung ke summary-nya
+    for (let i = 0; i < rawDataRows.length; i++) {
+      const row = rawDataRows[i];
+      if (!row || row.length === 0 || String(row[0]).trim() === "") continue;
+
+      // Map isi kolom berdasarkan nama headernya
+      const obj: any = {};
+      headerRow.forEach((colName, colIdx) => {
+        obj[colName] = row[colIdx];
+      });
+
+      // Asumsi: Kolom 'NO' di excel diisi dengan ID Pegawai (1, 2, 3...)
+      const idPegawaiClean = String(obj["no"] ?? "").trim();
+      const namaPegawai = String(obj["nama_guru/karyawan"] ?? "").trim();
+
+      // Ambil totalan dari kolom paling kanan excel
+      const totalHadir = parseInt(obj["h"]) || 0;
+      const totalAlpha = parseInt(obj["a"]) || 0;
+      const totalIzin = parseInt(obj["i"]) || 0;
+      const totalSakit = parseInt(obj["s"]) || 0;
+
+      // Validasi apakah ID Pegawai tersebut ada di DB
+      if (!idPegawaiClean || !idPegawaiValid.has(idPegawaiClean)) {
+        barisGagal.push({
+          baris: headerRowIndex + i + 3,
+          alasan: `ID Pegawai '${idPegawaiClean}' (${namaPegawai}) tidak terdaftar di database`,
+          data: { nama: namaPegawai },
         });
+        continue;
       }
-      const current = summaryMap.get(item.id_pegawai);
 
-      // Di sini sistem mendeteksi tipe kehadiran (bisa kamu kembangkan lagi jika ada status 'WFH')
-      if (item.status_kehadiran === "Hadir") current.hadir_wfo++;
-      else if (item.status_kehadiran === "Izin") current.izin++;
-      else if (item.status_kehadiran === "Sakit") current.sakit++;
-      else if (item.status_kehadiran === "Alpha") current.alpha++;
-    });
-
-    // Eksekusi upsert ke tabel tb_absensi_summary sesuai skema database barumu
-    for (const [idPegawai, counter] of summaryMap.entries()) {
+      // 4. Langsung UPSERT ke tb_absensi_summary (Tanpa perlu mapping harian lagi!)
       await client.query(
         `INSERT INTO tb_absensi_summary (id_periode, id_pegawai, id_upload, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         VALUES ($1, $2, $3, $4, 0, $5, $6, $7)
          ON CONFLICT (id_periode, id_pegawai) DO UPDATE SET
            id_upload = EXCLUDED.id_upload,
            total_hadir_ops_wfo = EXCLUDED.total_hadir_ops_wfo,
-           total_hadir_ops_wfh = EXCLUDED.total_hadir_ops_wfh,
            total_izin = EXCLUDED.total_izin,
            total_sakit = EXCLUDED.total_sakit,
            total_alpha = EXCLUDED.total_alpha`,
         [
           idPeriode,
-          Number(idPegawai),
+          Number(idPegawaiClean),
           idUpload,
-          counter.hadir_wfo,
-          counter.hadir_wfh,
-          counter.izin,
-          counter.sakit,
-          counter.alpha,
+          totalHadir,
+          totalIzin,
+          totalSakit,
+          totalAlpha,
         ],
       );
-      barisSukses +=
-        counter.hadir_wfo +
-        counter.hadir_wfh +
-        counter.izin +
-        counter.sakit +
-        counter.alpha;
+
+      barisSuksesHitung++;
     }
 
-    // Update log status upload menjadi sukses
+    // Update status log akhir
     await client.query(
-      `UPDATE tb_upload_absensi SET baris_sukses = $1, status_proses = 'success' WHERE id_upload = $2`,
-      [barisValid.length, idUpload],
+      `UPDATE tb_upload_absensi SET baris_sukses = $1, baris_gagal = $2, detail_error = $3, status_proses = 'success' WHERE id_upload = $4`,
+      [
+        barisSuksesHitung,
+        barisGagal.length,
+        JSON.stringify(barisGagal),
+        idUpload,
+      ],
     );
 
     await client.query("COMMIT");
+
+    return {
+      total_baris: rawDataRows.length,
+      baris_sukses: barisSuksesHitung,
+      baris_gagal: barisGagal.length,
+      detail_gagal: barisGagal,
+    };
   } catch (err) {
     await client.query("ROLLBACK");
     throw new AppError(
-      `Gagal memproses upload karena kendala database: ${(err as Error).message}`,
+      `Gagal memproses karena kendala database: ${(err as Error).message}`,
       500,
     );
   } finally {
     client.release();
   }
-
-  return {
-    total_baris: rows.length,
-    baris_sukses: barisValid.length,
-    baris_gagal: barisGagal.length,
-    detail_gagal: barisGagal,
-  };
 }
