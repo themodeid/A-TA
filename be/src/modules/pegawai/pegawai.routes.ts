@@ -5,7 +5,11 @@ import * as controller from "./pegawai.controller";
 const router = Router();
 
 // 1. Upload & Sync Data via Excel
-router.post("/upload", uploadExcel.single("file"), controller.createPegawai);
+router.post(
+  "/upload",
+  uploadExcel.single("file"),
+  controller.syncMasterPegawai,
+);
 
 // 2. Get All Pegawai (Hanya data aktif / belum di-soft delete)
 router.get("/", controller.getMasterPegawai);

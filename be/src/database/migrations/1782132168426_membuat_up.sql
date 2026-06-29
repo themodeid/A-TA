@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
 -- 4. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY, 
-    nama_lengkap VARCHAR(100) UNIQUE NOT NULL, 
+    nama_lengkap VARCHAR(100) NOT NULL, 
     id_jabatan INTEGER NOT NULL REFERENCES tb_jabatan(id_jabatan),
     pangkat_golongan VARCHAR(50),
     status_perkawinan CHAR(2),
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS tb_periode (
     bulan_gaji VARCHAR(20) NOT NULL, 
     tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
-    status VARCHAR(20) DEFAULT 'aktif' CHECK (status IN ('aktif', 'ditutup')),
-    created_at TIMESTAMP DEFAULT NOW()
+    status VARCHAR(30) DEFAULT 'Pengisian Absensi' 
+    CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
 );
 
 -- 6. Log Upload File Absensi
@@ -148,4 +148,14 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (id_periode, id_pegawai)
+);
+
+CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
+    id_koreksi SERIAL PRIMARY KEY,
+    id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
+    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
+    id_staf_gaji INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna), -- Siapa yang mengoreksi (Maria)
+    jam_koreksi NUMERIC(5, 2) NOT NULL, -- Bisa positif (nambah) atau negatif (ngurangin)
+    keterangan TEXT NOT NULL, -- Alasan koreksi (Wajib!)
+    created_at TIMESTAMP DEFAULT NOW()
 );

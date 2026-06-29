@@ -2,6 +2,52 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as jabatanService from "../jabatan/jabatan.service";
 
+export const getKonfigurasi = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const data = await jabatanService.getAllKonfigurasi();
+    return res.status(200).json({ status: "success", data });
+  } catch (error: any) {
+    return next(
+      new AppError(`Gagal mengambil konfigurasi: ${error.message}`, 500),
+    );
+  }
+};
+
+export const updateKonfigurasi = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const key = String(req.params.key);
+    const nilai_parameter = Number(req.body.nilai_parameter);
+    if (nilai_parameter === undefined || nilai_parameter === null) {
+      return next(new AppError("Nilai parameter wajib diisi", 400));
+    }
+
+    const updated = await jabatanService.updateKonfigurasiByKey(
+      key,
+      nilai_parameter,
+    );
+    if (!updated) return next(new AppError("Parameter tidak ditemukan", 404));
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Parameter berhasil diubah",
+      data: updated,
+    });
+  } catch (error: any) {
+    return next(
+      new AppError(`Gagal mengubah konfigurasi: ${error.message}`, 400),
+    );
+  }
+};
+
 export const getAllJabatan = async (
   req: Request,
   res: Response,

@@ -1,5 +1,45 @@
 import { pool } from "../../config/database";
 
+// ==========================================
+// PENDATANG BARU: SINKRONISASI PARAMETER / KONFIGURASI
+// ==========================================
+
+// GET ALL CONFIGURATIONS (Untuk nampilin tarif transport, persen istri/anak di frontend)
+export const getAllKonfigurasi = async () => {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT id_konfigurasi, key_parameter, nilai_parameter, keterangan 
+      FROM tb_konfigurasi 
+      ORDER BY id_konfigurasi ASC
+    `;
+    const result = await client.query(query);
+    return result.rows;
+  } finally {
+    client.release();
+  }
+};
+
+// UPDATE CONFIGURATION VALUE BY KEY (Untuk edit nominal tarif/persen)
+export const updateKonfigurasiByKey = async (
+  keyParameter: string,
+  nilaiParameter: number,
+) => {
+  const client = await pool.connect();
+  try {
+    const query = `
+      UPDATE tb_konfigurasi 
+      SET nilai_parameter = $1 
+      WHERE key_parameter = $2
+      RETURNING *
+    `;
+    const result = await client.query(query, [nilaiParameter, keyParameter]);
+    return result.rows[0] || null;
+  } finally {
+    client.release();
+  }
+};
+
 export const getAllJabatan = async () => {
   const client = await pool.connect();
   try {
