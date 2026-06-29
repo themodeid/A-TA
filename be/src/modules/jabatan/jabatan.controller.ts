@@ -9,7 +9,12 @@ export const getKonfigurasi = async (
 ) => {
   try {
     const data = await jabatanService.getAllKonfigurasi();
-    return res.status(200).json({ status: "success", data });
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Data konfigurasi berhasil diambil",
+      data,
+    });
   } catch (error: any) {
     return next(
       new AppError(`Gagal mengambil konfigurasi: ${error.message}`, 500),

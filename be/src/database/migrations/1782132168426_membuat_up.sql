@@ -28,12 +28,20 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
--- 4. Master Pegawai
+-- 4. Master Golongan
+CREATE TABLE IF NOT EXISTS tb_golongan (
+    id_golongan SERIAL PRIMARY KEY,
+    nama_golongan VARCHAR(50) UNIQUE NOT NULL, 
+    gaji_pokok_standar NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+-- 2. Baru jalankan Master Pegawai yang sudah kamu perbaiki tadi
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY, 
     nama_lengkap VARCHAR(100) NOT NULL, 
     id_jabatan INTEGER NOT NULL REFERENCES tb_jabatan(id_jabatan),
-    pangkat_golongan VARCHAR(50),
+    id_golongan INTEGER NOT NULL REFERENCES tb_golongan(id_golongan),
     status_perkawinan CHAR(2),
     jumlah_anak INTEGER DEFAULT 0,
     gaji_pokok_dasar NUMERIC(12, 2) NOT NULL DEFAULT 0, 
