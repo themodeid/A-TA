@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "dev": "ts-node-dev --respawn --poll --interval 10000 --transpile-only src/app.ts",
     "db:migrate": "ts-node src/database/cli.ts up",
     "db:rollback": "ts-node src/database/cli.ts down",
     "db:make": "ts-node src/database/cli.ts make"
