@@ -1,7 +1,7 @@
-import { pool } from "../../config/database";
-import { AppError } from "../../utils/appError";
-import { parseExcelAbsensi } from "./excel.absensi";
-import { BarisAbsensiMentah, BarisGagal, BarisValid } from "./absensi.type";
+import { pool } from "../../../config/database";
+import { AppError } from "../../../utils/appError";
+import { parseExcelAbsensi } from "../excel.absensi";
+import { BarisAbsensiMentah, BarisGagal, BarisValid } from "../absensi.type";
 
 const STATUS_VALID = ["Hadir", "Izin", "Sakit", "Alpha"];
 
