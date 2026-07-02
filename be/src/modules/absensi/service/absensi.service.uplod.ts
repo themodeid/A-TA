@@ -120,7 +120,6 @@ export async function processAbsensiUpload(
   idPeriode: number,
   idPengguna: number,
 ) {
-  // (Bagian 1: Validasi periode tetap sama seperti kodemu yang dulu)
   const periodeResult = await pool.query(
     "SELECT id_periode, tanggal_awal, tanggal_akhir, status FROM tb_periode WHERE id_periode = $1",
     [idPeriode],
@@ -128,14 +127,13 @@ export async function processAbsensiUpload(
   if (periodeResult.rows.length === 0) {
     throw new AppError(`Periode dengan id ${idPeriode} tidak ditemukan`, 404);
   }
-  const periode = periodeResult.rows[0];
 
-  // 2. Parse Excel/CSV menggunakan parser yang kamu punya
   const rawRows = parseExcelAbsensi(fileBuffer);
 
-  // Cari baris tempat header berada (NO, NAMA GURU/KARYAWAN, dst...)
   const headerRowIndex = rawRows.findIndex((row: any) => {
-    const normalized = row.map((cell: any) => normalizeHeader(String(cell)));
+    const normalized = row.map((cell: any) =>
+      String(cell).trim().toLowerCase().replace(/\s+/g, "_"),
+    );
     return KOLOM_WAJIB.every((kolom) => normalized.includes(kolom));
   });
 
@@ -147,17 +145,21 @@ export async function processAbsensiUpload(
   }
 
   const headerRow = rawRows[headerRowIndex].map((cell: any) =>
-    normalizeHeader(String(cell)),
+    String(cell).trim().toLowerCase().replace(/\s+/g, "_"),
   );
-  const rawDataRows = rawRows.slice(headerRowIndex + 2); // +2 karena di filemu ada baris "Sel, Rab, Kam" di bawah header utama
 
-  // Ambil data master pegawai dari DB buat validasi ID
+  const rawDataRows = rawRows.slice(headerRowIndex + 2);
+
+  // AMBIL DATA PEGAWAI BERDASARKAN NAMA (Sebab kolom 'NO' di Excel adalah nomor urut 1,2,3 dst)
   const pegawaiResult = await pool.query(
-    "SELECT id_pegawai FROM tb_pegawai WHERE deleted_at IS NULL",
+    "SELECT id_pegawai, nama_lengkap FROM tb_pegawai WHERE deleted_at IS NULL",
   );
-  const idPegawaiValid = new Set(
-    pegawaiResult.rows.map((r: any) => String(r.id_pegawai).trim()),
-  );
+
+  // Buat Map agar pencarian nama pegawai super cepat dan mengabaikan spasi/huruf kapital
+  const namaPegawaiMap = new Map<string, number>();
+  pegawaiResult.rows.forEach((p: any) => {
+    namaPegawaiMap.set(p.nama_lengkap.trim().toLowerCase(), p.id_pegawai);
+  });
 
   const barisGagal: any[] = [];
   const client = await pool.connect();
@@ -165,7 +167,6 @@ export async function processAbsensiUpload(
   try {
     await client.query("BEGIN");
 
-    // Bikin log upload
     const uploadLogResult = await client.query(
       `INSERT INTO tb_upload_absensi (id_periode, nama_file, total_baris, baris_sukses, baris_gagal, detail_error, status_proses)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id_upload`,
@@ -175,38 +176,42 @@ export async function processAbsensiUpload(
 
     let barisSuksesHitung = 0;
 
-    // 3. Looping data horizontal langsung ke summary-nya
     for (let i = 0; i < rawDataRows.length; i++) {
       const row = rawDataRows[i];
-      if (!row || row.length === 0 || String(row[0]).trim() === "") continue;
+      if (!row || row.length === 0) continue;
 
-      // Map isi kolom berdasarkan nama headernya
       const obj: any = {};
       headerRow.forEach((colName, colIdx) => {
         obj[colName] = row[colIdx];
       });
 
-      // Asumsi: Kolom 'NO' di excel diisi dengan ID Pegawai (1, 2, 3...)
-      const idPegawaiClean = String(obj["no"] ?? "").trim();
+      const noUrut = String(obj["no"] ?? "").trim();
       const namaPegawai = String(obj["nama_guru/karyawan"] ?? "").trim();
 
-      // Ambil totalan dari kolom paling kanan excel
-      const totalHadir = parseInt(obj["h"]) || 0;
-      const totalAlpha = parseInt(obj["a"]) || 0;
-      const totalIzin = parseInt(obj["i"]) || 0;
-      const totalSakit = parseInt(obj["s"]) || 0;
+      // PROTEKSI: Jika kolom NO bukan angka (misal kosong, teks total, atau tanda tangan), lewati saja tanpa dianggap gagal
+      if (!noUrut || isNaN(Number(noUrut)) || namaPegawai === "") {
+        continue;
+      }
 
-      // Validasi apakah ID Pegawai tersebut ada di DB
-      if (!idPegawaiClean || !idPegawaiValid.has(idPegawaiClean)) {
+      const totalHadir = parseInt(obj["h"], 10) || 0;
+      const totalAlpha = parseInt(obj["a"], 10) || 0;
+      const totalIzin = parseInt(obj["i"], 10) || 0;
+      const totalSakit = parseInt(obj["s"], 10) || 0;
+
+      // Cari id_pegawai asli di DB berdasarkan nama dari Excel
+      const namaKey = namaPegawai.toLowerCase();
+      const idPegawaiDb = namaPegawaiMap.get(namaKey);
+
+      if (!idPegawaiDb) {
         barisGagal.push({
           baris: headerRowIndex + i + 3,
-          alasan: `ID Pegawai '${idPegawaiClean}' (${namaPegawai}) tidak terdaftar di database`,
+          alasan: `Pegawai bernama '${namaPegawai}' tidak ditemukan di database aplikasi`,
           data: { nama: namaPegawai },
         });
         continue;
       }
 
-      // 4. Langsung UPSERT ke tb_absensi_summary (Tanpa perlu mapping harian lagi!)
+      // UPSERT menggunakan id_pegawai yang valid hasil deteksi nama
       await client.query(
         `INSERT INTO tb_absensi_summary (id_periode, id_pegawai, id_upload, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha)
          VALUES ($1, $2, $3, $4, 0, $5, $6, $7)
@@ -218,7 +223,7 @@ export async function processAbsensiUpload(
            total_alpha = EXCLUDED.total_alpha`,
         [
           idPeriode,
-          Number(idPegawaiClean),
+          idPegawaiDb,
           idUpload,
           totalHadir,
           totalIzin,
@@ -230,10 +235,11 @@ export async function processAbsensiUpload(
       barisSuksesHitung++;
     }
 
-    // Update status log akhir
+    // Update status log akhir dengan total baris riil yang diproses
     await client.query(
-      `UPDATE tb_upload_absensi SET baris_sukses = $1, baris_gagal = $2, detail_error = $3, status_proses = 'success' WHERE id_upload = $4`,
+      `UPDATE tb_upload_absensi SET total_baris = $1, baris_sukses = $2, baris_gagal = $3, detail_error = $4, status_proses = 'success' WHERE id_upload = $5`,
       [
+        barisSuksesHitung + barisGagal.length,
         barisSuksesHitung,
         barisGagal.length,
         JSON.stringify(barisGagal),
@@ -244,7 +250,7 @@ export async function processAbsensiUpload(
     await client.query("COMMIT");
 
     return {
-      total_baris: rawDataRows.length,
+      total_baris: barisSuksesHitung + barisGagal.length,
       baris_sukses: barisSuksesHitung,
       baris_gagal: barisGagal.length,
       detail_gagal: barisGagal,
