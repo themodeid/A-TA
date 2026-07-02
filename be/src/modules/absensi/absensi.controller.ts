@@ -59,7 +59,6 @@ export const uploadAbsensi = async (
 };
 
 // CRUD ABSENSI CONTROLLER
-
 export const getAllAbsensi = async (
   req: Request,
   res: Response,

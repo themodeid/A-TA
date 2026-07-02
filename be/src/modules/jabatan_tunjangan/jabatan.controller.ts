@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
-import * as jabatanService from "../jabatan/jabatan.service";
+import * as jabatanService from "./jabatan.service";
 
 export const getKonfigurasi = async (
   req: Request,
