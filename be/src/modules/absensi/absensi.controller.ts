@@ -58,18 +58,27 @@ export const uploadAbsensi = async (
   }
 };
 
-// CRUD ABSENSI CONTROLLER
-export const getAllAbsensi = async (
+// ==========================================
+// CRUD ABSENSI CONTROLLER (BARU & OPTIMAL)
+// ==========================================
+
+// 1. Mengambil daftar periode berdasarkan parameter tahun di query (?tahun=2026)
+export const getPeriodeByTahun = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const result = await absensiService.getAllAbsensi();
+    const { tahun } = req.query;
+    if (!tahun) {
+      return next(new AppError("Parameter tahun wajib disertakan", 400));
+    }
+
+    const result = await absensiService.getPeriodeByTahun(Number(tahun));
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Absensi berhasil diambil",
+      message: `Daftar periode untuk tahun ${tahun} berhasil diambil`,
       data: result,
     });
   } catch (error) {
@@ -77,6 +86,28 @@ export const getAllAbsensi = async (
   }
 };
 
+// 2. Mengambil semua data absensi pegawai berdasarkan ID Periode spesifik
+export const getAbsensiByPeriode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { idPeriode } = req.params;
+    const result = await absensiService.getAbsensiByPeriode(Number(idPeriode));
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: "Data absensi berdasarkan periode berhasil diambil",
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// 3. Mengambil data detail atau data edit rekap per baris id summary
 export const getAbsensiById = async (
   req: Request,
   res: Response,
@@ -90,7 +121,7 @@ export const getAbsensiById = async (
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Absensi berhasil diambil",
+      message: "Detail absensi berhasil diambil",
       data: result,
     });
   } catch (error) {
@@ -98,6 +129,7 @@ export const getAbsensiById = async (
   }
 };
 
+// 4. Update data rekap (WFO, WFH, Sakit, Alpha, Izin)
 export const updateAbsensi = async (
   req: Request,
   res: Response,
@@ -110,7 +142,7 @@ export const updateAbsensi = async (
     );
     if (!result) {
       return next(
-        new AppError("Data absensi tidak ditemukan atau telah dihapus", 404),
+        new AppError("Data absensi tidak ditemukan atau gagal diperbarui", 404),
       );
     }
     return res.status(200).json({
@@ -124,6 +156,7 @@ export const updateAbsensi = async (
   }
 };
 
+// 5. Hard delete rekap absensi per record
 export const deleteAbsensi = async (
   req: Request,
   res: Response,
