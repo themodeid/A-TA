@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
     id_pengguna SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('Admin', 'Petugas Absensi', 'Approver', 'Staf Gaji'))
+    role VARCHAR(20) NOT NULL CHECK (role IN ('Admin', 'Petugas Absensi', 'Approver', 'Staf Gaji')),
+    deleted_at TIMESTAMPTZ DEFAULT NULL -- Menambahkan soft delete untuk pengguna sistem
 );
 
 -- 2. Master Parameter / Konfigurasi Aplikasi
@@ -41,13 +42,15 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
 );
 
 -- 5. Master Periode Cut-off 
--- [NINO]: Ini dipindah ke atas karena tb_upload_absensi dan tb_absensi_summary butuh tabel ini!
 CREATE TABLE IF NOT EXISTS tb_periode (
     id_periode SERIAL PRIMARY KEY,
     bulan_gaji VARCHAR(20) NOT NULL, 
     tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
-    status VARCHAR(30) DEFAULT 'Pengisian Absensi' 
+    status VARCHAR(30) DEFAULT 'Pengisian Absensi',
+    deleted_at TIMESTAMPTZ DEFAULT NULL, -- Menambahkan soft delete jika periode batal digunakan
+    
+    CONSTRAINT tb_periode_status_check 
     CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
 );
 
@@ -178,3 +181,15 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     keterangan TEXT NOT NULL, 
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ==========================================
+-- III. PERFORMANCE INDEXES (Optimasi Query)
+-- ==========================================
+-- Indeks parsial ini sangat penting agar database tidak membuang resource 
+-- untuk memindai data yang statusnya sudah terhapus (deleted_at IS NULL).
+
+CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_periode_active ON tb_periode(id_periode) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_pengguna_active ON tb_pengguna(id_pengguna) WHERE deleted_at IS NULL;

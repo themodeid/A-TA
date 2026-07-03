@@ -58,12 +58,12 @@ export const createPeriodeOtomatis = async (bulan: number, tahun: number) => {
     return checkResult.rows[0];
   }
 
-  // JIKA BELUM ADA: Buat baru
+  // JIKA BELUM ADA: Buat baru (Biarkan status diisi oleh DEFAULT dari database)
   const query = `
-    INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status)
-    VALUES ($1, $2, $3, 'Pengisian Absensi')
-    RETURNING id_periode, bulan_gaji, tanggal_awal, tanggal_akhir, status;
-  `;
+  INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir)
+  VALUES ($1, $2, $3)
+  RETURNING id_periode, bulan_gaji, tanggal_awal, tanggal_akhir, status;
+`;
 
   const { rows } = await pool.query(query, [
     bulanGaji,
