@@ -1,3 +1,7 @@
+-- ==========================================
+-- I. MASTER TABLES (Tabel Utama / Referensi)
+-- ==========================================
+
 -- 1. Master Pengguna
 CREATE TABLE IF NOT EXISTS tb_pengguna (
     id_pengguna SERIAL PRIMARY KEY,
@@ -18,7 +22,7 @@ INSERT INTO tb_konfigurasi (key_parameter, nilai_parameter, keterangan) VALUES
 ('TARIF_TRANSPORT_WFO', 30000.00, 'Uang transport per hari hadir fisik WFO'),
 ('PERSEN_TUNJ_ISTRI', 0.10, 'Persentase tunjangan suami/istri dari gaji pokok (10%)'),
 ('PERSEN_TUNJ_ANAK', 0.02, 'Persentase tunjangan per anak dari gaji pokok (2%)')
-ON CONFLICT (key_parameter) DO NOTHING; -- Aman jika di-run berkali-kali
+ON CONFLICT (key_parameter) DO NOTHING;
 
 -- 3. Master Jabatan
 CREATE TABLE IF NOT EXISTS tb_jabatan (
@@ -36,7 +40,18 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 2. Baru jalankan Master Pegawai yang sudah kamu perbaiki tadi
+-- 5. Master Periode Cut-off 
+-- [NINO]: Ini dipindah ke atas karena tb_upload_absensi dan tb_absensi_summary butuh tabel ini!
+CREATE TABLE IF NOT EXISTS tb_periode (
+    id_periode SERIAL PRIMARY KEY,
+    bulan_gaji VARCHAR(20) NOT NULL, 
+    tanggal_awal DATE NOT NULL,      
+    tanggal_akhir DATE NOT NULL,     
+    status VARCHAR(30) DEFAULT 'Pengisian Absensi' 
+    CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
+);
+
+-- 6. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY, 
     nama_lengkap VARCHAR(100) NOT NULL, 
@@ -51,22 +66,17 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
--- 5. Master Periode Cut-off
-CREATE TABLE IF NOT EXISTS tb_periode (
-    id_periode SERIAL PRIMARY KEY,
-    bulan_gaji VARCHAR(20) NOT NULL, 
-    tanggal_awal DATE NOT NULL,      
-    tanggal_akhir DATE NOT NULL,     
-    status VARCHAR(30) DEFAULT 'Pengisian Absensi' 
-    CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
-);
 
--- 6. Log Upload File Absensi
+-- ==========================================
+-- II. TRANSACTIONAL TABLES (Tabel Transaksi)
+-- ==========================================
+
+-- 7. Log Upload File Absensi
 CREATE TABLE IF NOT EXISTS tb_upload_absensi (
     id_upload SERIAL PRIMARY KEY,
     id_periode INTEGER REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     nama_file VARCHAR(255) NOT NULL,
-    diupload_oleh INTEGER REFERENCES tb_pengguna(id_pengguna), -- Diubah ke INTEGER agar konsisten
+    diupload_oleh INTEGER REFERENCES tb_pengguna(id_pengguna), 
     total_baris INTEGER DEFAULT 0,
     baris_sukses INTEGER DEFAULT 0,
     baris_gagal INTEGER DEFAULT 0,
@@ -75,7 +85,7 @@ CREATE TABLE IF NOT EXISTS tb_upload_absensi (
     uploaded_at TIMESTAMP DEFAULT NOW()
 );
 
--- 7. Transaksi Absensi Bulanan
+-- 8. Transaksi Absensi Bulanan
 CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     id_absensi_summary SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -89,7 +99,7 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 8. Log Approval 
+-- 9. Log Approval 
 CREATE TABLE IF NOT EXISTS tb_approval (
     id_approval SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -99,11 +109,11 @@ CREATE TABLE IF NOT EXISTS tb_approval (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 9. Transaksi Tunjangan Dinamis & Jam Lebih
+-- 10. Transaksi Tunjangan Dinamis & Jam Lebih
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
-    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, -- Diubah ke INTEGER
+    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
     tunjangan_kesra NUMERIC(12, 2) DEFAULT 0,
     tunjangan_supervisi NUMERIC(12, 2) DEFAULT 0,
     tunjangan_wali_kelas NUMERIC(12, 2) DEFAULT 0,
@@ -115,11 +125,11 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 10. Transaksi Potongan Bulanan
+-- 11. Transaksi Potongan Bulanan
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     id_potongan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
-    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, -- Diubah ke INTEGER
+    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
     potongan_angsuran NUMERIC(12, 2) DEFAULT 0,
     potongan_dana_wajib NUMERIC(12, 2) DEFAULT 0,
     potongan_s_pskd NUMERIC(12, 2) DEFAULT 0,
@@ -128,14 +138,14 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 11. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah)
+-- 12. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah)
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     id_rekap SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode),
-    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai), -- Diubah ke INTEGER
+    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai), 
     
     jabatan_snapshot VARCHAR(50) NOT NULL,
-    pangkat_golongan_snapshot VARCHAR(50) NOT NULL, -- Diubah ke VARCHAR(50) agar pas dengan master
+    pangkat_golongan_snapshot VARCHAR(50) NOT NULL, 
     
     gaji_pokok_snapshot NUMERIC(12, 2) DEFAULT 0,
     tunjangan_istri_snapshot NUMERIC(12, 2) DEFAULT 0,
@@ -158,12 +168,13 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     UNIQUE (id_periode, id_pegawai)
 );
 
+-- 13. Koreksi Jam Lembur/Lebih (Log Audit)
 CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     id_koreksi SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
-    id_staf_gaji INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna), -- Siapa yang mengoreksi (Maria)
-    jam_koreksi NUMERIC(5, 2) NOT NULL, -- Bisa positif (nambah) atau negatif (ngurangin)
-    keterangan TEXT NOT NULL, -- Alasan koreksi (Wajib!)
+    id_staf_gaji INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna), 
+    jam_koreksi NUMERIC(5, 2) NOT NULL, 
+    keterangan TEXT NOT NULL, 
     created_at TIMESTAMP DEFAULT NOW()
 );
