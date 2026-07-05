@@ -57,15 +57,12 @@ CREATE TABLE IF NOT EXISTS tb_periode (
 -- 6. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY, 
-    nama_lengkap VARCHAR(100) NOT NULL, 
-    id_jabatan INTEGER NOT NULL REFERENCES tb_jabatan(id_jabatan),
-    id_golongan INTEGER NOT NULL REFERENCES tb_golongan(id_golongan),
-    status_perkawinan CHAR(2),
-    jumlah_anak INTEGER DEFAULT 0,
+    nama_dan_tanggal_lahir TEXT NOT NULL UNIQUE, 
+    id_jabatan INTEGER REFERENCES tb_jabatan(id_jabatan) ON DELETE SET NULL,
+    id_golongan INTEGER REFERENCES tb_golongan(id_golongan) ON DELETE SET NULL,
+    status_perkawinan CHAR(2) DEFAULT 'TK',
+    jumlah_anak INTEGER DEFAULT 0, 
     gaji_pokok_dasar NUMERIC(12, 2) NOT NULL DEFAULT 0, 
-    jenis_kelamin CHAR(1),
-    no_hp VARCHAR(20),
-    email VARCHAR(100),
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
@@ -117,6 +114,8 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
+    
+    -- Kolom bawaan sistem kamu
     tunjangan_kesra NUMERIC(12, 2) DEFAULT 0,
     tunjangan_supervisi NUMERIC(12, 2) DEFAULT 0,
     tunjangan_wali_kelas NUMERIC(12, 2) DEFAULT 0,
@@ -125,7 +124,15 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     honor_bulan NUMERIC(12, 2) DEFAULT 0,
     tunjangan_khusus NUMERIC(12, 2) DEFAULT 0,
     total_jam_lebih NUMERIC(5, 2) DEFAULT 0, 
-    UNIQUE (id_periode, id_pegawai)
+    
+    -- Tambahan kolom baru penampung data dari Excel
+    tunj_kel_gabungan NUMERIC(12, 2) DEFAULT 0,             -- Menampung 'TUNJ.KEL Istri+Anak'
+    tunjjab_25_pp1985 NUMERIC(12, 2) DEFAULT 0,             -- Menampung 'TUNJJAB. 25% PP1985'
+    sb_dana_chuk_2_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Menampung 'SB.DANA CHUK 2% PP''85'
+    sb_dana_chuk_8_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Menampung 'SB.DANA CHUK 8% PP''85'
+    tunjangan_perbaikan_penghasilan NUMERIC(12, 2) DEFAULT 0, -- Menampung 'TUNJANGAN PERBAIKAN PENGHASILAN'
+
+     UNIQUE (id_periode, id_pegawai)
 );
 
 -- 11. Transaksi Potongan Bulanan
@@ -141,7 +148,7 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 12. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah)
+-- 12. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah) - SUDAH DISESUAIKAN
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     id_rekap SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode),
@@ -151,11 +158,25 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     pangkat_golongan_snapshot VARCHAR(50) NOT NULL, 
     
     gaji_pokok_snapshot NUMERIC(12, 2) DEFAULT 0,
-    tunjangan_istri_snapshot NUMERIC(12, 2) DEFAULT 0,
-    tunjangan_anak_snapshot NUMERIC(12, 2) DEFAULT 0,
+    
+    -- Mengakomodasi tunj_kel_gabungan dari excel
+    tunj_kel_gabungan_snapshot NUMERIC(12, 2) DEFAULT 0, 
+    tunjangan_istri_snapshot NUMERIC(12, 2) DEFAULT 0, -- Tetap simpan buat jaga-jaga kalkulasi sistem
+    tunjangan_anak_snapshot NUMERIC(12, 2) DEFAULT 0,  -- Tetap simpan buat jaga-jaga kalkulasi sistem
+    
     tunjangan_struktural_snapshot NUMERIC(12, 2) DEFAULT 0,
     total_tunjangan_dinamis_snapshot NUMERIC(12, 2) DEFAULT 0,
     transport_makan_snapshot NUMERIC(12, 2) DEFAULT 0,
+    
+    -- Tambahan snapshot untuk breakdown tunjangan baru dari Excel
+    tunjjab_25_pp1985_snapshot NUMERIC(12, 2) DEFAULT 0,
+    sb_dana_chuk_2_pp85_snapshot NUMERIC(12, 2) DEFAULT 0,
+    sb_dana_chuk_8_pp85_snapshot NUMERIC(12, 2) DEFAULT 0,
+    tunjangan_perbaikan_penghasilan_snapshot NUMERIC(12, 2) DEFAULT 0,
+    
+    -- Menampung kolom PEMBULATAN dari Excel
+    pembulatan_snapshot NUMERIC(12, 2) DEFAULT 0, 
+    
     total_penghasilan_bruto NUMERIC(12, 2) DEFAULT 0,
     
     potongan_angsuran_snapshot NUMERIC(12, 2) DEFAULT 0,

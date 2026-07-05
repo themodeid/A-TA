@@ -1,17 +1,33 @@
 import multer from "multer";
-import { AppError } from "../utils/appError";
+import path from "path";
 
 export const uploadExcel = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = [
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "application/vnd.ms-excel", // .xls
+    const allowedMimeTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "application/octet-stream",
+      "application/vnd.ms-excel.sheet.macroEnabled.12",
+      "application/vnd.ms-excel.addin.macroEnabled.12",
+      "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
     ];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new AppError("File harus berformat .xlsx atau .xls", 400));
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isAllowedExt =
+      ext === ".xlsx" ||
+      ext === ".xls" ||
+      ext === ".xlsm" ||
+      ext === ".xlsb" ||
+      ext === ".xltx";
+    const isAllowedMime = allowedMimeTypes.includes(file.mimetype);
+
+    if (isAllowedExt || isAllowedMime) {
+      return cb(null, true);
     }
-    cb(null, true);
+
+    return cb(new Error("File harus berformat .xlsx atau .xls"));
   },
 });

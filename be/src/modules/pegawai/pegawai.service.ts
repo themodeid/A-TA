@@ -1,14 +1,20 @@
 import { pool } from "../../config/database";
-import { parseExcelPegawai } from "./excel.pegawai";
+import { parseExcelPegawai, ExcelPegawaiRow } from "./excel.pegawai";
 
 export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
   const pegawaiData = parseExcelPegawai(fileBuffer);
   console.log("Pegawai data yang diparse:", pegawaiData);
+  console.log("Pegawai data yang siap disimpan:", pegawaiData);
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
     for (const pegawai of pegawaiData) {
+      if (!pegawai || !pegawai.nama_lengkap) {
+        continue;
+      }
+
+      // 1. Dapatkan atau Buat Jabatan
       const { rows: jabatanRows } = await client.query(
         `INSERT INTO tb_jabatan (nama_jabatan) VALUES ($1) 
          ON CONFLICT (nama_jabatan) DO UPDATE SET nama_jabatan = EXCLUDED.nama_jabatan
@@ -17,32 +23,45 @@ export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
       );
       const idJabatan = jabatanRows[0].id_jabatan;
 
+      // 2. Dapatkan atau Buat Golongan
+      const { rows: golonganRows } = await client.query(
+        `INSERT INTO tb_golongan (nama_golongan) VALUES ($1) 
+         ON CONFLICT (nama_golongan) DO UPDATE SET nama_golongan = EXCLUDED.nama_golongan
+         RETURNING id_golongan`,
+        [pegawai.pangkat_golongan],
+      );
+      const idGolongan = golonganRows[0].id_golongan;
+
+      let jumlahAnak = pegawai.jumlah_anak || 0;
+      if (pegawai.status_perkawinan === "TK") {
+        jumlahAnak = 0;
+      }
+
+      // 3. GUNAKAN UNIQUE CONSTRAINT ATAU ON CONFLICT DI SINI!
+      // Pastikan tb_pegawai memiliki UNIQUE constraint pada nama_lengkap (jika nama dianggap unik)
+      // atau lakukan pengecekan manual agar tidak terjadi duplikasi row saat upload ulang.
       await client.query(
         `INSERT INTO tb_pegawai (
-          nama_lengkap, id_jabatan, pangkat_golongan, 
-          status_perkawinan, jumlah_anak, gaji_pokok_dasar, jenis_kelamin, no_hp, email
+          nama_lengkap, tanggal_lahir, id_jabatan, id_golongan, 
+          status_perkawinan, jumlah_anak, gaji_pokok_dasar
          ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (nama_lengkap) DO UPDATE SET 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (nama_lengkap) DO UPDATE SET
           id_jabatan = EXCLUDED.id_jabatan,
-          pangkat_golongan = EXCLUDED.pangkat_golongan,
+          id_golongan = EXCLUDED.id_golongan,
           status_perkawinan = EXCLUDED.status_perkawinan,
           jumlah_anak = EXCLUDED.jumlah_anak,
           gaji_pokok_dasar = EXCLUDED.gaji_pokok_dasar,
-          jenis_kelamin = EXCLUDED.jenis_kelamin,
-          no_hp = COALESCE(EXCLUDED.no_hp, tb_pegawai.no_hp),
-          email = COALESCE(EXCLUDED.email, tb_pegawai.email),
+          tanggal_lahir = COALESCE(EXCLUDED.tanggal_lahir, tb_pegawai.tanggal_lahir),
           deleted_at = NULL`,
         [
           pegawai.nama_lengkap,
+          pegawai.tanggal_lahir,
           idJabatan,
-          pegawai.pangkat_golongan,
+          idGolongan,
           pegawai.status_perkawinan,
-          pegawai.jumlah_anak,
-          pegawai.gaji_pokok_dasar,
-          pegawai.jenis_kelamin,
-          pegawai.no_hp,
-          pegawai.email,
+          jumlahAnak,
+          pegawai.gaji_pokok_dasar || 0,
         ],
       );
     }
@@ -61,9 +80,10 @@ export const getMasterPegawai = async () => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT p.*, j.nama_jabatan 
+      SELECT p.*, j.nama_jabatan, g.nama_golongan 
       FROM tb_pegawai p
       INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+      INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
       WHERE p.deleted_at IS NULL
       ORDER BY p.id_pegawai DESC
     `;
@@ -75,7 +95,13 @@ export const getMasterPegawai = async () => {
 };
 
 // CREATE SINGLE PEGAWAI
+// CREATE SINGLE PEGAWAI (Versi Sinkron dengan DB Baru)
 export const createPegawai = async (data: any) => {
+  if (!data || !data.nama_lengkap) {
+    throw new Error(
+      "Gagal menambah pegawai: Data nama_lengkap tidak boleh kosong",
+    );
+  }
   const client = await pool.connect();
   try {
     // 1. Validasi Logis: Jika Tidak Kawin, anak otomatis 0
@@ -84,39 +110,122 @@ export const createPegawai = async (data: any) => {
       jumlahAnak = 0;
     }
 
-    // 2. Gunakan ON CONFLICT untuk mengaktifkan kembali jika sebelumnya di-soft delete
+    // 2. Resolusi ID Jabatan & Golongan dari nama/string jika diperlukan
+    let idJabatan = data.id_jabatan;
+    if (!idJabatan && data.nama_jabatan) {
+      const { rows: jabatanRows } = await client.query(
+        `SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan = $1 AND deleted_at IS NULL`,
+        [data.nama_jabatan],
+      );
+      if (jabatanRows.length > 0) {
+        idJabatan = jabatanRows[0].id_jabatan;
+      }
+    }
+
+    let idGolongan = data.id_golongan;
+    if (!idGolongan && data.pangkat_golongan) {
+      const { rows: golonganRows } = await client.query(
+        `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND deleted_at IS NULL`,
+        [data.pangkat_golongan],
+      );
+      if (golonganRows.length > 0) {
+        idGolongan = golonganRows[0].id_golongan;
+      }
+    }
+
+    // 3. Gunakan ON CONFLICT untuk mengaktifkan kembali jika sebelumnya di-soft delete
+    // Kolom jenis_kelamin, no_hp, dan email TELAH DIHAPUS
     const query = `
       INSERT INTO tb_pegawai (
-        nama_lengkap, id_jabatan, pangkat_golongan, status_perkawinan, 
-        jumlah_anak, gaji_pokok_dasar, jenis_kelamin, no_hp, email
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        nama_lengkap, id_jabatan, id_golongan, status_perkawinan, 
+        jumlah_anak, gaji_pokok_dasar, tanggal_lahir
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (nama_lengkap) DO UPDATE SET
         id_jabatan = EXCLUDED.id_jabatan,
-        pangkat_golongan = EXCLUDED.pangkat_golongan,
+        id_golongan = EXCLUDED.id_golongan,
         status_perkawinan = EXCLUDED.status_perkawinan,
         jumlah_anak = EXCLUDED.jumlah_anak,
         gaji_pokok_dasar = EXCLUDED.gaji_pokok_dasar,
-        jenis_kelamin = EXCLUDED.jenis_kelamin,
-        no_hp = COALESCE(EXCLUDED.no_hp, tb_pegawai.no_hp),
-        email = COALESCE(EXCLUDED.email, tb_pegawai.email),
-        deleted_at = NULL -- Hidupkan kembali data jika sebelumnya dihapus
+        tanggal_lahir = COALESCE(EXCLUDED.tanggal_lahir, tb_pegawai.tanggal_lahir),
+        deleted_at = NULL 
       RETURNING *
     `;
 
     const values = [
       data.nama_lengkap,
-      data.id_jabatan,
-      data.pangkat_golongan,
+      idJabatan,
+      idGolongan,
       data.status_perkawinan,
       jumlahAnak,
       data.gaji_pokok_dasar || 0,
-      data.jenis_kelamin,
-      data.no_hp,
-      data.email,
+      data.tanggal_lahir || null,
     ];
 
     const result = await client.query(query, values);
     return result.rows[0];
+  } finally {
+    client.release();
+  }
+};
+
+// UPDATE PEGAWAI (Versi Sinkron dengan DB Baru)
+export const updatePegawai = async (id: number, data: any) => {
+  if (!data) {
+    throw new Error("Data update pegawai tidak boleh kosong");
+  }
+  const client = await pool.connect();
+  try {
+    // Validasi Logis: Jika Tidak Kawin, anak otomatis 0
+    let jumlahAnak = data.jumlah_anak;
+    if (data.status_perkawinan === "TK") {
+      jumlahAnak = 0;
+    }
+
+    // Resolusi ID Jabatan & Golongan dari nama/string jika diperlukan
+    let idJabatan = data.id_jabatan;
+    if (!idJabatan && data.nama_jabatan) {
+      const { rows: jabatanRows } = await client.query(
+        `SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan = $1 AND deleted_at IS NULL`,
+        [data.nama_jabatan],
+      );
+      if (jabatanRows.length > 0) {
+        idJabatan = jabatanRows[0].id_jabatan;
+      }
+    }
+
+    let idGolongan = data.id_golongan;
+    if (!idGolongan && data.pangkat_golongan) {
+      const { rows: golonganRows } = await client.query(
+        `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND deleted_at IS NULL`,
+        [data.pangkat_golongan],
+      );
+      if (golonganRows.length > 0) {
+        idGolongan = golonganRows[0].id_golongan;
+      }
+    }
+
+    // Kolom jenis_kelamin, no_hp, dan email TELAH DIHAPUS
+    const query = `
+      UPDATE tb_pegawai 
+      SET 
+        nama_lengkap = $1, id_jabatan = $2, id_golongan = $3, 
+        status_perkawinan = $4, jumlah_anak = $5, gaji_pokok_dasar = $6,
+        tanggal_lahir = $7
+      WHERE id_pegawai = $8 AND deleted_at IS NULL
+      RETURNING *
+    `;
+    const values = [
+      data.nama_lengkap,
+      idJabatan,
+      idGolongan,
+      data.status_perkawinan,
+      jumlahAnak,
+      data.gaji_pokok_dasar,
+      data.tanggal_lahir || null,
+      id,
+    ];
+    const result = await client.query(query, values);
+    return result.rows[0] || null;
   } finally {
     client.release();
   }
@@ -127,50 +236,13 @@ export const getPegawaiById = async (id: number) => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT p.*, j.nama_jabatan 
+      SELECT p.*, j.nama_jabatan, g.nama_golongan 
       FROM tb_pegawai p
       INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+      INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
       WHERE p.id_pegawai = $1 AND p.deleted_at IS NULL
     `;
     const result = await client.query(query, [id]);
-    return result.rows[0] || null;
-  } finally {
-    client.release();
-  }
-};
-
-// UPDATE PEGAWAI
-export const updatePegawai = async (id: number, data: any) => {
-  const client = await pool.connect();
-  try {
-    // Validasi Logis: Jika Tidak Kawin, anak otomatis 0
-    let jumlahAnak = data.jumlah_anak;
-    if (data.status_perkawinan === "TK") {
-      jumlahAnak = 0;
-    }
-
-    const query = `
-      UPDATE tb_pegawai 
-      SET 
-        nama_lengkap = $1, id_jabatan = $2, pangkat_golongan = $3, 
-        status_perkawinan = $4, jumlah_anak = $5, gaji_pokok_dasar = $6, 
-        jenis_kelamin = $7, no_hp = $8, email = $9
-      WHERE id_pegawai = $10 AND deleted_at IS NULL
-      RETURNING *
-    `;
-    const values = [
-      data.nama_lengkap,
-      data.id_jabatan,
-      data.pangkat_golongan,
-      data.status_perkawinan,
-      jumlahAnak,
-      data.gaji_pokok_dasar,
-      data.jenis_kelamin,
-      data.no_hp,
-      data.email,
-      id,
-    ];
-    const result = await client.query(query, values);
     return result.rows[0] || null;
   } finally {
     client.release();

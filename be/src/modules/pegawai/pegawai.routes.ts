@@ -4,17 +4,13 @@ import * as controller from "./pegawai.controller";
 
 const router = Router();
 
-// 1. Upload & Sync Data via Excel
-router.post(
-  "/upload",
-  uploadExcel.single("file"),
-  controller.syncMasterPegawai,
-);
+// 1. Endpoint khusus sync via Excel (Gunakan ini di Postman: POST /api/pegawai/sync)
+router.post("/sync", uploadExcel.single("file"), controller.syncMasterPegawai);
 
-// 2. Get All Pegawai (Hanya data aktif / belum di-soft delete)
+// 2. Get All Pegawai
 router.get("/", controller.getMasterPegawai);
 
-// 3. Create Single Pegawai secara manual
+// 3. Create Single Pegawai (Hanya menerima raw JSON, tidak dicampur dengan unggah berkas)
 router.post("/", controller.createPegawai);
 
 // 4. Get Detail Pegawai berdasarkan ID

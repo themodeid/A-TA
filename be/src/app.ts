@@ -15,12 +15,14 @@ export const app = express();
 // ======================================================
 app.use(cors({ origin: ENV.CORS_ORIGIN, credentials: true }));
 app.use(morgan("dev"));
-app.use(express.json({ limit: ENV.JSON_BODY_LIMIT || "10kb" }));
 
-// Serve static files dari direktori uploads
+app.use(
+  express.urlencoded({ extended: true, limit: ENV.JSON_BODY_LIMIT || "5mb" }),
+);
+app.use(express.json({ limit: ENV.JSON_BODY_LIMIT || "5mb" }));
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Handle JSON parsing errors
 app.use(
   (
     err: any,
@@ -39,11 +41,10 @@ app.use(
   },
 );
 
-// Health Check Endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    message: "Server is healthy",
+    message: "Server is healthy 1",
     timestamp: new Date().toISOString(),
   });
 });
