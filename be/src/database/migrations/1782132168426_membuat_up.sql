@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS tb_periode (
     tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
     status VARCHAR(30) DEFAULT 'Pengisian Absensi',
-    deleted_at TIMESTAMPTZ DEFAULT NULL, -- Menambahkan soft delete jika periode batal digunakan
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
     
     CONSTRAINT tb_periode_status_check 
     CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
@@ -56,13 +56,15 @@ CREATE TABLE IF NOT EXISTS tb_periode (
 
 -- 6. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
-    id_pegawai SERIAL PRIMARY KEY, 
-    nama_dan_tanggal_lahir TEXT NOT NULL UNIQUE, 
+    id_pegawai SERIAL PRIMARY KEY,
+    nama_dan_tanggal_lahir TEXT NOT NULL UNIQUE, -- JANGKAR UTAMA KITA SEKARANG
     id_jabatan INTEGER REFERENCES tb_jabatan(id_jabatan) ON DELETE SET NULL,
     id_golongan INTEGER REFERENCES tb_golongan(id_golongan) ON DELETE SET NULL,
-    status_perkawinan CHAR(2) DEFAULT 'TK',
+    status_perkawinan VARCHAR(10) DEFAULT 'TK',
     jumlah_anak INTEGER DEFAULT 0, 
-    gaji_pokok_dasar NUMERIC(12, 2) NOT NULL DEFAULT 0, 
+    gaji_pokok_dasar NUMERIC(15, 2) NOT NULL DEFAULT 0, 
+    created_at TIMESTAMPTZ DEFAULT NOW(), 
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 

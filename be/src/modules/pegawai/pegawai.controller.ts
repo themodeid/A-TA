@@ -8,13 +8,19 @@ export const syncMasterPegawai = async (
   next: NextFunction,
 ) => {
   try {
+    console.log("[PEGAWAI UPLOAD] Menerima request sync master pegawai");
+
     if (!req.file) {
+      console.log("[PEGAWAI UPLOAD] Kesalahan: Tidak ada file terunggah");
       return next(
         new AppError("Harap unggah file Excel pegawai (.xlsx/.xls)", 400),
       );
     }
 
-    console.log("[PEGAWAI UPLOAD] File berhasil diterima:", req.file.originalname);
+    console.log(
+      "[PEGAWAI UPLOAD] File berhasil diterima:",
+      req.file.originalname,
+    );
 
     const totalDataDisinkron = await pegawaiService.processMasterPegawaiSync(
       req.file.buffer,

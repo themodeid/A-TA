@@ -3,68 +3,93 @@ import { parseExcelPegawai, ExcelPegawaiRow } from "./excel.pegawai";
 
 export const processMasterPegawaiSync = async (fileBuffer: Buffer) => {
   const pegawaiData = parseExcelPegawai(fileBuffer);
-  console.log("Pegawai data yang diparse:", pegawaiData);
-  console.log("Pegawai data yang siap disimpan:", pegawaiData);
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-    for (const pegawai of pegawaiData) {
-      if (!pegawai || !pegawai.nama_lengkap) {
+
+    // Gunakan milidetik saat ini sebagai base ID unik awal
+    const timestampBase = Date.now();
+
+    // Mengubah ke for-loop biasa atau menggunakan index untuk menjamin keunikan NIP generator
+    for (let i = 0; i < pegawaiData.length; i++) {
+      const pegawai = pegawaiData[i];
+
+      // Sesuaikan pengecekan properti hasil parse Excel kamu
+      // Karena di Excel kolomnya bernama "NAMA DAN TANGGAL LAHIR", pastikan key di object-nya sudah sesuai
+      const namaLengkap =
+        pegawai.nama_lengkap || pegawai["NAMA DAN TANGGAL LAHIR"];
+
+      if (!namaLengkap) {
         continue;
       }
 
       // 1. Dapatkan atau Buat Jabatan
+      const namaJabatan = pegawai.nama_jabatan || "Staf"; // Fallback jika kosong di excel
       const { rows: jabatanRows } = await client.query(
         `INSERT INTO tb_jabatan (nama_jabatan) VALUES ($1) 
          ON CONFLICT (nama_jabatan) DO UPDATE SET nama_jabatan = EXCLUDED.nama_jabatan
          RETURNING id_jabatan`,
-        [pegawai.nama_jabatan],
+        [namaJabatan],
       );
       const idJabatan = jabatanRows[0].id_jabatan;
 
       // 2. Dapatkan atau Buat Golongan
+      // Di file Excel kamu kolomnya bernama "PANGKAT GOL/RUANG"
+      const namaGolongan =
+        pegawai.pangkat_golongan || pegawai["PANGKAT GOL/RUANG"] || "-";
       const { rows: golonganRows } = await client.query(
         `INSERT INTO tb_golongan (nama_golongan) VALUES ($1) 
          ON CONFLICT (nama_golongan) DO UPDATE SET nama_golongan = EXCLUDED.nama_golongan
          RETURNING id_golongan`,
-        [pegawai.pangkat_golongan],
+        [namaGolongan],
       );
       const idGolongan = golonganRows[0].id_golongan;
 
-      let jumlahAnak = pegawai.jumlah_anak || 0;
-      if (pegawai.status_perkawinan === "TK") {
+      let jumlahAnak = pegawai.jumlah_anak || pegawai["JLH JIWA"] || 0;
+      if (pegawai.status_perkawinan === "TK" || pegawai["TK/K/D/J"] === "TK") {
         jumlahAnak = 0;
       }
 
-      // 3. GUNAKAN UNIQUE CONSTRAINT ATAU ON CONFLICT DI SINI!
-      // Pastikan tb_pegawai memiliki UNIQUE constraint pada nama_lengkap (jika nama dianggap unik)
-      // atau lakukan pengecekan manual agar tidak terjadi duplikasi row saat upload ulang.
+      // Generator NIP Otomatis yang AMAN & UNIK (Kombinasi waktu + indeks baris)
+      // Menghasilkan format seperti: REG-1719876543210-0, REG-1719876543210-1, dst.
+      const nipPegawai = `REG-${timestampBase}-${i}`;
+
+      const statusPerkawinan =
+        pegawai.status_perkawinan || pegawai["TK/K/D/J"] || "TK";
+      const gajiPokok =
+        pegawai.gaji_pokok_dasar ||
+        pegawai["GJ. POKOK\n(Rp)"] ||
+        pegawai["GJ. POKOK (Rp)"] ||
+        0;
+
+      // 3. Eksekusi INSERT ke tb_pegawai
+      // Jalankan UPLOAD / SYNC dengan aman tanpa takut duplikat
       await client.query(
         `INSERT INTO tb_pegawai (
-          nama_lengkap, tanggal_lahir, id_jabatan, id_golongan, 
-          status_perkawinan, jumlah_anak, gaji_pokok_dasar
-         ) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (nama_lengkap) DO UPDATE SET
-          id_jabatan = EXCLUDED.id_jabatan,
-          id_golongan = EXCLUDED.id_golongan,
-          status_perkawinan = EXCLUDED.status_perkawinan,
-          jumlah_anak = EXCLUDED.jumlah_anak,
-          gaji_pokok_dasar = EXCLUDED.gaji_pokok_dasar,
-          tanggal_lahir = COALESCE(EXCLUDED.tanggal_lahir, tb_pegawai.tanggal_lahir),
-          deleted_at = NULL`,
+     nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, jumlah_anak, gaji_pokok_dasar
+   ) 
+   VALUES ($1, $2, $3, $4, $5, $6)
+   ON CONFLICT (nama_dan_tanggal_lahir) -- Jika nama + tgl lahir sudah ada, lakukan UPDATE
+   DO UPDATE SET
+     id_jabatan = EXCLUDED.id_jabatan,
+     id_golongan = EXCLUDED.id_golongan,
+     status_perkawinan = EXCLUDED.status_perkawinan,
+     jumlah_anak = EXCLUDED.jumlah_anak,
+     gaji_pokok_dasar = EXCLUDED.gaji_pokok_dasar,
+     updated_at = NOW(),
+     deleted_at = NULL`,
         [
-          pegawai.nama_lengkap,
-          pegawai.tanggal_lahir,
+          namaLengkap, // Ini string gabungan dari Excel, misal: "Drs. Ahmad Fauzi, M.Pd\n01-03-1970"
           idJabatan,
           idGolongan,
-          pegawai.status_perkawinan,
+          statusPerkawinan,
           jumlahAnak,
-          pegawai.gaji_pokok_dasar || 0,
+          gajiPokok,
         ],
       );
     }
+
     await client.query("COMMIT");
     return pegawaiData.length;
   } catch (error) {
@@ -94,8 +119,7 @@ export const getMasterPegawai = async () => {
   }
 };
 
-// CREATE SINGLE PEGAWAI
-// CREATE SINGLE PEGAWAI (Versi Sinkron dengan DB Baru)
+// CREATE SINGLE PEGAWAI (Versi Sinkron dengan DB Baru + Auto NIP)
 export const createPegawai = async (data: any) => {
   if (!data || !data.nama_lengkap) {
     throw new Error(
@@ -133,32 +157,40 @@ export const createPegawai = async (data: any) => {
       }
     }
 
-    // 3. Gunakan ON CONFLICT untuk mengaktifkan kembali jika sebelumnya di-soft delete
-    // Kolom jenis_kelamin, no_hp, dan email TELAH DIHAPUS
+    // Gabungkan nama dan tanggal lahir sesuai dengan kolom tunggal di DB kamu
+    const tglLahirStr = data.tanggal_lahir ? `\n${data.tanggal_lahir}` : "";
+    const namaDanTanggalLahir = `${data.nama_lengkap}${tglLahirStr}`;
+
+    // GENERATOR NIP OTOMATIS jika input data manual tidak membawa NIP (karena DB mewajibkan NOT NULL)
+    const nipPegawai =
+      data.nip ||
+      `REG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 3. Jalankan Query sesuai dengan struktur tabel baru (tb_pegawai)
     const query = `
       INSERT INTO tb_pegawai (
-        nama_lengkap, id_jabatan, id_golongan, status_perkawinan, 
-        jumlah_anak, gaji_pokok_dasar, tanggal_lahir
+        nip, nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, 
+        jumlah_anak, gaji_pokok_dasar
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (nama_lengkap) DO UPDATE SET
+      ON CONFLICT (nip) DO UPDATE SET
+        nama_dan_tanggal_lahir = EXCLUDED.nama_dan_tanggal_lahir,
         id_jabatan = EXCLUDED.id_jabatan,
         id_golongan = EXCLUDED.id_golongan,
         status_perkawinan = EXCLUDED.status_perkawinan,
         jumlah_anak = EXCLUDED.jumlah_anak,
         gaji_pokok_dasar = EXCLUDED.gaji_pokok_dasar,
-        tanggal_lahir = COALESCE(EXCLUDED.tanggal_lahir, tb_pegawai.tanggal_lahir),
         deleted_at = NULL 
       RETURNING *
     `;
 
     const values = [
-      data.nama_lengkap,
+      nipPegawai,
+      namaDanTanggalLahir,
       idJabatan,
       idGolongan,
-      data.status_perkawinan,
+      data.status_perkawinan || "TK",
       jumlahAnak,
       data.gaji_pokok_dasar || 0,
-      data.tanggal_lahir || null,
     ];
 
     const result = await client.query(query, values);
@@ -175,13 +207,11 @@ export const updatePegawai = async (id: number, data: any) => {
   }
   const client = await pool.connect();
   try {
-    // Validasi Logis: Jika Tidak Kawin, anak otomatis 0
     let jumlahAnak = data.jumlah_anak;
     if (data.status_perkawinan === "TK") {
       jumlahAnak = 0;
     }
 
-    // Resolusi ID Jabatan & Golongan dari nama/string jika diperlukan
     let idJabatan = data.id_jabatan;
     if (!idJabatan && data.nama_jabatan) {
       const { rows: jabatanRows } = await client.query(
@@ -204,24 +234,32 @@ export const updatePegawai = async (id: number, data: any) => {
       }
     }
 
-    // Kolom jenis_kelamin, no_hp, dan email TELAH DIHAPUS
+    // Satukan string nama dan tanggal lahir
+    const tglLahirStr = data.tanggal_lahir ? `\n${data.tanggal_lahir}` : "";
+    const namaDanTanggalLahir = `${data.nama_lengkap}${tglLahirStr}`;
+
     const query = `
       UPDATE tb_pegawai 
       SET 
-        nama_lengkap = $1, id_jabatan = $2, id_golongan = $3, 
-        status_perkawinan = $4, jumlah_anak = $5, gaji_pokok_dasar = $6,
-        tanggal_lahir = $7
+        nip = COALESCE($1, nip),
+        nama_dan_tanggal_lahir = $2, 
+        id_jabatan = $3, 
+        id_golongan = $4, 
+        status_perkawinan = $5, 
+        jumlah_anak = $6, 
+        gaji_pokok_dasar = $7
       WHERE id_pegawai = $8 AND deleted_at IS NULL
       RETURNING *
     `;
+
     const values = [
-      data.nama_lengkap,
+      data.nip || null, // Kalau nip mau diupdate
+      namaDanTanggalLahir,
       idJabatan,
       idGolongan,
       data.status_perkawinan,
       jumlahAnak,
       data.gaji_pokok_dasar,
-      data.tanggal_lahir || null,
       id,
     ];
     const result = await client.query(query, values);
