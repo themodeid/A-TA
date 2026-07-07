@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
-import * as golonganService from "../golongan/golongan.service";
+import * as golonganService from "./golongan.service";
 
 export const getAllGolongan = async (
   req: Request,
@@ -29,8 +29,13 @@ export const getGolonganById = async (
 ) => {
   try {
     const { id } = req.params;
-    const golongan = await golonganService.getGolonganById(Number(id));
+    const parsedId = Number(id);
 
+    if (isNaN(parsedId)) {
+      return next(new AppError("ID Golongan harus berupa angka valid", 400));
+    }
+
+    const golongan = await golonganService.getGolonganById(parsedId);
     if (!golongan) {
       return next(
         new AppError("Golongan tidak ditemukan atau telah dihapus", 404),
@@ -56,13 +61,23 @@ export const createGolongan = async (
 ) => {
   try {
     const { nama_golongan, gaji_pokok_standar } = req.body;
-    if (!nama_golongan) {
+
+    if (!nama_golongan || nama_golongan.trim() === "") {
       return next(new AppError("Nama golongan wajib diisi", 400));
+    }
+
+    if (
+      gaji_pokok_standar !== undefined &&
+      (isNaN(Number(gaji_pokok_standar)) || Number(gaji_pokok_standar) < 0)
+    ) {
+      return next(
+        new AppError("Gaji pokok standar harus berupa angka positif", 400),
+      );
     }
 
     const newGolongan = await golonganService.createGolongan({
       nama_golongan,
-      gaji_pokok_standar,
+      gaji_pokok_standar: gaji_pokok_standar ? Number(gaji_pokok_standar) : 0,
     });
 
     return res.status(201).json({
@@ -72,9 +87,7 @@ export const createGolongan = async (
       data: newGolongan,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal menambahkan golongan: ${error.message}`, 400),
-    );
+    return next(new AppError(error.message, 400));
   }
 };
 
@@ -86,10 +99,27 @@ export const updateGolongan = async (
   try {
     const { id } = req.params;
     const { nama_golongan, gaji_pokok_standar } = req.body;
+    const parsedId = Number(id);
 
-    const updated = await golonganService.updateGolongan(Number(id), {
+    if (isNaN(parsedId)) {
+      return next(new AppError("ID Golongan harus berupa angka valid", 400));
+    }
+
+    if (
+      gaji_pokok_standar !== undefined &&
+      (isNaN(Number(gaji_pokok_standar)) || Number(gaji_pokok_standar) < 0)
+    ) {
+      return next(
+        new AppError("Gaji pokok standar harus berupa angka positif", 400),
+      );
+    }
+
+    const updated = await golonganService.updateGolongan(parsedId, {
       nama_golongan,
-      gaji_pokok_standar,
+      gaji_pokok_standar:
+        gaji_pokok_standar !== undefined
+          ? Number(gaji_pokok_standar)
+          : undefined,
     });
 
     if (!updated) {
@@ -105,9 +135,7 @@ export const updateGolongan = async (
       data: updated,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal memperbarui golongan: ${error.message}`, 400),
-    );
+    return next(new AppError(error.message, 400));
   }
 };
 
@@ -118,8 +146,15 @@ export const deleteGolongan = async (
 ) => {
   try {
     const { id } = req.params;
-    const isDeleted = await golonganService.softDeleteGolongan(Number(id));
+    const parsedId = Number(id);
 
+    if (isNaN(parsedId)) {
+      return next(
+        next(new AppError("ID Golongan harus berupa angka valid", 400)),
+      );
+    }
+
+    const isDeleted = await golonganService.softDeleteGolongan(parsedId);
     if (!isDeleted) {
       return next(
         new AppError("Golongan tidak ditemukan atau sudah dihapus", 404),
@@ -132,8 +167,6 @@ export const deleteGolongan = async (
       message: "Golongan berhasil dihapus (Soft Delete)",
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal menghapus golongan: ${error.message}`, 500),
-    );
+    return next(new AppError(error.message, 400));
   }
 };

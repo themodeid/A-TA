@@ -3,10 +3,19 @@ import * as golonganController from "./golongan.controller";
 
 const router = Router();
 
-router.get("/", golonganController.getAllGolongan);
-router.get("/:id", golonganController.getGolonganById);
-router.post("/", golonganController.createGolongan);
-router.put("/:id", golonganController.updateGolongan);
-router.delete("/:id", golonganController.deleteGolongan);
+// ==========================================
+// ROUTES: MASTER GOLONGAN
+// ==========================================
+
+router
+  .route("/")
+  .get(golonganController.getAllGolongan)
+  .post(golonganController.createGolongan);
+
+router
+  .route("/:id")
+  .get(golonganController.getGolonganById)
+  .put(golonganController.updateGolongan)
+  .delete(golonganController.deleteGolongan);
 
 export default router;

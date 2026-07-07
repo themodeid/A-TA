@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('Admin', 'Petugas Absensi', 'Approver', 'Staf Gaji')),
-    deleted_at TIMESTAMPTZ DEFAULT NULL -- Menambahkan soft delete untuk pengguna sistem
+    deleted_at TIMESTAMPTZ DEFAULT NULL -- Soft delete untuk pengguna sistem
 );
 
 -- 2. Master Parameter / Konfigurasi Aplikasi
@@ -55,10 +55,9 @@ CREATE TABLE IF NOT EXISTS tb_periode (
 );
 
 -- 6. Master Pegawai
--- 6. Master Pegawai (VERSI FIX & CLEAN)
 CREATE TABLE IF NOT EXISTS tb_pegawai (
-    id_pegawai SERIAL PRIMARY KEY,          -- SATU-SATUNYA JANGKAR/IDENTITAS UTAMA
-    nama_dan_tanggal_lahir TEXT NOT NULL,   -- Cuma data deskriptif tampilan, BUKAN unique key lagi
+    id_pegawai SERIAL PRIMARY KEY,          -- Identitas utama pegawai
+    nama_dan_tanggal_lahir TEXT NOT NULL,   -- Data deskriptif tampilan
     id_jabatan INTEGER REFERENCES tb_jabatan(id_jabatan) ON DELETE SET NULL,
     id_golongan INTEGER REFERENCES tb_golongan(id_golongan) ON DELETE SET NULL,
     status_perkawinan VARCHAR(10) DEFAULT 'TK',
@@ -74,26 +73,11 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
 -- II. TRANSACTIONAL TABLES (Tabel Transaksi)
 -- ==========================================
 
--- 7. Log Upload File Absensi
-CREATE TABLE IF NOT EXISTS tb_upload_absensi (
-    id_upload SERIAL PRIMARY KEY,
-    id_periode INTEGER REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
-    nama_file VARCHAR(255) NOT NULL,
-    diupload_oleh INTEGER REFERENCES tb_pengguna(id_pengguna), 
-    total_baris INTEGER DEFAULT 0,
-    baris_sukses INTEGER DEFAULT 0,
-    baris_gagal INTEGER DEFAULT 0,
-    detail_error JSONB,
-    status_proses VARCHAR(20) DEFAULT 'success',
-    uploaded_at TIMESTAMP DEFAULT NOW()
-);
-
--- 8. Transaksi Absensi Bulanan
+-- 7. Transaksi Absensi Bulanan (DIEDIT: Menghapus dependensi kolom id_upload)
 CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     id_absensi_summary SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
-    id_upload INTEGER REFERENCES tb_upload_absensi(id_upload) ON DELETE CASCADE,
     total_hadir_ops_wfo INT DEFAULT 0,
     total_hadir_ops_wfh INT DEFAULT 0,
     total_izin INT DEFAULT 0,
@@ -102,7 +86,7 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 9. Log Approval 
+-- 8. Log Approval 
 CREATE TABLE IF NOT EXISTS tb_approval (
     id_approval SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -112,13 +96,12 @@ CREATE TABLE IF NOT EXISTS tb_approval (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 10. Transaksi Tunjangan Dinamis & Jam Lebih
+-- 9. Transaksi Tunjangan Dinamis & Jam Lebih
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
     
-    -- Kolom bawaan sistem kamu
     tunjangan_kesra NUMERIC(12, 2) DEFAULT 0,
     tunjangan_supervisi NUMERIC(12, 2) DEFAULT 0,
     tunjangan_wali_kelas NUMERIC(12, 2) DEFAULT 0,
@@ -128,17 +111,16 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     tunjangan_khusus NUMERIC(12, 2) DEFAULT 0,
     total_jam_lebih NUMERIC(5, 2) DEFAULT 0, 
     
-    -- Tambahan kolom baru penampung data dari Excel
-    tunj_kel_gabungan NUMERIC(12, 2) DEFAULT 0,             -- Menampung 'TUNJ.KEL Istri+Anak'
-    tunjjab_25_pp1985 NUMERIC(12, 2) DEFAULT 0,             -- Menampung 'TUNJJAB. 25% PP1985'
-    sb_dana_chuk_2_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Menampung 'SB.DANA CHUK 2% PP''85'
-    sb_dana_chuk_8_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Menampung 'SB.DANA CHUK 8% PP''85'
-    tunjangan_perbaikan_penghasilan NUMERIC(12, 2) DEFAULT 0, -- Menampung 'TUNJANGAN PERBAIKAN PENGHASILAN'
+    tunj_kel_gabungan NUMERIC(12, 2) DEFAULT 0,             -- Komponen input dari form
+    tunjjab_25_pp1985 NUMERIC(12, 2) DEFAULT 0,             -- Komponen input dari form
+    sb_dana_chuk_2_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Komponen input dari form
+    sb_dana_chuk_8_pp85 NUMERIC(12, 2) DEFAULT 0,           -- Komponen input dari form
+    tunjangan_perbaikan_penghasilan NUMERIC(12, 2) DEFAULT 0, -- Komponen input dari form
 
-     UNIQUE (id_periode, id_pegawai)
+    UNIQUE (id_periode, id_pegawai)
 );
 
--- 11. Transaksi Potongan Bulanan
+-- 10. Transaksi Potongan Bulanan
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     id_potongan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -151,7 +133,7 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 12. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah) - SUDAH DISESUAIKAN
+-- 11. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah)
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     id_rekap SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode),
@@ -162,22 +144,19 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     
     gaji_pokok_snapshot NUMERIC(12, 2) DEFAULT 0,
     
-    -- Mengakomodasi tunj_kel_gabungan dari excel
     tunj_kel_gabungan_snapshot NUMERIC(12, 2) DEFAULT 0, 
-    tunjangan_istri_snapshot NUMERIC(12, 2) DEFAULT 0, -- Tetap simpan buat jaga-jaga kalkulasi sistem
-    tunjangan_anak_snapshot NUMERIC(12, 2) DEFAULT 0,  -- Tetap simpan buat jaga-jaga kalkulasi sistem
+    tunjangan_istri_snapshot NUMERIC(12, 2) DEFAULT 0, 
+    tunjangan_anak_snapshot NUMERIC(12, 2) DEFAULT 0,  
     
     tunjangan_struktural_snapshot NUMERIC(12, 2) DEFAULT 0,
     total_tunjangan_dinamis_snapshot NUMERIC(12, 2) DEFAULT 0,
     transport_makan_snapshot NUMERIC(12, 2) DEFAULT 0,
     
-    -- Tambahan snapshot untuk breakdown tunjangan baru dari Excel
     tunjjab_25_pp1985_snapshot NUMERIC(12, 2) DEFAULT 0,
     sb_dana_chuk_2_pp85_snapshot NUMERIC(12, 2) DEFAULT 0,
     sb_dana_chuk_8_pp85_snapshot NUMERIC(12, 2) DEFAULT 0,
     tunjangan_perbaikan_penghasilan_snapshot NUMERIC(12, 2) DEFAULT 0,
     
-    -- Menampung kolom PEMBULATAN dari Excel
     pembulatan_snapshot NUMERIC(12, 2) DEFAULT 0, 
     
     total_penghasilan_bruto NUMERIC(12, 2) DEFAULT 0,
@@ -195,7 +174,7 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 13. Koreksi Jam Lembur/Lebih (Log Audit)
+-- 12. Koreksi Jam Lembur/Lebih (Log Audit)
 CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     id_koreksi SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -209,8 +188,6 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
 -- ==========================================
 -- III. PERFORMANCE INDEXES (Optimasi Query)
 -- ==========================================
--- Indeks parsial ini sangat penting agar database tidak membuang resource 
--- untuk memindai data yang statusnya sudah terhapus (deleted_at IS NULL).
 
 CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;

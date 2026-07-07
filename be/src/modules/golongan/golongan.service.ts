@@ -1,9 +1,8 @@
 import { pool } from "../../config/database";
-// Impor tipe data dari file terpisah
 import { Golongan, GolonganInput } from "./golongan.type";
 
 /**
- * Mengambil semua data golongan yang belum dihapus (soft delete)
+ * Mengambil semua data golongan yang aktif
  */
 export const getAllGolongan = async (): Promise<Golongan[]> => {
   const query = `
@@ -31,72 +30,74 @@ export const getGolonganById = async (id: number): Promise<Golongan | null> => {
 
 /**
  * Menambahkan data golongan baru
+ * Menggunakan Database Error Handling untuk mencegah Race Condition
  */
 export const createGolongan = async (
   data: GolonganInput,
 ): Promise<Golongan> => {
-  // Cek apakah nama_golongan sudah terdaftar untuk menghindari duplikasi
-  const checkQuery = `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND deleted_at IS NULL;`;
-  const checkResult = await pool.query(checkQuery, [data.nama_golongan]);
-
-  if (checkResult.rows.length > 0) {
-    throw new Error("Nama golongan sudah digunakan");
+  try {
+    const query = `
+      INSERT INTO tb_golongan (nama_golongan, gaji_pokok_standar) 
+      VALUES ($1, $2) 
+      RETURNING id_golongan, nama_golongan, gaji_pokok_standar;
+    `;
+    const { rows } = await pool.query(query, [
+      data.nama_golongan.trim(),
+      data.gaji_pokok_standar ?? 0,
+    ]);
+    return rows[0];
+  } catch (error: any) {
+    // Kode error 23505 adalah Unique Violation di PostgreSQL
+    if (error.code === "23505") {
+      throw new Error(
+        `Nama golongan '${data.nama_golongan}' sudah terdaftar di sistem`,
+      );
+    }
+    throw error;
   }
-
-  const query = `
-    INSERT INTO tb_golongan (nama_golongan, gaji_pokok_standar) 
-    VALUES ($1, $2) 
-    RETURNING id_golongan, nama_golongan, gaji_pokok_standar;
-  `;
-  const { rows } = await pool.query(query, [
-    data.nama_golongan,
-    data.gaji_pokok_standar,
-  ]);
-  return rows[0];
 };
 
 /**
- * Memperbarui data golongan
+ * Memperbarui data golongan dengan pengamanan data parsial
  */
 export const updateGolongan = async (
   id: number,
   data: Partial<GolonganInput>,
 ): Promise<Golongan | null> => {
-  // Cek keberadaan golongan terlebih dahulu
-  const targetGolongan = await getGolonganById(id);
-  if (!targetGolongan) return null;
+  // 1. Dapatkan data eksisting sebagai fallback data
+  const currentData = await getGolonganById(id);
+  if (!currentData) return null;
 
-  // Jika nama golongan diubah, cek keunikan nama baru tersebut
-  if (
-    data.nama_golongan &&
-    data.nama_golongan !== targetGolongan.nama_golongan
-  ) {
-    const checkQuery = `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND id_golongan != $2 AND deleted_at IS NULL;`;
-    const checkResult = await pool.query(checkQuery, [data.nama_golongan, id]);
-    if (checkResult.rows.length > 0) {
-      throw new Error("Nama golongan baru sudah digunakan oleh golongan lain");
+  // 2. Siapkan data final (jika tidak dikirim di body, pakai data yang sudah ada)
+  const namaGolongan = data.nama_golongan
+    ? data.nama_golongan.trim()
+    : currentData.nama_golongan;
+  const gajiPokok = data.gaji_pokok_standar ?? currentData.gaji_pokok_standar;
+
+  try {
+    const query = `
+      UPDATE tb_golongan 
+      SET nama_golongan = $1, gaji_pokok_standar = $2 
+      WHERE id_golongan = $3 AND deleted_at IS NULL
+      RETURNING id_golongan, nama_golongan, gaji_pokok_standar;
+    `;
+    const { rows } = await pool.query(query, [namaGolongan, gajiPokok, id]);
+    return rows[0] || null;
+  } catch (error: any) {
+    if (error.code === "23505") {
+      throw new Error(
+        `Nama golongan '${namaGolongan}' sudah digunakan oleh data lain`,
+      );
     }
+    throw error;
   }
-
-  const namaGolongan = data.nama_golongan ?? targetGolongan.nama_golongan;
-  const gajiPokok =
-    data.gaji_pokok_standar ?? targetGolongan.gaji_pokok_standar;
-
-  const query = `
-    UPDATE tb_golongan 
-    SET nama_golongan = $1, gaji_pokok_standar = $2 
-    WHERE id_golongan = $3 AND deleted_at IS NULL
-    RETURNING id_golongan, nama_golongan, gaji_pokok_standar;
-  `;
-  const { rows } = await pool.query(query, [namaGolongan, gajiPokok, id]);
-  return rows[0] || null;
 };
 
 /**
- * Menghapus golongan menggunakan metode Soft Delete dengan proteksi integritas data pegawai
+ * Menghapus golongan dengan proteksi integritas data relasional pegawai
  */
 export const softDeleteGolongan = async (id: number): Promise<boolean> => {
-  // 1. Logika Krusial: Cek apakah masih ada pegawai aktif yang menggunakan id_golongan ini
+  // 1. Validasi apakah ada pegawai aktif (deleted_at IS NULL) yang memakai golongan ini
   const checkPegawaiQuery = `
     SELECT id_pegawai 
     FROM tb_pegawai 
@@ -107,11 +108,11 @@ export const softDeleteGolongan = async (id: number): Promise<boolean> => {
 
   if (pegawaiRows.length > 0) {
     throw new Error(
-      "Golongan tidak bisa dihapus karena masih digunakan oleh pegawai",
+      "Golongan tidak dapat dihapus karena masih terikat dengan pegawai aktif",
     );
   }
 
-  // 2. Jika aman dari relasi pegawai, lakukan soft delete
+  // 2. Eksekusi soft delete jika aman
   const deleteQuery = `
     UPDATE tb_golongan 
     SET deleted_at = NOW() 
@@ -119,6 +120,5 @@ export const softDeleteGolongan = async (id: number): Promise<boolean> => {
   `;
   const result = await pool.query(deleteQuery, [id]);
 
-  // Kembalikan true jika ada baris yang berhasil diperbarui (terhapus)
   return (result.rowCount ?? 0) > 0;
 };
