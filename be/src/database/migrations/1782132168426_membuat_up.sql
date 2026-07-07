@@ -55,17 +55,18 @@ CREATE TABLE IF NOT EXISTS tb_periode (
 );
 
 -- 6. Master Pegawai
+-- 6. Master Pegawai (VERSI FIX & CLEAN)
 CREATE TABLE IF NOT EXISTS tb_pegawai (
-    id_pegawai SERIAL PRIMARY KEY,
-    nama_dan_tanggal_lahir TEXT NOT NULL UNIQUE, -- JANGKAR UTAMA KITA SEKARANG
+    id_pegawai SERIAL PRIMARY KEY,          -- SATU-SATUNYA JANGKAR/IDENTITAS UTAMA
+    nama_dan_tanggal_lahir TEXT NOT NULL,   -- Cuma data deskriptif tampilan, BUKAN unique key lagi
     id_jabatan INTEGER REFERENCES tb_jabatan(id_jabatan) ON DELETE SET NULL,
     id_golongan INTEGER REFERENCES tb_golongan(id_golongan) ON DELETE SET NULL,
     status_perkawinan VARCHAR(10) DEFAULT 'TK',
-    jumlah_anak INTEGER DEFAULT 0, 
-    gaji_pokok_dasar NUMERIC(15, 2) NOT NULL DEFAULT 0, 
-    created_at TIMESTAMPTZ DEFAULT NOW(), 
+    jumlah_anak INTEGER DEFAULT 0,
+    gaji_pokok_dasar NUMERIC(15, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL 
+    deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 

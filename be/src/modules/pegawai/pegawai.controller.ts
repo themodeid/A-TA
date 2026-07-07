@@ -2,45 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as pegawaiService from "./pegawai.service";
 
-export const syncMasterPegawai = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    console.log("[PEGAWAI UPLOAD] Menerima request sync master pegawai");
-
-    if (!req.file) {
-      console.log("[PEGAWAI UPLOAD] Kesalahan: Tidak ada file terunggah");
-      return next(
-        new AppError("Harap unggah file Excel pegawai (.xlsx/.xls)", 400),
-      );
-    }
-
-    console.log(
-      "[PEGAWAI UPLOAD] File berhasil diterima:",
-      req.file.originalname,
-    );
-
-    const totalDataDisinkron = await pegawaiService.processMasterPegawaiSync(
-      req.file.buffer,
-    );
-
-    return res.status(200).json({
-      status: "success",
-      statusCode: 200,
-      message: `Sinkronisasi data master berhasil. Total ${totalDataDisinkron} pegawai diproses/diperbarui.`,
-    });
-  } catch (error: any) {
-    return next(
-      new AppError(
-        `Gagal melakukan sinkronisasi data pegawai: ${error.message}`,
-        400,
-      ),
-    );
-  }
-};
-
 export const createPegawai = async (
   req: Request,
   res: Response,
