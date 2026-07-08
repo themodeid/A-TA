@@ -12,18 +12,26 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
 );
 
 -- 2. Master Parameter / Konfigurasi Aplikasi
-CREATE TABLE IF NOT EXISTS tb_konfigurasi (
-    id_konfigurasi SERIAL PRIMARY KEY,
-    key_parameter VARCHAR(50) UNIQUE NOT NULL,
-    nilai_parameter NUMERIC(12, 2) NOT NULL,
-    keterangan TEXT
+-- 1. Membuat Tabel Master Tunjangan
+CREATE TABLE IF NOT EXISTS tb_tunjangan (
+    id_tunjangan SERIAL PRIMARY KEY,
+    nama_tunjangan VARCHAR(100) NOT NULL,
+    nilai NUMERIC(12, 2) NOT NULL,
+    jenis_tunjangan VARCHAR(20) NOT NULL, -- Isinya WAJIB: 'NOMINAL' atau 'PERSENTASE'
+    sifat_tunjangan VARCHAR(20) NOT NULL, -- Isinya WAJIB: 'BULANAN' atau 'HARIAN'
+    keterangan TEXT,
+    kode_kondisi VARCHAR(20) NOT NULL DEFAULT 'UMUM',
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    CONSTRAINT chk_jenis_tunjangan CHECK (jenis_tunjangan IN ('NOMINAL', 'PERSENTASE')),
+    CONSTRAINT chk_sifat_tunjangan CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN'))
 );
 
-INSERT INTO tb_konfigurasi (key_parameter, nilai_parameter, keterangan) VALUES 
-('TARIF_TRANSPORT_WFO', 30000.00, 'Uang transport per hari hadir fisik WFO'),
-('PERSEN_TUNJ_ISTRI', 0.10, 'Persentase tunjangan suami/istri dari gaji pokok (10%)'),
-('PERSEN_TUNJ_ANAK', 0.02, 'Persentase tunjangan per anak dari gaji pokok (2%)')
-ON CONFLICT (key_parameter) DO NOTHING;
+-- 2. Memasukkan Data Pancingan (Seed Data) Berdasarkan Kasus Kamu
+INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, keterangan) VALUES 
+('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik, dihitung per hari hadir kerja'),
+('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan suami/istri sebesar 10% dari gaji pokok'),
+('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak sebesar 2% dari gaji pokok')
+ON CONFLICT DO NOTHING;
 
 -- 3. Master Jabatan
 CREATE TABLE IF NOT EXISTS tb_jabatan (
@@ -33,6 +41,15 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
+INSERT INTO tb_jabatan (nama_jabatan, tunjangan_jabatan_struktural) VALUES 
+('Kepala Sekolah', 2000000.00),
+('Wakil Kepala Sekolah', 1200000.00),
+('Kepala Tata Usaha (TU)', 800000.00),
+('Wali Kelas', 500000.00),
+('Guru Penanggung Jawab Lab', 400000.00),
+('Guru Tetap / Staf TU', 0.00) -- Jabatan fungsional dasar tanpa tunjangan struktural tambahan
+ON CONFLICT (nama_jabatan) DO NOTHING;
+
 -- 4. Master Golongan
 CREATE TABLE IF NOT EXISTS tb_golongan (
     id_golongan SERIAL PRIMARY KEY,
@@ -40,6 +57,15 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     gaji_pokok_standar NUMERIC(12, 2) NOT NULL DEFAULT 0,
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
+
+INSERT INTO tb_golongan (nama_golongan, gaji_pokok_standar) VALUES 
+('Golongan III/a (Penata Muda)', 2700000.00),
+('Golongan III/b (Penata Muda Tk. I)', 2900000.00),
+('Golongan III/c (Penata)', 3100000.00),
+('Golongan III/d (Penata Tk. I)', 3300000.00),
+('Golongan IV/a (Pembina)', 3500000.00),
+('GTT/PTT (Guru/Pegawai Tidak Tetap)', 1500000.00) -- Untuk honorer atau kontrak sekolah
+ON CONFLICT (nama_golongan) DO NOTHING;
 
 -- 5. Master Periode Cut-off 
 CREATE TABLE IF NOT EXISTS tb_periode (

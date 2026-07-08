@@ -1,52 +1,84 @@
-import { pool } from "../../config/database";
+// modules/tunjangan/tunjangan.service.ts
+import { pool } from "../../config/database"; // Sesuaikan dengan koneksi database proyekmu
 
-export interface KonfigurasiInput {
-  key_parameter: string;
-  nilai_parameter: number;
+export const getAllTunjangan = async () => {
+  // Hanya ambil yang BELUM di-soft delete
+  const query = `SELECT * FROM tb_tunjangan WHERE deleted_at IS NULL ORDER BY id_tunjangan ASC`;
+  const { rows } = await pool.query(query);
+  return rows;
+};
+
+export const getTunjanganById = async (id: number) => {
+  // Pastikan data yang dicari belum di-soft delete
+  const query = `SELECT * FROM tb_tunjangan WHERE id_tunjangan = $1 AND deleted_at IS NULL`;
+  const { rows } = await pool.query(query, [id]);
+  return rows[0] || null;
+};
+
+export const createTunjangan = async (data: {
+  nama_tunjangan: string;
+  nilai: number;
+  jenis_tunjangan: "NOMINAL" | "PERSENTASE";
+  sifat_tunjangan: "BULANAN" | "HARIAN";
+  kode_kondisi?: string;
   keterangan?: string;
-}
-
-// Ambil semua parameter konfigurasi untuk ditampilkan di pengaturan aplikasi
-export const getAllKonfigurasi = async () => {
-  const client = await pool.connect();
-  try {
-    const query = `SELECT id_konfigurasi, key_parameter, nilai_parameter, keterangan FROM tb_konfigurasi ORDER BY id_konfigurasi ASC`;
-    const result = await client.query(query);
-    return result.rows;
-  } finally {
-    client.release();
-  }
+}) => {
+  const query = `
+    INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, kode_kondisi, keterangan)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *;
+  `;
+  const values = [
+    data.nama_tunjangan,
+    data.nilai,
+    data.jenis_tunjangan,
+    data.sifat_tunjangan,
+    data.kode_kondisi || "UMUM", // Default ke UMUM jika dikosongkan dari frontend
+    data.keterangan || null,
+  ];
+  const { rows } = await pool.query(query, values);
+  return rows[0];
 };
 
-// Ambil 1 parameter spesifik berdasarkan KEY (sangat berguna untuk formula hitung gaji)
-export const getKonfigurasiByKey = async (key: string) => {
-  const client = await pool.connect();
-  try {
-    const query = `SELECT * FROM tb_konfigurasi WHERE key_parameter = $1`;
-    const result = await client.query(query, [key]);
-    return result.rows[0] || null;
-  } finally {
-    client.release();
-  }
-};
-
-// Update nilai parameter (Misal: mengubah tarif transport WFO dari 30.000 menjadi 35.000)
-export const updateKonfigurasi = async (
+export const updateTunjangan = async (
   id: number,
-  nilai_parameter: number,
-  keterangan?: string,
+  data: {
+    nama_tunjangan: string;
+    nilai: number;
+    jenis_tunjangan: "NOMINAL" | "PERSENTASE";
+    sifat_tunjangan: "BULANAN" | "HARIAN";
+    kode_kondisi: string;
+    keterangan?: string;
+  },
 ) => {
-  const client = await pool.connect();
-  try {
-    const query = `
-      UPDATE tb_konfigurasi 
-      SET nilai_parameter = $1, keterangan = COALESCE($2, keterangan)
-      WHERE id_konfigurasi = $3
-      RETURNING *
-    `;
-    const result = await client.query(query, [nilai_parameter, keterangan, id]);
-    return result.rows[0] || null;
-  } finally {
-    client.release();
-  }
+  // Pastikan tidak bisa update data yang sudah terhapus
+  const query = `
+    UPDATE tb_tunjangan 
+    SET nama_tunjangan = $1, nilai = $2, jenis_tunjangan = $3, sifat_tunjangan = $4, kode_kondisi = $5, keterangan = $6
+    WHERE id_tunjangan = $7 AND deleted_at IS NULL
+    RETURNING *;
+  `;
+  const values = [
+    data.nama_tunjangan,
+    data.nilai,
+    data.jenis_tunjangan,
+    data.sifat_tunjangan,
+    data.kode_kondisi,
+    data.keterangan || null,
+    id,
+  ];
+  const { rows } = await pool.query(query, values);
+  return rows[0] || null;
+};
+
+export const deleteTunjangan = async (id: number) => {
+  const query = `
+    UPDATE tb_tunjangan 
+    SET deleted_at = NOW() 
+    WHERE id_tunjangan = $1 AND deleted_at IS NULL
+    RETURNING id_tunjangan
+  `;
+
+  const { rows } = await pool.query(query, [id]);
+  return rows.length > 0;
 };
