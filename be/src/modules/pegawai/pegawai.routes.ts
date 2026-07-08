@@ -1,25 +1,20 @@
 import { Router } from "express";
-import { uploadExcel } from "../../middlewares/upload";
 import * as controller from "./pegawai.controller";
+// import { uploadExcel } from "../../middlewares/upload"; // Buka jika rute import Excel sudah siap
 
 const router = Router();
 
-// 1. Endpoint khusus sync via Excel (Gunakan ini di Postman: POST /api/pegawai/sync)
-router.post("/sync", uploadExcel.single("file"), controller.syncMasterPegawai);
+// Endpoint dasar pegawai
+router
+  .route("/")
+  .get(controller.getMasterPegawai) // Get All Pegawai
+  .post(controller.createPegawai); // Create Single Pegawai (Raw JSON)
 
-// 2. Get All Pegawai
-router.get("/", controller.getMasterPegawai);
-
-// 3. Create Single Pegawai (Hanya menerima raw JSON, tidak dicampur dengan unggah berkas)
-router.post("/", controller.createPegawai);
-
-// 4. Get Detail Pegawai berdasarkan ID
-router.get("/:id", controller.getPegawaiById);
-
-// 5. Update Data Pegawai berdasarkan ID
-router.put("/:id", controller.updatePegawai);
-
-// 6. Soft Delete Pegawai berdasarkan ID
-router.delete("/:id", controller.deletePegawai);
+// Endpoint pegawai spesifik berdasarkan ID
+router
+  .route("/:id")
+  .get(controller.getPegawaiById) // Get Detail Pegawai
+  .put(controller.updatePegawai) // Update Data Pegawai
+  .delete(controller.deletePegawai); // Soft Delete Pegawai
 
 export default router;
