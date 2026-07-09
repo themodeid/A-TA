@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS tb_periode (
     CHECK (status IN ('Pengisian Absensi', 'Menunggu Approval', 'Approved', 'Selesai'))
 );
 
+INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status) 
+VALUES ('Juli 2026', '2026-06-26', '2026-07-25', 'Pengisian Absensi')
+ON CONFLICT DO NOTHING;
+
 -- 6. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY,          -- Identitas utama pegawai
@@ -93,6 +97,19 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
+
+-- Masukkan Data Pegawai Simulasi
+INSERT INTO tb_pegawai (nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, jumlah_anak, gaji_pokok_dasar)
+VALUES 
+-- Pegawai 1: Kepala Sekolah, Golongan Tinggi, Punya Keluarga (Untuk tes Tunjangan Istri + Anak + Struktural)
+('Drs. Budi Santoso - 1975-05-12', 1, 5, 'K', 2, 3500000.00),
+
+-- Pegawai 2: Wali Kelas, Golongan Menengah, Belum Menikah (Untuk tes Tunjangan Wali Kelas + Transport)
+('Siti Aminah S.Pd - 1990-08-20', 4, 2, 'TK', 0, 2900000.00),
+
+-- Pegawai 3: Guru Honorer / GTT, Belum Menikah (Untuk tes Gaji Pokok Kecil, tanpa tunjangan struktural)
+('Rian Hidayat - 1998-11-02', 6, 6, 'TK', 0, 1500000.00)
+ON CONFLICT DO NOTHING;
 
 
 -- ==========================================
@@ -111,6 +128,32 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     total_alpha INT DEFAULT 0,
     UNIQUE (id_periode, id_pegawai)
 );
+
+INSERT INTO tb_absensi_summary (
+    id_periode, 
+    id_pegawai, 
+    total_hadir_ops_wfo, 
+    total_hadir_ops_wfh, 
+    total_izin, 
+    total_sakit, 
+    total_alpha
+) VALUES 
+(
+    1,  -- id_periode Juni
+    1,  -- id_pegawai Supriono
+    27, -- Total hadir (WFO) periode 16 Mei - 16 Juni
+    0,  -- Total WFH
+    0,  -- Total Izin
+    0,  -- Total Sakit
+    0   -- 0 Alpha (karena 5 hari kosong sisanya adalah hari Minggu/Libur)
+)
+ON CONFLICT (id_periode, id_pegawai) 
+DO UPDATE SET 
+    total_hadir_ops_wfo = EXCLUDED.total_hadir_ops_wfo,
+    total_hadir_ops_wfh = EXCLUDED.total_hadir_ops_wfh,
+    total_izin = EXCLUDED.total_izin,
+    total_sakit = EXCLUDED.total_sakit,
+    total_alpha = EXCLUDED.total_alpha;
 
 -- 8. Log Approval 
 CREATE TABLE IF NOT EXISTS tb_approval (
@@ -144,6 +187,14 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     tunjangan_perbaikan_penghasilan NUMERIC(12, 2) DEFAULT 0, -- Komponen input dari form
 
     UNIQUE (id_periode, id_pegawai)
+);
+
+CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan_detail (
+    id_detail SERIAL PRIMARY KEY,
+    id_periode INT REFERENCES tb_periode(id_periode),
+    id_pegawai INT REFERENCES tb_pegawai(id_pegawai),
+    id_tunjangan INT REFERENCES tb_tunjangan(id_tunjangan), -- 👈 Relasi ke master tunjangan
+    nilai_terhitung NUMERIC(12, 2) DEFAULT 0
 );
 
 -- 10. Transaksi Potongan Bulanan
