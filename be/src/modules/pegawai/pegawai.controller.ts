@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, Express } from "express";
 import { AppError } from "../../utils/appError";
 import * as pegawaiService from "./pegawai.service";
 
@@ -28,19 +28,20 @@ export const getMasterPegawai = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await pegawaiService.getMasterPegawai();
+    const { idPeriode, idPegawai } = req.params;
+    const data = await pegawaiService.getPegawaiDataForPayroll(
+      Number(idPeriode),
+      Number(idPegawai),
+    );
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Data master pegawai berhasil diambil",
+      message: "Data pegawai berhasil diambil",
       data,
     });
   } catch (error: any) {
     return next(
-      new AppError(
-        `Gagal mengambil data master pegawai: ${error.message}`,
-        500,
-      ),
+      new AppError(`Gagal mengambil data pegawai: ${error.message}`, 500),
     );
   }
 };
