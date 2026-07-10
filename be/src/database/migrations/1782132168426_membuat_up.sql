@@ -271,11 +271,30 @@ INSERT INTO tb_rekap_gaji (
     0.00, 25000.00, 20000.00, 0.00, 0.00,
     45000.00, 2390000.00
 )
-ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+ON CONFLICT (id_periode, id_pegawai) 
+DO UPDATE SET 
+    jabatan_snapshot = EXCLUDED.jabatan_snapshot,
+    pangkat_golongan_snapshot = EXCLUDED.pangkat_golongan_snapshot,
+    gaji_pokok_snapshot = EXCLUDED.gaji_pokok_snapshot,
+    tunj_kel_gabungan_snapshot = EXCLUDED.tunj_kel_gabungan_snapshot,
+    tunjangan_istri_snapshot = EXCLUDED.tunjangan_istri_snapshot,
+    tunjangan_anak_snapshot = EXCLUDED.tunjangan_anak_snapshot,
+    tunjangan_struktural_snapshot = EXCLUDED.tunjangan_struktural_snapshot,
+    total_tunjangan_dinamis_snapshot = EXCLUDED.total_tunjangan_dinamis_snapshot,
+    transport_makan_snapshot = EXCLUDED.transport_makan_snapshot,
+    total_penghasilan_bruto = EXCLUDED.total_penghasilan_bruto,
+    potongan_angsuran_snapshot = EXCLUDED.potongan_angsuran_snapshot,
+    potongan_dana_wajib_snapshot = EXCLUDED.potongan_dana_wajib_snapshot,
+    potongan_s_pskd_snapshot = EXCLUDED.potongan_s_pskd_snapshot,
+    potongan_pelkes_snapshot = EXCLUDED.potongan_pelkes_snapshot,
+    potongan_lainnya_snapshot = EXCLUDED.potongan_lainnya_snapshot,
+    total_potongan = EXCLUDED.total_potongan,
+    total_penerimaan_bersih = EXCLUDED.total_penerimaan_bersih,
+    created_at = NOW();
 
 
 -- ==========================================
--- IV. PERFORMANCE INDEXES (Optimasi Query)
+-- IV. PERFORMANCE INDEXES
 -- ==========================================
 CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
