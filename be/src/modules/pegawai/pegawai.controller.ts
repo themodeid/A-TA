@@ -22,27 +22,60 @@ export const createPegawai = async (
   }
 };
 
-export const getMasterPegawai = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const getAllMasterPegawai = async (req: Request, res: Response) => {
   try {
-    const { idPeriode, idPegawai } = req.params;
-    const data = await pegawaiService.getPegawaiDataForPayroll(
-      Number(idPeriode),
-      Number(idPegawai),
-    );
+    const semuaPegawai = await pegawaiService.getAllMasterPegawai();
+
     return res.status(200).json({
       status: "success",
-      statusCode: 200,
-      message: "Data pegawai berhasil diambil",
-      data,
+      data: semuaPegawai,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal mengambil data pegawai: ${error.message}`, 500),
+    return res.status(500).json({
+      status: "error",
+      message: `Gagal mengambil data master pegawai: ${error.message}`,
+      statusCode: 500,
+    });
+  }
+};
+
+// mengambil data pegawai tertentu
+export const getMasterPegawai = async (req: Request, res: Response) => {
+  try {
+    // 1. Ambil data dari params atau query (sesuaikan dengan route-mu)
+    const idPeriodeRaw = req.query.idPeriode || req.params.idPeriode;
+    const idPegawaiRaw = req.query.idPegawai || req.params.idPegawai;
+
+    // 2. Konversi ke Integer
+    const idPeriode = parseInt(idPeriodeRaw as string, 10);
+    const idPegawai = parseInt(idPegawaiRaw as string, 10);
+
+    // 3. WAJIB VALIDASI: Jika hasil konversi adalah NaN, langsung potong dengan bad request!
+    if (isNaN(idPeriode) || isNaN(idPegawai)) {
+      return res.status(400).json({
+        status: "error",
+        message: `ID Periode atau ID Pegawai tidak valid. Diterima: idPeriode=${idPeriodeRaw}, idPegawai=${idPegawaiRaw}`,
+        statusCode: 400,
+      });
+    }
+
+    // 4. Baru panggil fungsi query jika data sudah aman
+    const dataPayroll = await pegawaiService.getPegawaiDataForPayroll(
+      idPeriode,
+      idPegawai,
     );
+
+    return res.status(200).json({
+      status: "success",
+      data: dataPayroll,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: `Gagal mengambil data pegawai: ${error.message}`,
+      statusCode: 500,
+      stack: error.stack,
+    });
   }
 };
 

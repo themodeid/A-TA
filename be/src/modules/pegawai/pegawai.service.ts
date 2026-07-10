@@ -1,5 +1,30 @@
 import { pool } from "../../config/database"; // Sesuaikan path config databasemu
 
+export const getAllMasterPegawai = async () => {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT 
+        p.id_pegawai,
+        p.nama_dan_tanggal_lahir,
+        p.status_perkawinan,
+        p.jumlah_anak,
+        p.gaji_pokok_dasar,
+        j.nama_jabatan,
+        g.nama_golongan
+      FROM tb_pegawai p
+      INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+      INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+      WHERE p.deleted_at IS NULL
+      ORDER BY p.id_pegawai ASC;
+    `;
+    const result = await client.query(query);
+    return result.rows;
+  } finally {
+    client.release();
+  }
+};
+
 export const getPegawaiDataForPayroll = async (
   idPeriode: number,
   idPegawai: number,
@@ -25,20 +50,14 @@ export const getPegawaiDataForPayroll = async (
         COALESCE(abs.total_sakit, 0) AS total_sakit,
         COALESCE(abs.total_alpha, 0) AS total_alpha,
 
-        -- 3. Data Transaksi Tunjangan Bulanan Manual/Dinamis (Periode Terkait)
-        COALESCE(tunj_b.tunjangan_kesra, 0) AS tunjangan_kesra,
-        COALESCE(tunj_b.tunjangan_supervisi, 0) AS tunjangan_supervisi,
-        COALESCE(tunj_b.tunjangan_wali_kelas, 0) AS tunjangan_wali_kelas,
-        COALESCE(tunj_b.tunjangan_piket, 0) AS tunjangan_piket,
-        COALESCE(tunj_b.tunjangan_jurbeng, 0) AS tunjangan_jurbeng,
+        -- 3. Data Transaksi Tunjangan Bulanan Manual/Dinamis (Dari tabel induk tunjangan bulanan)
         COALESCE(tunj_b.honor_bulan, 0) AS honor_bulan,
-        COALESCE(tunj_b.tunjangan_khusus, 0) AS tunjangan_khusus,
         COALESCE(tunj_b.total_jam_lebih, 0) AS total_jam_lebih,
-        COALESCE(tunj_b.tunj_kel_gabungan, 0) AS tunj_kel_gabungan,
-        COALESCE(tunj_b.tunjjab_25_pp1985, 0) AS tunjjab_25_pp1985,
-        COALESCE(tunj_b.sb_dana_chuk_2_pp85, 0) AS sb_dana_chuk_2_pp85,
-        COALESCE(tunj_b.sb_dana_chuk_8_pp85, 0) AS sb_dana_chuk_8_pp85,
-        COALESCE(tunj_b.tunjangan_perbaikan_penghasilan, 0) AS tunjangan_perbaikan_penghasilan,
+        
+        -- Mengambil nilai horizontal dari tabel detail vertikal menggunakan Conditional Aggregation
+        -- Sesuai dengan id_tunjangan di data seed milikmu
+        COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 2 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_istri_snapshot,
+        COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 3 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_anak_snapshot,
 
         -- 4. Data Transaksi Potongan (Periode Terkait)
         COALESCE(pot.potongan_angsuran, 0) AS potongan_angsuran,
@@ -57,11 +76,21 @@ export const getPegawaiDataForPayroll = async (
         ON p.id_pegawai = abs.id_pegawai AND abs.id_periode = $1
       LEFT JOIN tb_tunjangan_bulanan tunj_b 
         ON p.id_pegawai = tunj_b.id_pegawai AND tunj_b.id_periode = $1
+      
+      -- JOIN tambahan ke tabel detail untuk mengambil data tunjangan vertikal
+      LEFT JOIN tb_tunjangan_bulanan_detail t_detail
+        ON p.id_pegawai = t_detail.id_pegawai AND t_detail.id_periode = $1
+        
       LEFT JOIN tb_potongan_bulanan pot 
         ON p.id_pegawai = pot.id_pegawai AND pot.id_periode = $1
 
       -- Filter Pengunci: Hanya pegawai aktif & id yang diminta
-      WHERE p.id_pegawai = $2 AND p.deleted_at IS NULL;
+      WHERE p.id_pegawai = $2 AND p.deleted_at IS NULL
+      
+      -- Wajib ada GROUP BY karena kita memakai fungsi agregat MAX() di atas demi memecah data vertikal jadi kolom horizontal
+      GROUP BY 
+        p.id_pegawai, j.nama_jabatan, j.tunjangan_jabatan_struktural, g.nama_golongan, 
+        abs.id_absensi_summary, tunj_b.id_tunjangan_bulanan, pot.id_potongan_bulanan;
     `;
 
     const result = await client.query(query, [idPeriode, idPegawai]);

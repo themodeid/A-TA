@@ -44,7 +44,7 @@ app.use(
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    message: "Server is healthy 1",
+    message: "Server is healthy 4",
     timestamp: new Date().toISOString(),
   });
 });
