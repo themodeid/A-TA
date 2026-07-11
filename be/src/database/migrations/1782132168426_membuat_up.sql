@@ -109,7 +109,9 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan_detail (
     id_periode INT REFERENCES tb_periode(id_periode),
     id_pegawai INT REFERENCES tb_pegawai(id_pegawai),
     id_tunjangan INT REFERENCES tb_tunjangan(id_tunjangan),
-    nilai_terhitung NUMERIC(12, 2) DEFAULT 0
+    nilai_terhitung NUMERIC(12, 2) DEFAULT 0,
+    
+    CONSTRAINT unique_periode_pegawai_tunjangan UNIQUE (id_periode, id_pegawai, id_tunjangan)
 );
 
 -- 10. Transaksi Potongan Bulanan
@@ -301,3 +303,75 @@ CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE de
 CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_periode_active ON tb_periode(id_periode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pengguna_active ON tb_pengguna(id_pengguna) WHERE deleted_at IS NULL;
+
+CREATE OR REPLACE FUNCTION fungsi_buka_periode_baru(
+    p_bulan_gaji VARCHAR(20),
+    p_tanggal_awal DATE,
+    p_tanggal_akhir DATE
+) RETURNS INT AS $$
+DECLARE
+    v_new_periode_id INT;
+BEGIN
+    -- PENGAMAN: Cek apakah nama bulan sudah ada ATAU rentang tanggal beririsan
+    IF EXISTS (
+        SELECT 1 FROM tb_periode 
+        WHERE (bulan_gaji = p_bulan_gaji OR (tanggal_awal <= p_tanggal_akhir AND tanggal_akhir >= p_tanggal_awal))
+          AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Gagal membuka periode: Bulan % atau rentang tanggal tersebut sudah terdaftar!', p_bulan_gaji;
+    END IF;
+
+    -- 1. Insert periode baru
+    INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status)
+    VALUES (p_bulan_gaji, p_tanggal_awal, p_tanggal_akhir, 'Pengisian Absensi')
+    RETURNING id_periode INTO v_new_periode_id;
+
+    -- 2. Inisialisasi data absensi kosong untuk semua pegawai aktif
+    INSERT INTO tb_absensi_summary (id_periode, id_pegawai, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha)
+    SELECT v_new_periode_id, id_pegawai, 0, 0, 0, 0, 0
+    FROM tb_pegawai
+    WHERE deleted_at IS NULL;
+
+    -- 3. Inisialisasi data tunjangan bulanan kosong
+    INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
+    SELECT v_new_periode_id, id_pegawai, 0.00, 0.00
+    FROM tb_pegawai
+    WHERE deleted_at IS NULL;
+
+    -- 4. Inisialisasi data potongan bulanan kosong
+    INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya)
+    SELECT v_new_periode_id, id_pegawai, 0, 0, 0, 0, 0
+    FROM tb_pegawai
+    WHERE deleted_at IS NULL;
+
+    -- 5. Buat snapshot awal di tb_rekap_gaji untuk komponen tetap
+    INSERT INTO tb_rekap_gaji (
+        id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot,
+        tunjangan_istri_snapshot, tunjangan_anak_snapshot, tunjangan_struktural_snapshot,
+        tunj_kel_gabungan_snapshot, total_penghasilan_bruto, total_penerimaan_bersih
+    )
+    SELECT 
+        v_new_periode_id,
+        p.id_pegawai,
+        COALESCE(j.nama_jabatan, 'Tidak Ada Jabatan'),
+        COALESCE(g.nama_golongan, 'Tidak Ada Golongan'),
+        p.gaji_pokok_dasar,
+        -- Hitung tunjangan istri (10% jika 'K')
+        CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * 0.10) ELSE 0 END,
+        -- Hitung tunjangan anak (2% per anak)
+        (p.gaji_pokok_dasar * 0.02 * p.jumlah_anak),
+        COALESCE(j.tunjangan_jabatan_struktural, 0),
+        -- Gabungan tunjangan keluarga
+        (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * 0.10) ELSE 0 END) + (p.gaji_pokok_dasar * 0.02 * p.jumlah_anak),
+        -- Bruto awal (baru komponen tetap)
+        p.gaji_pokok_dasar + COALESCE(j.tunjangan_jabatan_struktural, 0) + (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * 0.10) ELSE 0 END) + (p.gaji_pokok_dasar * 0.02 * p.jumlah_anak),
+        -- Netto awal
+        p.gaji_pokok_dasar + COALESCE(j.tunjangan_jabatan_struktural, 0) + (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * 0.10) ELSE 0 END) + (p.gaji_pokok_dasar * 0.02 * p.jumlah_anak)
+    FROM tb_pegawai p
+    LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+    LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+    WHERE p.deleted_at IS NULL;
+
+    RETURN v_new_periode_id;
+END;
+$$ LANGUAGE plpgsql;

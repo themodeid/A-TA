@@ -12,14 +12,4 @@ const rekapGajiController = new RekapGajiController();
  */
 router.post("/rekap-gaji/kalkulasi", rekapGajiController.hitungGajiBulanan);
 
-/**
- * @route GET /api/rekap-gaji/periode/:idPeriode
- * @desc Mendapatkan detail rekap gaji untuk periode tertentu
- * @access Private (Admin & Staf Gaji)
- */
-router.get(
-  "/rekap-gaji/periode/:idPeriode",
-  rekapGajiController.getRekapByPeriode,
-);
-
 export default router;

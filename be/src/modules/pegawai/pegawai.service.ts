@@ -114,6 +114,11 @@ export const createPegawai = async (data: any) => {
   }
   const client = await pool.connect();
   try {
+    // ----------------------------------------------------
+    // MULAI TRANSAKSI DATABASE (Wajib untuk multi-insert)
+    // ----------------------------------------------------
+    await client.query("BEGIN");
+
     // 1. Validasi Logis: Jika Tidak Kawin, anak otomatis 0
     let jumlahAnak = data.jumlah_anak || 0;
     if (data.status_perkawinan === "TK") {
@@ -180,7 +185,63 @@ export const createPegawai = async (data: any) => {
     ];
 
     const result = await client.query(query, values);
-    return result.rows[0];
+    const pegawaiBaru = result.rows[0];
+
+    // ----------------------------------------------------
+    // LOGIKA BARU: OTOMATISASI DATA PERIODE BERJALAN
+    // ----------------------------------------------------
+
+    // A. Cek apakah ada periode yang aktif (status 'Pengisian Absensi' atau belum closed)
+    const qPeriode = `
+      SELECT id_periode FROM tb_periode 
+      WHERE status = 'Pengisian Absensi' AND deleted_at IS NULL 
+      LIMIT 1
+    `;
+    const { rows: periodeRows } = await client.query(qPeriode);
+
+    // B. Jika ada periode aktif, suntikkan data default (0)
+    if (periodeRows.length > 0) {
+      const idPeriode = periodeRows[0].id_periode;
+      const idPegawai = pegawaiBaru.id_pegawai; // Sesuaikan dengan nama primary key di tb_pegawai milikmu (id atau id_pegawai)
+
+      // 1. Insert ke tb_absensi_summary
+      await client.query(
+        `
+        INSERT INTO tb_absensi_summary (id_pegawai, id_periode, total_hadir, total_absen, total_izin)
+        VALUES ($1, $2, 0, 0, 0)
+        ON CONFLICT DO NOTHING
+      `,
+        [idPegawai, idPeriode],
+      );
+
+      // 2. Insert ke tb_potongan_bulanan
+      await client.query(
+        `
+        INSERT INTO tb_potongan_bulanan (id_pegawai, id_periode, potongan_terlambat, total_potongan)
+        VALUES ($1, $2, 0, 0)
+        ON CONFLICT DO NOTHING
+      `,
+        [idPegawai, idPeriode],
+      );
+
+      // 3. Insert ke tb_rekap_gaji
+      await client.query(
+        `
+        INSERT INTO tb_rekap_gaji (id_pegawai, id_periode, gaji_pokok, total_tunjangan, total_potongan, gaji_bersih, status_pembayaran)
+        VALUES ($1, $2, $3, 0, 0, 0, 'Pending')
+        ON CONFLICT DO NOTHING
+      `,
+        [idPegawai, idPeriode, data.gaji_pokok_dasar || 0],
+      );
+    }
+
+    // Jika semua proses aman, kunci/simpan perubahan di DB
+    await client.query("COMMIT");
+    return pegawaiBaru;
+  } catch (error) {
+    // Jika ada yang gagal di tengah jalan, batalkan semuanya agar data tidak korup
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }

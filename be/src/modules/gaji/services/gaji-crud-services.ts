@@ -43,4 +43,8 @@ export class RekapGajiQueryService {
     const { rows } = await pool.query(query, [idPeriode]);
     return rows;
   }
+
+  /**
+   * Mengambil daftar semua periode yang sudah pernah dibuat
+   */
 }
