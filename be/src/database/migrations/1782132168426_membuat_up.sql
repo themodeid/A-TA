@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
 );
 
 -- 2. Master Parameter / Tunjangan
+-- [PERBAIKAN NINO] Tambah kolom formula_type: menentukan CARA HITUNG tunjangan
+-- secara data-driven, bukan hardcode kode_kondisi di function.
+-- Nambah tunjangan baru yang pola hitungnya REUSE salah satu formula_type ini
+-- otomatis kehandle tanpa ubah SQL sama sekali.
 CREATE TABLE IF NOT EXISTS tb_tunjangan (
     id_tunjangan SERIAL PRIMARY KEY,
     nama_tunjangan VARCHAR(100) NOT NULL,
@@ -20,10 +24,17 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan (
     sifat_tunjangan VARCHAR(20) NOT NULL,
     keterangan TEXT,
     kode_kondisi VARCHAR(20) NOT NULL DEFAULT 'UMUM',
+    formula_type VARCHAR(30) DEFAULT NULL,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT unique_kode_kondisi UNIQUE (kode_kondisi),
     CONSTRAINT chk_jenis_tunjangan CHECK (jenis_tunjangan IN ('NOMINAL', 'PERSENTASE')),
-    CONSTRAINT chk_sifat_tunjangan CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN'))
+    CONSTRAINT chk_sifat_tunjangan CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN', 'PER_JAM')),
+    CONSTRAINT chk_formula_type CHECK (formula_type IN (
+        'HARIAN_HADIR_WFO',        -- nilai_terhitung = jumlah hadir WFO * rate
+        'PERSEN_GAJI_JIKA_KAWIN',  -- nilai_terhitung = gaji_pokok * persen, hanya jika status_perkawinan='K'
+        'PERSEN_GAJI_PER_ANAK',    -- nilai_terhitung = gaji_pokok * persen * jumlah_anak
+        'PER_JAM_LEMBUR'           -- rate per jam, dikonsumsi langsung dari total_jam_lebih
+    ) OR formula_type IS NULL)
 );
 
 -- 3. Master Potongan (VERTIKAL - Pengganti kolom hardcode)
@@ -43,7 +54,7 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
--- 5. Master Golongan (Sudah scalable, tidak perlu diubah)
+-- 5. Master Golongan
 CREATE TABLE IF NOT EXISTS tb_golongan (
     id_golongan SERIAL PRIMARY KEY,
     nama_golongan VARCHAR(50) UNIQUE NOT NULL, 
@@ -52,12 +63,23 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
 );
 
 -- 6. Master Periode Cut-off 
+-- [PERBAIKAN NINO] status sekarang dibatasi CHECK constraint (lihat bawah).
+-- ASUMSI: 6 status ini berdasarkan alur role (Petugas Absensi -> Approver -> Staf Gaji).
+-- WAJIB DICEK ke kode backend Express lo, samain exact string-nya (case-sensitive).
 CREATE TABLE IF NOT EXISTS tb_periode (
     id_periode SERIAL PRIMARY KEY,
     bulan_gaji VARCHAR(20) UNIQUE NOT NULL, 
     tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
-    status VARCHAR(30) DEFAULT 'Pengisian Absensi',
+    status VARCHAR(30) DEFAULT 'Pengisian Absensi'
+        CHECK (status IN (
+            'Pengisian Absensi',
+            'Menunggu Approval',
+            'Disetujui',
+            'Ditolak',
+            'Diproses Gaji',
+            'Selesai'
+        )),
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
@@ -186,17 +208,19 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
 
 
 -- =========================================================================
--- III. SEED DATA / DATA DEFAULT (Disesuaikan dengan Struktur Vertikal)
+-- III. SEED DATA / DATA DEFAULT
 -- =========================================================================
 
--- Seed Master Tunjangan
-INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, keterangan, kode_kondisi) VALUES 
-('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik', 'TRN_WFO'),
-('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan istri 10% dari gaji pokok', 'TUNJ_ISTRI'),
-('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak 2% dari gaji pokok', 'TUNJ_ANAK')
-ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai;
+-- Seed Master Tunjangan (dengan formula_type)
+INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, keterangan, kode_kondisi, formula_type) VALUES 
+('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik', 'TRN_WFO', 'HARIAN_HADIR_WFO'),
+('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan istri 10% dari gaji pokok', 'TUNJ_ISTRI', 'PERSEN_GAJI_JIKA_KAWIN'),
+('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak 2% dari gaji pokok', 'TUNJ_ANAK', 'PERSEN_GAJI_PER_ANAK'),
+-- ⚠️ GANTI 25000.00 SESUAI RATE LEMBUR ASLI SEKOLAH LO. Ini placeholder.
+('Honor Lembur Per Jam', 25000.00, 'NOMINAL', 'PER_JAM', 'Rate lembur per jam, flat untuk semua pegawai', 'LEMBUR_PER_JAM', 'PER_JAM_LEMBUR')
+ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai, formula_type = EXCLUDED.formula_type;
 
--- Seed Master Potongan (Baru - Versi Vertikal)
+-- Seed Master Potongan
 INSERT INTO tb_master_potongan (nama_potongan, kode_potongan, nilai_default) VALUES
 ('Potongan Angsuran', 'POT_ANGSURAN', 0.00),
 ('Potongan Dana Wajib', 'POT_DANA_WAJIB', 50000.00),
@@ -267,7 +291,7 @@ INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitun
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), 450000.00)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Detail Potongan Vertikal (BERSIH & VALID)
+-- Seed Detail Potongan Vertikal
 INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_ANGSURAN'), 500000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
@@ -280,6 +304,10 @@ ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
 -- ==========================================
 -- IV. PERFORMANCE INDEXES
 -- ==========================================
+-- Catatan: tabel transaksional (tb_absensi_summary, tb_tunjangan_bulanan,
+-- tb_potongan_bulanan, tb_rekap_gaji, dan kedua tabel _detail) sudah otomatis
+-- ke-index lewat UNIQUE(id_periode, id_pegawai, ...) masing-masing.
+-- Jadi nggak perlu index tambahan di situ.
 CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
@@ -293,24 +321,93 @@ CREATE INDEX IF NOT EXISTS idx_pengguna_active ON tb_pengguna(id_pengguna) WHERE
 CREATE OR REPLACE FUNCTION fungsi_kalkulasi_gaji_akhir(p_id_periode INT) 
 RETURNS VOID AS $$
 DECLARE
-    v_pct_istri NUMERIC(12, 2);
-    v_pct_anak NUMERIC(12, 2);
+    v_rate_lembur NUMERIC(12, 2);
 BEGIN
-    -- 1. Ambil parameter persentase tunjangan terbaru
-    SELECT COALESCE(MAX(nilai), 0.10) INTO v_pct_istri FROM tb_tunjangan WHERE kode_kondisi = 'TUNJ_ISTRI' AND deleted_at IS NULL;
-    SELECT COALESCE(MAX(nilai), 0.02) INTO v_pct_anak FROM tb_tunjangan WHERE kode_kondisi = 'TUNJ_ANAK' AND deleted_at IS NULL;
+    -- =========================================================================
+    -- 1. AMBIL RATE LEMBUR TERBARU
+    -- =========================================================================
+    SELECT COALESCE(MAX(nilai), 0) INTO v_rate_lembur 
+    FROM tb_tunjangan WHERE kode_kondisi = 'LEMBUR_PER_JAM' AND deleted_at IS NULL;
 
-    -- 2. UPDATE nilai tunjangan harian (WFO) berdasarkan absensi riil
-    UPDATE tb_tunjangan_bulanan_detail td
-    SET nilai_terhitung = abs.total_hadir_ops_wfo * t.nilai
+    -- =========================================================================
+    -- 2. INISIALISASI WADAH DATA (ANTI-ZONK & DATA-DRIVEN UPDATE)
+    -- =========================================================================
+    
+    -- A. Pastikan baris Rekap Gaji & Snapshot Pegawai sudah ada (Sinkronisasi Gaji Pokok Efektif)
+    INSERT INTO tb_rekap_gaji (id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot)
+    SELECT 
+        p_id_periode, 
+        p.id_pegawai, 
+        COALESCE(j.nama_jabatan, 'Tanpa Jabatan'), 
+        COALESCE(g.nama_golongan, '-'), 
+        CASE WHEN p.gaji_pokok_dasar > 0 THEN p.gaji_pokok_dasar ELSE COALESCE(g.gaji_pokok_standar, 0) END
+    FROM tb_pegawai p
+    JOIN tb_absensi_summary abs ON p.id_pegawai = abs.id_pegawai
+    LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+    LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+    WHERE abs.id_periode = p_id_periode AND p.deleted_at IS NULL
+    ON CONFLICT (id_periode, id_pegawai) DO UPDATE 
+    SET 
+        jabatan_snapshot = EXCLUDED.jabatan_snapshot,
+        pangkat_golongan_snapshot = EXCLUDED.pangkat_golongan_snapshot,
+        gaji_pokok_snapshot = EXCLUDED.gaji_pokok_snapshot;
+
+    -- B. Pastikan baris Header Potongan & Tunjangan Bulanan tersedia
+    INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+    SELECT p_id_periode, abs.id_pegawai, 0
     FROM tb_absensi_summary abs
-    JOIN tb_tunjangan t ON t.kode_kondisi = 'TRN_WFO'
-    WHERE td.id_periode = p_id_periode 
-      AND td.id_pegawai = abs.id_pegawai 
-      AND td.id_tunjangan = t.id_tunjangan 
-      AND abs.id_periode = p_id_periode;
+    WHERE abs.id_periode = p_id_periode
+    ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
-    -- 3. UPDATE total_potongan_terhitung di tabel header potongan (Sinkronisasi)
+    INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
+    SELECT p_id_periode, abs.id_pegawai, 0, 0
+    FROM tb_absensi_summary abs
+    WHERE abs.id_periode = p_id_periode
+    ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+
+    -- C. Auto-init Potongan Detail (Gunakan DO UPDATE agar sinkron dengan perubahan Master default)
+    INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+    SELECT p_id_periode, abs.id_pegawai, mp.id_master_potongan, mp.nilai_default
+    FROM tb_absensi_summary abs
+    CROSS JOIN tb_master_potongan mp
+    WHERE abs.id_periode = p_id_periode AND mp.deleted_at IS NULL
+    ON CONFLICT (id_periode, id_pegawai, id_master_potongan) 
+    DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan;
+
+    -- D. Auto-init Tunjangan Detail berbasis formula_type
+    INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
+    SELECT p_id_periode, abs.id_pegawai, t.id_tunjangan, 0
+    FROM tb_absensi_summary abs
+    CROSS JOIN tb_tunjangan t
+    WHERE abs.id_periode = p_id_periode 
+      AND t.formula_type IN ('HARIAN_HADIR_WFO', 'PERSEN_GAJI_JIKA_KAWIN', 'PERSEN_GAJI_PER_ANAK')
+      AND t.deleted_at IS NULL
+    ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
+
+
+    -- =========================================================================
+    -- 3. HITUNG NILAI TUNJANGAN VERTIKAL SECARA GENERIK (MENGGUNAKAN SNAPSHOT GAJI POKOK)
+    -- =========================================================================
+    UPDATE tb_tunjangan_bulanan_detail td
+    SET nilai_terhitung = CASE t.formula_type
+            WHEN 'HARIAN_HADIR_WFO' THEN abs.total_hadir_ops_wfo * t.nilai
+            WHEN 'PERSEN_GAJI_JIKA_KAWIN' THEN 
+                CASE WHEN p.status_perkawinan = 'K' THEN rg.gaji_pokok_snapshot * t.nilai ELSE 0 END
+            WHEN 'PERSEN_GAJI_PER_ANAK' THEN rg.gaji_pokok_snapshot * t.nilai * p.jumlah_anak
+            ELSE td.nilai_terhitung
+        END
+    FROM tb_pegawai p
+    JOIN tb_absensi_summary abs ON abs.id_pegawai = p.id_pegawai AND abs.id_periode = p_id_periode
+    JOIN tb_rekap_gaji rg ON rg.id_pegawai = p.id_pegawai AND rg.id_periode = p_id_periode
+    JOIN tb_tunjangan t ON t.id_tunjangan = td.id_tunjangan
+    WHERE td.id_periode = p_id_periode
+      AND td.id_pegawai = p.id_pegawai
+      AND t.formula_type IN ('HARIAN_HADIR_WFO', 'PERSEN_GAJI_JIKA_KAWIN', 'PERSEN_GAJI_PER_ANAK');
+
+
+    -- =========================================================================
+    -- 4. SINKRONISASI TABEL HEADER POTONGAN
+    -- =========================================================================
     UPDATE tb_potongan_bulanan pb
     SET total_potongan_terhitung = COALESCE((
         SELECT SUM(nilai_potongan) 
@@ -319,23 +416,70 @@ BEGIN
     ), 0)
     WHERE pb.id_periode = p_id_periode;
 
-    -- 4. REFRESH / UPDATE tb_rekap_gaji dengan angka final yang sinkron
+
+    -- =========================================================================
+    -- 5. REFRESH & SINKRONISASI TABEL REKAP GAJI FINAL (BRUTO & TOTAL POTONGAN)
+    --    [PERBAIKAN NINO] Mengeliminasi double counting honor lembur.
+    -- =========================================================================
     UPDATE tb_rekap_gaji rg
     SET 
         total_penghasilan_bruto = rg.gaji_pokok_snapshot 
-            + COALESCE((SELECT tunjangan_jabatan_struktural FROM tb_jabatan j JOIN tb_pegawai p ON p.id_jabatan = j.id_jabatan WHERE p.id_pegawai = rg.id_pegawai), 0)
-            + (CASE WHEN (SELECT status_perkawinan FROM tb_pegawai WHERE id_pegawai = rg.id_pegawai) = 'K' THEN (rg.gaji_pokok_snapshot * v_pct_istri) ELSE 0 END)
-            + (rg.gaji_pokok_snapshot * v_pct_anak * (SELECT jumlah_anak FROM tb_pegawai WHERE id_pegawai = rg.id_pegawai))
+            + COALESCE((SELECT j.tunjangan_jabatan_struktural FROM tb_jabatan j JOIN tb_pegawai p ON p.id_jabatan = j.id_jabatan WHERE p.id_pegawai = rg.id_pegawai), 0)
             + COALESCE((SELECT SUM(nilai_terhitung) FROM tb_tunjangan_bulanan_detail WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0)
-            + COALESCE((SELECT honor_bulan FROM tb_tunjangan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0),
+            -- honor_bulan dialokasikan untuk pendapatan non-lembur / insentif manual staf gaji
+            + COALESCE((SELECT honor_bulan FROM tb_tunjangan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0)
+            -- kalkulasi murni lembur jam-jamanan
+            + COALESCE((SELECT total_jam_lebih FROM tb_tunjangan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0) * v_rate_lembur,
         
         total_potongan = COALESCE((SELECT total_potongan_terhitung FROM tb_potongan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0)
     WHERE rg.id_periode = p_id_periode;
 
-    -- 5. Hitung penerimaan bersih final (Clean Netto)
+
+    -- =========================================================================
+    -- 6. HITUNG PENERIMAAN BERSIH FINAL (CLEAN NETTO)
+    -- =========================================================================
     UPDATE tb_rekap_gaji
     SET total_penerimaan_clean = total_penghasilan_bruto - total_potongan
     WHERE id_periode = p_id_periode;
+
+
+    -- =========================================================================
+    -- 7. SNAPSHOT DETAIL UNTUK AUDIT SLIP GAJI
+    -- =========================================================================
+    DELETE FROM tb_rekap_gaji_detail rgd
+    USING tb_rekap_gaji rg
+    WHERE rgd.id_rekap = rg.id_rekap AND rg.id_periode = p_id_periode;
+
+    -- Tunjangan Struktural Jabatan dimasukkan ke snapshot detail agar slip gaji lengkap
+    INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+    SELECT rg.id_rekap, 'TUNJANGAN', 'Tunjangan Struktural ' || rg.jabatan_snapshot, j.tunjangan_jabatan_struktural, 'TUNJ_JABATAN'
+    FROM tb_rekap_gaji rg
+    JOIN tb_pegawai p ON p.id_pegawai = rg.id_pegawai
+    JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+    WHERE rg.id_periode = p_id_periode AND j.tunjangan_jabatan_struktural > 0;
+
+    -- Tunjangan dari detail kalkulasi generik
+    INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+    SELECT rg.id_rekap, 'TUNJANGAN', t.nama_tunjangan, td.nilai_terhitung, t.kode_kondisi
+    FROM tb_rekap_gaji rg
+    JOIN tb_tunjangan_bulanan_detail td ON rg.id_pegawai = td.id_pegawai AND rg.id_periode = td.id_periode
+    JOIN tb_tunjangan t ON td.id_tunjangan = t.id_tunjangan
+    WHERE rg.id_periode = p_id_periode AND td.nilai_terhitung > 0;
+
+    -- Tunjangan Honor Lembur per Jam
+    INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+    SELECT rg.id_rekap, 'TUNJANGAN', 'Honor Lembur (' || tb.total_jam_lebih || ' Jam)', tb.total_jam_lebih * v_rate_lembur, 'LEMBUR_PER_JAM'
+    FROM tb_rekap_gaji rg
+    JOIN tb_tunjangan_bulanan tb ON tb.id_pegawai = rg.id_pegawai AND tb.id_periode = tb.id_periode
+    WHERE rg.id_periode = p_id_periode AND tb.total_jam_lebih > 0;
+
+    -- Potongan
+    INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+    SELECT rg.id_rekap, 'POTONGAN', mp.nama_potongan, pbd.nilai_potongan, mp.kode_potongan
+    FROM tb_rekap_gaji rg
+    JOIN tb_potongan_bulanan_detail pbd ON rg.id_pegawai = pbd.id_pegawai AND rg.id_periode = pbd.id_periode
+    JOIN tb_master_potongan mp ON pbd.id_master_potongan = mp.id_master_potongan
+    WHERE rg.id_periode = p_id_periode AND pbd.nilai_potongan > 0;
 
 END;
 $$ LANGUAGE plpgsql;
