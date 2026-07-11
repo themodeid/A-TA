@@ -26,7 +26,16 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan (
     CONSTRAINT chk_sifat_tunjangan CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN'))
 );
 
--- 3. Master Jabatan
+-- 3. Master Potongan (VERTIKAL - Pengganti kolom hardcode)
+CREATE TABLE IF NOT EXISTS tb_master_potongan (
+    id_master_potongan SERIAL PRIMARY KEY,
+    nama_potongan VARCHAR(100) NOT NULL,
+    kode_potongan VARCHAR(20) UNIQUE NOT NULL, 
+    nilai_default NUMERIC(12, 2) DEFAULT 0,     
+    deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+-- 4. Master Jabatan
 CREATE TABLE IF NOT EXISTS tb_jabatan (
     id_jabatan SERIAL PRIMARY KEY,
     nama_jabatan VARCHAR(50) UNIQUE NOT NULL,
@@ -34,7 +43,7 @@ CREATE TABLE IF NOT EXISTS tb_jabatan (
     deleted_at TIMESTAMPTZ DEFAULT NULL 
 );
 
--- 4. Master Golongan
+-- 5. Master Golongan (Sudah scalable, tidak perlu diubah)
 CREATE TABLE IF NOT EXISTS tb_golongan (
     id_golongan SERIAL PRIMARY KEY,
     nama_golongan VARCHAR(50) UNIQUE NOT NULL, 
@@ -42,17 +51,17 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 5. Master Periode Cut-off 
+-- 6. Master Periode Cut-off 
 CREATE TABLE IF NOT EXISTS tb_periode (
     id_periode SERIAL PRIMARY KEY,
-    bulan_gaji VARCHAR(20) UNIQUE NOT NULL, -- Tambah UNIQUE untuk mencegah bulan kembar di tingkat DB
+    bulan_gaji VARCHAR(20) UNIQUE NOT NULL, 
     tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
     status VARCHAR(30) DEFAULT 'Pengisian Absensi',
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- Tambahkan ekstensi & constraint EXCLUDE secara terpisah agar aman dipanggil ulang
+-- Ekstensi & constraint EXCLUDE
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 ALTER TABLE tb_periode DROP CONSTRAINT IF EXISTS chk_anti_overlap_periode;
@@ -61,7 +70,7 @@ EXCLUDE USING gist (
     daterange(tanggal_awal, tanggal_akhir, '[]') WITH &&
 ) WHERE (deleted_at IS NULL);
 
--- 6. Master Pegawai
+-- 7. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY,
     nama_dan_tanggal_lahir TEXT NOT NULL,
@@ -80,7 +89,7 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
 -- II. TRANSACTIONAL TABLES (Tabel Transaksi)
 -- ==========================================
 
--- 7. Transaksi Absensi Bulanan
+-- 8. Transaksi Absensi Bulanan
 CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     id_absensi_summary SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -93,7 +102,7 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 8. Log Approval 
+-- 9. Log Approval 
 CREATE TABLE IF NOT EXISTS tb_approval (
     id_approval SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -103,7 +112,7 @@ CREATE TABLE IF NOT EXISTS tb_approval (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 9. Transaksi Tunjangan Dinamis & Jam Lebih
+-- 10. Transaksi Tunjangan Bulanan (VERTIKAL Bersih)
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -122,15 +131,7 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan_detail (
     CONSTRAINT unique_periode_pegawai_tunjangan UNIQUE (id_periode, id_pegawai, id_tunjangan)
 );
 
-CREATE TABLE IF NOT EXISTS tb_master_potongan (
-    id_master_potongan SERIAL PRIMARY KEY,
-    nama_potongan VARCHAR(100) NOT NULL,
-    kode_potongan VARCHAR(20) UNIQUE NOT NULL, -- Contoh: 'POT_ANGSURAN', 'POT_DANA_WAJIB', 'POT_PELKES'
-    nilai_default NUMERIC(12, 2) DEFAULT 0,     -- Jika ada potongan yang sifatnya flat/sama rata
-    deleted_at TIMESTAMPTZ DEFAULT NULL
-);
-
--- HEADER: Cukup catat periode, pegawai, dan total potongannya saja
+-- 11. Transaksi Potongan Bulanan (VERTIKAL Bersih, Bebas Kolom Hardcode)
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     id_potongan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -139,7 +140,6 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- DETAIL VERTIKAL: Menampung rincian potongan tiap pegawai tanpa batas kolom
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan_detail (
     id_potongan_detail SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -149,15 +149,7 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan_detail (
     CONSTRAINT unique_periode_pegawai_potongan UNIQUE (id_periode, id_pegawai, id_master_potongan)
 );
 
--- Bagian insert inisialisasi potongan di fungsi_buka_periode_baru() otomatis jadi begini:
-INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
-SELECT v_new_periode_id, p.id_pegawai, m.id_master_potongan, m.nilai_default
-FROM tb_pegawai p
-CROSS JOIN tb_master_potongan m
-WHERE p.deleted_at IS NULL AND m.deleted_at IS NULL;
-
--- 11. Rekap Gaji Akhir & Potongan (Snapshot Bersejarah)
--- 1. HEADER REKAP GAJI (Hanya totalan besar)
+-- 12. Rekap Gaji Akhir (Snapshot Bersejarah Vertikal)
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     id_rekap SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE RESTRICT,
@@ -167,22 +159,21 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     gaji_pokok_snapshot NUMERIC(12, 2) DEFAULT 0,
     total_penghasilan_bruto NUMERIC(12, 2) DEFAULT 0,
     total_potongan NUMERIC(12, 2) DEFAULT 0,
-    total_penerimaan_bersih NUMERIC(12, 2) DEFAULT 0,
+    total_penerimaan_clean NUMERIC(12, 2) DEFAULT 0, -- Penerimaan bersih final
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 2. DETAIL REKAP GAJI VERTIKAL (Menampung tunjangan/potongan tanpa batas)
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji_detail (
     id_rekap_detail SERIAL PRIMARY KEY,
     id_rekap INTEGER NOT NULL REFERENCES tb_rekap_gaji(id_rekap) ON DELETE CASCADE,
     jenis_komponen VARCHAR(20) NOT NULL CHECK (jenis_komponen IN ('TUNJANGAN', 'POTONGAN')),
-    nama_komponen_snapshot VARCHAR(100) NOT NULL, -- Menyimpan nama asli saat closing (misal: 'Tunjangan Anak')
+    nama_komponen_snapshot VARCHAR(100) NOT NULL, 
     nilai_snapshot NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    kode_kondisi_snapshot VARCHAR(20) DEFAULT 'UMUM' -- Opsional, untuk tracking kode asalnya
+    kode_kondisi_snapshot VARCHAR(20) DEFAULT 'UMUM'
 );
 
--- 12. Koreksi Jam Lembur/Lebih (Log Audit)
+-- 13. Log Audit Koreksi Jam
 CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     id_koreksi SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -195,15 +186,24 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
 
 
 -- =========================================================================
--- III. SEED DATA / DATA DEFAULT (Aman dijalankan berkali-kali)
+-- III. SEED DATA / DATA DEFAULT (Disesuaikan dengan Struktur Vertikal)
 -- =========================================================================
 
 -- Seed Master Tunjangan
 INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, keterangan, kode_kondisi) VALUES 
-('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik, dihitung per hari hadir kerja', 'TRN_WFO'),
-('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan suami/istri sebesar 10% dari gaji pokok', 'TUNJ_ISTRI'),
-('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak sebesar 2% dari gaji pokok', 'TUNJ_ANAK')
+('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik', 'TRN_WFO'),
+('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan istri 10% dari gaji pokok', 'TUNJ_ISTRI'),
+('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak 2% dari gaji pokok', 'TUNJ_ANAK')
 ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai;
+
+-- Seed Master Potongan (Baru - Versi Vertikal)
+INSERT INTO tb_master_potongan (nama_potongan, kode_potongan, nilai_default) VALUES
+('Potongan Angsuran', 'POT_ANGSURAN', 0.00),
+('Potongan Dana Wajib', 'POT_DANA_WAJIB', 50000.00),
+('Potongan S_PSKD', 'POT_S_PSKD', 20000.00),
+('Potongan Pelkes', 'POT_PELKES', 30000.00),
+('Potongan Lainnya', 'POT_LAINNYA', 0.00)
+ON CONFLICT (kode_potongan) DO UPDATE SET nilai_default = EXCLUDED.nilai_default;
 
 -- Seed Master Jabatan
 INSERT INTO tb_jabatan (nama_jabatan, tunjangan_jabatan_struktural) VALUES 
@@ -237,7 +237,7 @@ INSERT INTO tb_pegawai (nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_
 ('Rian Hidayat - 1998-11-02', (SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan='Guru Tetap / Staf TU'), (SELECT id_golongan FROM tb_golongan WHERE nama_golongan='GTT/PTT (Guru/Pegawai Tidak Tetap)'), 'TK', 0, 1500000.00)
 ON CONFLICT DO NOTHING;
 
--- Seed Transaksi Absensi (Dinamis Berbasis Subquery ID Periode & Pegawai)
+-- Seed Transaksi Absensi
 INSERT INTO tb_absensi_summary (id_periode, id_pegawai, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), 24, 0, 1, 0, 0),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), 25, 0, 0, 0, 0),
@@ -260,54 +260,21 @@ INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, n
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), (SELECT id_tunjangan FROM tb_tunjangan WHERE kode_kondisi='TRN_WFO'), 660000.00)
 ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
 
--- Seed Potongan Bulanan
-INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya) VALUES
-((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), 500000.00, 50000.00, 20000.00, 30000.00, 0.00),
-((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), 0.00, 50000.00, 20000.00, 30000.00, 10000.00),
-((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), 0.00, 25000.00, 20000.00, 0.00, 0.00)
+-- Seed Transaksi Potongan Utama (Header)
+INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung) VALUES
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), 600000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), 110000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), 450000.00)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Snapshot Rekap Gaji Akhir
-INSERT INTO tb_rekap_gaji (
-    id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot,
-    tunj_kel_gabungan_snapshot, tunjangan_istri_snapshot, tunjangan_anak_snapshot,
-    tunjangan_struktural_snapshot, total_tunjangan_dinamis_snapshot, transport_makan_snapshot,
-    total_penghasilan_bruto, potongan_angsuran_snapshot, 
-    potongan_dana_wajib_snapshot, potongan_s_pskd_snapshot, potongan_pelkes_snapshot, potongan_lainnya_snapshot,
-    total_potongan, total_penerimaan_bersih
-) VALUES
-(
-    (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), 'Kepala Sekolah', 'Golongan IV/a (Pembina)', 3500000.00,
-    490000.00, 350000.00, 140000.00, 2000000.00, 0.00, 720000.00, 6710000.00, 500000.00, 50000.00, 20000.00, 30000.00, 0.00, 600000.00, 6110000.00
-),
-(
-    (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), 'Wali Kelas', 'Golongan III/b (Penata Muda Tk. I)', 2900000.00,
-    0.00, 0.00, 0.00, 500000.00, 187500.00, 750000.00, 4337500.00, 0.00, 50000.00, 20000.00, 30000.00, 10000.00, 110000.00, 4227500.00
-),
-(
-    (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), 'Guru Tetap / Staf TU', 'GTT/PTT (Guru/Pegawai Tidak Tetap)', 1500000.00,
-    0.00, 0.00, 0.00, 0.00, 275000.00, 660000.00, 2435000.00, 0.00, 25000.00, 20000.00, 0.00, 0.00, 45000.00, 2390000.00
-)
-ON CONFLICT (id_periode, id_pegawai) 
-DO UPDATE SET 
-    jabatan_snapshot = EXCLUDED.jabatan_snapshot,
-    pangkat_golongan_snapshot = EXCLUDED.pangkat_golongan_snapshot,
-    gaji_pokok_snapshot = EXCLUDED.gaji_pokok_snapshot,
-    tunj_kel_gabungan_snapshot = EXCLUDED.tunj_kel_gabungan_snapshot,
-    tunjangan_istri_snapshot = EXCLUDED.tunjangan_istri_snapshot,
-    tunjangan_anak_snapshot = EXCLUDED.tunjangan_anak_snapshot,
-    tunjangan_struktural_snapshot = EXCLUDED.tunjangan_struktural_snapshot,
-    total_tunjangan_dinamis_snapshot = EXCLUDED.total_tunjangan_dinamis_snapshot,
-    transport_makan_snapshot = EXCLUDED.transport_makan_snapshot,
-    total_penghasilan_bruto = EXCLUDED.total_penghasilan_bruto,
-    potongan_angsuran_snapshot = EXCLUDED.potongan_angsuran_snapshot,
-    potongan_dana_wajib_snapshot = EXCLUDED.potongan_dana_wajib_snapshot,
-    potongan_s_pskd_snapshot = EXCLUDED.potongan_s_pskd_snapshot,
-    potongan_pelkes_snapshot = EXCLUDED.potongan_pelkes_snapshot,
-    potongan_lainnya_snapshot = EXCLUDED.potongan_lainnya_snapshot,
-    total_potongan = EXCLUDED.total_potongan,
-    total_penerimaan_bersih = EXCLUDED.total_penerimaan_bersih,
-    created_at = NOW();
+-- Seed Detail Potongan Vertikal (BERSIH & VALID)
+INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan) VALUES
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_ANGSURAN'), 500000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_S_PSKD'), 20000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_PELKES'), 30000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00)
+ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
 
 
 -- ==========================================
@@ -323,90 +290,52 @@ CREATE INDEX IF NOT EXISTS idx_pengguna_active ON tb_pengguna(id_pengguna) WHERE
 -- ==========================================
 -- V. STORED PROCEDURES / FUNCTIONS
 -- ==========================================
-CREATE OR REPLACE FUNCTION fungsi_buka_periode_baru(
-    p_bulan_gaji VARCHAR(20),
-    p_tanggal_awal DATE,
-    p_tanggal_akhir DATE
-) RETURNS INT AS $$
+CREATE OR REPLACE FUNCTION fungsi_kalkulasi_gaji_akhir(p_id_periode INT) 
+RETURNS VOID AS $$
 DECLARE
-    v_new_periode_id INT;
     v_pct_istri NUMERIC(12, 2);
     v_pct_anak NUMERIC(12, 2);
 BEGIN
-    -- 1. PENGAMAN: Validasi urutan tanggal masuk akal
-    IF p_tanggal_awal > p_tanggal_akhir THEN
-        RAISE EXCEPTION 'Gagal membuka periode: Tanggal awal (%) tidak boleh lebih besar dari tanggal akhir (%)!', p_tanggal_awal, p_tanggal_akhir;
-    END IF;
-
-    -- 2. PENGAMAN: Cek nama bulan gaji agar tidak duplikat (untuk yang aktif)
-    IF EXISTS (
-        SELECT 1 FROM tb_periode 
-        WHERE bulan_gaji = p_bulan_gaji AND deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION 'Gagal membuka periode: Nama periode bulan % sudah terdaftar dan aktif!', p_bulan_gaji;
-    END IF;
-
-    -- 3. AMAN DARI HARDCODE: Ambil parameter berbasis kode kondisi khusus
+    -- 1. Ambil parameter persentase tunjangan terbaru
     SELECT COALESCE(MAX(nilai), 0.10) INTO v_pct_istri FROM tb_tunjangan WHERE kode_kondisi = 'TUNJ_ISTRI' AND deleted_at IS NULL;
     SELECT COALESCE(MAX(nilai), 0.02) INTO v_pct_anak FROM tb_tunjangan WHERE kode_kondisi = 'TUNJ_ANAK' AND deleted_at IS NULL;
 
-    -- 4. INSERT PERIODE (Constraint GIST otomatis melempar error jika overlap)
-    INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status)
-    VALUES (p_bulan_gaji, p_tanggal_awal, p_tanggal_akhir, 'Pengisian Absensi')
-    RETURNING id_periode INTO v_new_periode_id;
+    -- 2. UPDATE nilai tunjangan harian (WFO) berdasarkan absensi riil
+    UPDATE tb_tunjangan_bulanan_detail td
+    SET nilai_terhitung = abs.total_hadir_ops_wfo * t.nilai
+    FROM tb_absensi_summary abs
+    JOIN tb_tunjangan t ON t.kode_kondisi = 'TRN_WFO'
+    WHERE td.id_periode = p_id_periode 
+      AND td.id_pegawai = abs.id_pegawai 
+      AND td.id_tunjangan = t.id_tunjangan 
+      AND abs.id_periode = p_id_periode;
 
-    -- 5. Inisialisasi data absensi kosong untuk semua pegawai aktif
-    INSERT INTO tb_absensi_summary (id_periode, id_pegawai, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha)
-    SELECT v_new_periode_id, id_pegawai, 0, 0, 0, 0, 0
-    FROM tb_pegawai
-    WHERE deleted_at IS NULL;
+    -- 3. UPDATE total_potongan_terhitung di tabel header potongan (Sinkronisasi)
+    UPDATE tb_potongan_bulanan pb
+    SET total_potongan_terhitung = COALESCE((
+        SELECT SUM(nilai_potongan) 
+        FROM tb_potongan_bulanan_detail pbd 
+        WHERE pbd.id_periode = pb.id_periode AND pbd.id_pegawai = pb.id_pegawai
+    ), 0)
+    WHERE pb.id_periode = p_id_periode;
 
-    -- 6. Inisialisasi data tunjangan bulanan kosong
-    INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
-    SELECT v_new_periode_id, id_pegawai, 0.00, 0.00
-    FROM tb_pegawai
-    WHERE deleted_at IS NULL;
+    -- 4. REFRESH / UPDATE tb_rekap_gaji dengan angka final yang sinkron
+    UPDATE tb_rekap_gaji rg
+    SET 
+        total_penghasilan_bruto = rg.gaji_pokok_snapshot 
+            + COALESCE((SELECT tunjangan_jabatan_struktural FROM tb_jabatan j JOIN tb_pegawai p ON p.id_jabatan = j.id_jabatan WHERE p.id_pegawai = rg.id_pegawai), 0)
+            + (CASE WHEN (SELECT status_perkawinan FROM tb_pegawai WHERE id_pegawai = rg.id_pegawai) = 'K' THEN (rg.gaji_pokok_snapshot * v_pct_istri) ELSE 0 END)
+            + (rg.gaji_pokok_snapshot * v_pct_anak * (SELECT jumlah_anak FROM tb_pegawai WHERE id_pegawai = rg.id_pegawai))
+            + COALESCE((SELECT SUM(nilai_terhitung) FROM tb_tunjangan_bulanan_detail WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0)
+            + COALESCE((SELECT honor_bulan FROM tb_tunjangan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0),
+        
+        total_potongan = COALESCE((SELECT total_potongan_terhitung FROM tb_potongan_bulanan WHERE id_periode = p_id_periode AND id_pegawai = rg.id_pegawai), 0)
+    WHERE rg.id_periode = p_id_periode;
 
-    -- 7. OTOMATISASI VERTIKAL: Daftarkan semua master tunjangan aktif ke tabel detail untuk tiap pegawai
-    INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
-    SELECT v_new_periode_id, p.id_pegawai, t.id_tunjangan, 0.00
-    FROM tb_pegawai p
-    CROSS JOIN tb_tunjangan t
-    WHERE p.deleted_at IS NULL AND t.deleted_at IS NULL;
+    -- 5. Hitung penerimaan bersih final (Clean Netto)
+    UPDATE tb_rekap_gaji
+    SET total_penerimaan_clean = total_penghasilan_bruto - total_potongan
+    WHERE id_periode = p_id_periode;
 
-    -- 8. Inisialisasi data potongan bulanan kosong
-    INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya)
-    SELECT v_new_periode_id, id_pegawai, 0.00, 0.00, 0.00, 0.00, 0.00
-    FROM tb_pegawai
-    WHERE deleted_at IS NULL;
-
-    -- 9. Buat snapshot awal di tb_rekap_gaji untuk komponen tetap (Inisialisasi Dasar)
-    INSERT INTO tb_rekap_gaji (
-        id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot,
-        tunjangan_istri_snapshot, tunjangan_anak_snapshot, tunjangan_struktural_snapshot,
-        tunj_kel_gabungan_snapshot, total_tunjangan_dinamis_snapshot, transport_makan_snapshot,
-        total_penghasilan_bruto, total_potongan, total_penerimaan_bersih
-    )
-    SELECT 
-        v_new_periode_id,
-        p.id_pegawai,
-        COALESCE(j.nama_jabatan, 'Tidak Ada Jabatan'),
-        COALESCE(g.nama_golongan, 'Tidak Ada Golongan'),
-        p.gaji_pokok_dasar,
-        CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * v_pct_istri) ELSE 0 END,
-        (p.gaji_pokok_dasar * v_pct_anak * p.jumlah_anak),
-        COALESCE(j.tunjangan_jabatan_struktural, 0),
-        (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * v_pct_istri) ELSE 0 END) + (p.gaji_pokok_dasar * v_pct_anak * p.jumlah_anak),
-        0.00, 
-        0.00, 
-        p.gaji_pokok_dasar + COALESCE(j.tunjangan_jabatan_struktural, 0) + (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * v_pct_istri) ELSE 0 END) + (p.gaji_pokok_dasar * v_pct_anak * p.jumlah_anak),
-        0.00, 
-        p.gaji_pokok_dasar + COALESCE(j.tunjangan_jabatan_struktural, 0) + (CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * v_pct_istri) ELSE 0 END) + (p.gaji_pokok_dasar * v_pct_anak * p.jumlah_anak)
-    FROM tb_pegawai p
-    LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
-    LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
-    WHERE p.deleted_at IS NULL;
-
-    RETURN v_new_periode_id;
 END;
 $$ LANGUAGE plpgsql;

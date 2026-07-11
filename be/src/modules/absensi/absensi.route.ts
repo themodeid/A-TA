@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { uploadExcel } from "../../middlewares/upload";
 import {
-  uploadAbsensi,
   getPeriodeByTahun,
   getAbsensiByPeriode,
   getAbsensiById,
@@ -21,9 +20,6 @@ router.get("/periode", getPeriodeByTahun);
 // ==========================================
 // ENDPOINT REKAP ABSENSI (CRUD)
 // ==========================================
-
-// POST /absensi (Upload File Excel)
-router.post("/", uploadExcel.single("file"), uploadAbsensi);
 
 // GET /absensi/periode/:idPeriode (Ambil rekap berdasarkan id periode)
 router.get("/periode/:idPeriode", getAbsensiByPeriode);

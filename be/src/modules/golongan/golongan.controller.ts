@@ -149,9 +149,7 @@ export const deleteGolongan = async (
     const parsedId = Number(id);
 
     if (isNaN(parsedId)) {
-      return next(
-        next(new AppError("ID Golongan harus berupa angka valid", 400)),
-      );
+      return next(new AppError("ID Golongan harus berupa angka valid", 400)); // Fix bug: double next() dihapus
     }
 
     const isDeleted = await golonganService.softDeleteGolongan(parsedId);

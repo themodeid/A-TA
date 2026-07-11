@@ -1,66 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
-import {
-  processAbsensiUpload,
-  createPeriodeOtomatis,
-} from "./service/absensi.service.uplod";
-import * as absensiService from "./service/absensi.service.crud";
-
-export const uploadAbsensi = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    if (!req.file) {
-      return next(
-        new AppError("File tidak ditemukan, mohon unggah file Excel", 400),
-      );
-    }
-
-    const { bulan, tahun } = req.body;
-    if (!bulan || !tahun) {
-      return next(new AppError("Bulan dan tahun wajib disertakan", 400));
-    }
-
-    const parseBulan = parseInt(String(bulan), 10);
-    const parseTahun = parseInt(String(tahun), 10);
-
-    if (
-      isNaN(parseBulan) ||
-      parseBulan < 1 ||
-      parseBulan > 12 ||
-      isNaN(parseTahun)
-    ) {
-      return next(
-        new AppError("Format bulan (1-12) atau tahun tidak valid", 400),
-      );
-    }
-
-    const periode = await createPeriodeOtomatis(parseBulan, parseTahun);
-    const idPenggunaDefault = 1; // Bypass AUTH untuk testing awal
-
-    const result = await processAbsensiUpload(
-      req.file.buffer,
-      req.file.originalname,
-      periode.id_periode,
-      idPenggunaDefault,
-    );
-
-    return res.status(200).json({
-      status: "success",
-      statusCode: 200,
-      message: `Absensi untuk periode ${periode.bulan_gaji} (Cut-off ${periode.tanggal_awal} s/d ${periode.tanggal_akhir}) berhasil diproses.`,
-      data: result,
-    });
-  } catch (error) {
-    return next(error);
-  }
-};
-
-// ==========================================
-// CRUD ABSENSI CONTROLLER (BARU & OPTIMAL)
-// ==========================================
+import * as absensiService from "./absensi.service.crud";
 
 // 1. Mengambil daftar periode berdasarkan parameter tahun di query (?tahun=2026)
 export const getPeriodeByTahun = async (
@@ -107,7 +47,7 @@ export const getAbsensiByPeriode = async (
   }
 };
 
-// 3. Mengambil data detail atau data edit rekap per baris id summary
+// 3. Mengambil data detail rekap per baris id summary
 export const getAbsensiById = async (
   req: Request,
   res: Response,
@@ -129,7 +69,7 @@ export const getAbsensiById = async (
   }
 };
 
-// 4. Update data rekap (WFO, WFH, Sakit, Alpha, Izin)
+// 4. Update data rekap (WFO, WFH, Sakit, Alpha, Izin) dengan auto-recalculate tunjangan harian
 export const updateAbsensi = async (
   req: Request,
   res: Response,
@@ -148,11 +88,12 @@ export const updateAbsensi = async (
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Absensi berhasil diupdate",
+      message:
+        "Absensi berhasil diupdate dan komponen tunjangan harian disinkronkan",
       data: result,
     });
-  } catch (error) {
-    return next(error);
+  } catch (error: any) {
+    return next(new AppError(error.message, 400));
   }
 };
 

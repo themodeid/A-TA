@@ -1,5 +1,19 @@
-import { pool } from "../../config/database"; // Sesuaikan path config databasemu
+import { pool } from "../../config/database";
 
+export interface PegawaiInputDTO {
+  nip?: string;
+  nama_lengkap: string;
+  tanggal_lahir?: string;
+  nama_jabatan?: string;
+  id_jabatan?: number;
+  pangkat_golongan?: string;
+  id_golongan?: number;
+  status_perkawinan: string;
+  jumlah_anak?: number;
+  gaji_pokok_dasar: number;
+}
+
+// READ: Mengambil semua master pegawai aktif
 export const getAllMasterPegawai = async () => {
   const client = await pool.connect();
   try {
@@ -25,6 +39,7 @@ export const getAllMasterPegawai = async () => {
   }
 };
 
+// READ: Mengambil data relasi pegawai terikat absensi & transaksi untuk payroll
 export const getPegawaiDataForPayroll = async (
   idPeriode: number,
   idPegawai: number,
@@ -33,7 +48,6 @@ export const getPegawaiDataForPayroll = async (
   try {
     const query = `
       SELECT 
-        -- 1. Data Dasar & Master Pegawai
         p.id_pegawai,
         p.nama_dan_tanggal_lahir,
         p.status_perkawinan,
@@ -43,23 +57,18 @@ export const getPegawaiDataForPayroll = async (
         j.tunjangan_jabatan_struktural,
         g.nama_golongan,
 
-        -- 2. Data Transaksi Absensi (Periode Terkait)
         COALESCE(abs.total_hadir_ops_wfo, 0) AS total_hadir_ops_wfo,
         COALESCE(abs.total_hadir_ops_wfh, 0) AS total_hadir_ops_wfh,
         COALESCE(abs.total_izin, 0) AS total_izin,
         COALESCE(abs.total_sakit, 0) AS total_sakit,
         COALESCE(abs.total_alpha, 0) AS total_alpha,
 
-        -- 3. Data Transaksi Tunjangan Bulanan Manual/Dinamis (Dari tabel induk tunjangan bulanan)
         COALESCE(tunj_b.honor_bulan, 0) AS honor_bulan,
         COALESCE(tunj_b.total_jam_lebih, 0) AS total_jam_lebih,
         
-        -- Mengambil nilai horizontal dari tabel detail vertikal menggunakan Conditional Aggregation
-        -- Sesuai dengan id_tunjangan di data seed milikmu
         COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 2 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_istri_snapshot,
         COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 3 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_anak_snapshot,
 
-        -- 4. Data Transaksi Potongan (Periode Terkait)
         COALESCE(pot.potongan_angsuran, 0) AS potongan_angsuran,
         COALESCE(pot.potongan_dana_wajib, 0) AS potongan_dana_wajib,
         COALESCE(pot.potongan_s_pskd, 0) AS potongan_s_pskd,
@@ -67,27 +76,20 @@ export const getPegawaiDataForPayroll = async (
         COALESCE(pot.potongan_lainnya, 0) AS potongan_lainnya
 
       FROM tb_pegawai p
-      -- Ambil Master Jabatan & Golongan (Wajib ada)
       INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
       INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
       
-      -- Hubungkan ke Tabel Transaksi menggunakan LEFT JOIN terkunci id_periode
       LEFT JOIN tb_absensi_summary abs 
         ON p.id_pegawai = abs.id_pegawai AND abs.id_periode = $1
       LEFT JOIN tb_tunjangan_bulanan tunj_b 
         ON p.id_pegawai = tunj_b.id_pegawai AND tunj_b.id_periode = $1
-      
-      -- JOIN tambahan ke tabel detail untuk mengambil data tunjangan vertikal
       LEFT JOIN tb_tunjangan_bulanan_detail t_detail
         ON p.id_pegawai = t_detail.id_pegawai AND t_detail.id_periode = $1
-        
       LEFT JOIN tb_potongan_bulanan pot 
         ON p.id_pegawai = pot.id_pegawai AND pot.id_periode = $1
 
-      -- Filter Pengunci: Hanya pegawai aktif & id yang diminta
       WHERE p.id_pegawai = $2 AND p.deleted_at IS NULL
       
-      -- Wajib ada GROUP BY karena kita memakai fungsi agregat MAX() di atas demi memecah data vertikal jadi kolom horizontal
       GROUP BY 
         p.id_pegawai, j.nama_jabatan, j.tunjangan_jabatan_struktural, g.nama_golongan, 
         abs.id_absensi_summary, tunj_b.id_tunjangan_bulanan, pot.id_potongan_bulanan;
@@ -105,36 +107,46 @@ export const getPegawaiDataForPayroll = async (
   }
 };
 
-// CREATE SINGLE PEGAWAI (Versi Sinkron dengan DB Baru + Auto NIP)
-export const createPegawai = async (data: any) => {
-  if (!data || !data.nama_lengkap) {
-    throw new Error(
-      "Gagal menambah pegawai: Data nama_lengkap tidak boleh kosong",
-    );
-  }
+// READ: Mengambil detail satu pegawai berdasarkan ID
+export const getPegawaiById = async (id: number) => {
   const client = await pool.connect();
   try {
-    // ----------------------------------------------------
-    // MULAI TRANSAKSI DATABASE (Wajib untuk multi-insert)
-    // ----------------------------------------------------
+    const query = `
+      SELECT p.*, j.nama_jabatan, g.nama_golongan 
+      FROM tb_pegawai p
+      INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+      INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+      WHERE p.id_pegawai = $1 AND p.deleted_at IS NULL
+    `;
+    const result = await client.query(query, [id]);
+    return result.rows[0] || null;
+  } finally {
+    client.release();
+  }
+};
+
+// CREATE: Tambah pegawai baru dan otomatis inject baris data kosong ke periode berjalan
+export const createPegawai = async (data: PegawaiInputDTO) => {
+  if (!data || !data.nama_lengkap) {
+    throw new Error("Data nama_lengkap wajib diisi.");
+  }
+
+  const client = await pool.connect();
+  try {
     await client.query("BEGIN");
 
-    // 1. Validasi Logis: Jika Tidak Kawin, anak otomatis 0
     let jumlahAnak = data.jumlah_anak || 0;
     if (data.status_perkawinan === "TK") {
       jumlahAnak = 0;
     }
 
-    // 2. Resolusi ID Jabatan & Golongan dari nama/string jika diperlukan
     let idJabatan = data.id_jabatan;
     if (!idJabatan && data.nama_jabatan) {
       const { rows: jabatanRows } = await client.query(
         `SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan = $1 AND deleted_at IS NULL`,
         [data.nama_jabatan],
       );
-      if (jabatanRows.length > 0) {
-        idJabatan = jabatanRows[0].id_jabatan;
-      }
+      if (jabatanRows.length > 0) idJabatan = jabatanRows[0].id_jabatan;
     }
 
     let idGolongan = data.id_golongan;
@@ -143,21 +155,15 @@ export const createPegawai = async (data: any) => {
         `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND deleted_at IS NULL`,
         [data.pangkat_golongan],
       );
-      if (golonganRows.length > 0) {
-        idGolongan = golonganRows[0].id_golongan;
-      }
+      if (golonganRows.length > 0) idGolongan = golonganRows[0].id_golongan;
     }
 
-    // Gabungkan nama dan tanggal lahir sesuai dengan kolom tunggal di DB kamu
     const tglLahirStr = data.tanggal_lahir ? `\n${data.tanggal_lahir}` : "";
     const namaDanTanggalLahir = `${data.nama_lengkap}${tglLahirStr}`;
-
-    // GENERATOR NIP OTOMATIS jika input data manual tidak membawa NIP (karena DB mewajibkan NOT NULL)
     const nipPegawai =
       data.nip ||
       `REG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // 3. Jalankan Query sesuai dengan struktur tabel baru (tb_pegawai)
     const query = `
       INSERT INTO tb_pegawai (
         nip, nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, 
@@ -187,11 +193,7 @@ export const createPegawai = async (data: any) => {
     const result = await client.query(query, values);
     const pegawaiBaru = result.rows[0];
 
-    // ----------------------------------------------------
-    // LOGIKA BARU: OTOMATISASI DATA PERIODE BERJALAN
-    // ----------------------------------------------------
-
-    // A. Cek apakah ada periode yang aktif (status 'Pengisian Absensi' atau belum closed)
+    // Otomatisasi data periode berjalan (jika ada)
     const qPeriode = `
       SELECT id_periode FROM tb_periode 
       WHERE status = 'Pengisian Absensi' AND deleted_at IS NULL 
@@ -199,47 +201,32 @@ export const createPegawai = async (data: any) => {
     `;
     const { rows: periodeRows } = await client.query(qPeriode);
 
-    // B. Jika ada periode aktif, suntikkan data default (0)
     if (periodeRows.length > 0) {
       const idPeriode = periodeRows[0].id_periode;
-      const idPegawai = pegawaiBaru.id_pegawai; // Sesuaikan dengan nama primary key di tb_pegawai milikmu (id atau id_pegawai)
+      const idPegawai = pegawaiBaru.id_pegawai;
 
-      // 1. Insert ke tb_absensi_summary
       await client.query(
-        `
-        INSERT INTO tb_absensi_summary (id_pegawai, id_periode, total_hadir, total_absen, total_izin)
-        VALUES ($1, $2, 0, 0, 0)
-        ON CONFLICT DO NOTHING
-      `,
+        `INSERT INTO tb_absensi_summary (id_pegawai, id_periode, total_hadir, total_absen, total_izin)
+         VALUES ($1, $2, 0, 0, 0) ON CONFLICT DO NOTHING`,
         [idPegawai, idPeriode],
       );
 
-      // 2. Insert ke tb_potongan_bulanan
       await client.query(
-        `
-        INSERT INTO tb_potongan_bulanan (id_pegawai, id_periode, potongan_terlambat, total_potongan)
-        VALUES ($1, $2, 0, 0)
-        ON CONFLICT DO NOTHING
-      `,
+        `INSERT INTO tb_potongan_bulanan (id_pegawai, id_periode, potongan_terlambat, total_potongan)
+         VALUES ($1, $2, 0, 0) ON CONFLICT DO NOTHING`,
         [idPegawai, idPeriode],
       );
 
-      // 3. Insert ke tb_rekap_gaji
       await client.query(
-        `
-        INSERT INTO tb_rekap_gaji (id_pegawai, id_periode, gaji_pokok, total_tunjangan, total_potongan, gaji_bersih, status_pembayaran)
-        VALUES ($1, $2, $3, 0, 0, 0, 'Pending')
-        ON CONFLICT DO NOTHING
-      `,
+        `INSERT INTO tb_rekap_gaji (id_pegawai, id_periode, gaji_pokok, total_tunjangan, total_potongan, gaji_bersih, status_pembayaran)
+         VALUES ($1, $2, $3, 0, 0, 0, 'Pending') ON CONFLICT DO NOTHING`,
         [idPegawai, idPeriode, data.gaji_pokok_dasar || 0],
       );
     }
 
-    // Jika semua proses aman, kunci/simpan perubahan di DB
     await client.query("COMMIT");
     return pegawaiBaru;
   } catch (error) {
-    // Jika ada yang gagal di tengah jalan, batalkan semuanya agar data tidak korup
     await client.query("ROLLBACK");
     throw error;
   } finally {
@@ -247,8 +234,11 @@ export const createPegawai = async (data: any) => {
   }
 };
 
-// UPDATE PEGAWAI (Versi Sinkron dengan DB Baru)
-export const updatePegawai = async (id: number, data: any) => {
+// UPDATE: Memperbarui data pegawai
+export const updatePegawai = async (
+  id: number,
+  data: Partial<PegawaiInputDTO>,
+) => {
   if (!data) {
     throw new Error("Data update pegawai tidak boleh kosong");
   }
@@ -265,9 +255,7 @@ export const updatePegawai = async (id: number, data: any) => {
         `SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan = $1 AND deleted_at IS NULL`,
         [data.nama_jabatan],
       );
-      if (jabatanRows.length > 0) {
-        idJabatan = jabatanRows[0].id_jabatan;
-      }
+      if (jabatanRows.length > 0) idJabatan = jabatanRows[0].id_jabatan;
     }
 
     let idGolongan = data.id_golongan;
@@ -276,12 +264,9 @@ export const updatePegawai = async (id: number, data: any) => {
         `SELECT id_golongan FROM tb_golongan WHERE nama_golongan = $1 AND deleted_at IS NULL`,
         [data.pangkat_golongan],
       );
-      if (golonganRows.length > 0) {
-        idGolongan = golonganRows[0].id_golongan;
-      }
+      if (golonganRows.length > 0) idGolongan = golonganRows[0].id_golongan;
     }
 
-    // Satukan string nama dan tanggal lahir
     const tglLahirStr = data.tanggal_lahir ? `\n${data.tanggal_lahir}` : "";
     const namaDanTanggalLahir = `${data.nama_lengkap}${tglLahirStr}`;
 
@@ -294,13 +279,14 @@ export const updatePegawai = async (id: number, data: any) => {
         id_golongan = $4, 
         status_perkawinan = $5, 
         jumlah_anak = $6, 
-        gaji_pokok_dasar = $7
+        gaji_pokok_dasar = $7,
+        updated_at = NOW()
       WHERE id_pegawai = $8 AND deleted_at IS NULL
       RETURNING *
     `;
 
     const values = [
-      data.nip || null, // Kalau nip mau diupdate
+      data.nip || null,
       namaDanTanggalLahir,
       idJabatan,
       idGolongan,
@@ -316,25 +302,7 @@ export const updatePegawai = async (id: number, data: any) => {
   }
 };
 
-// GET BY ID (Pastikan data yang sudah dihapus tidak bisa diakses)
-export const getPegawaiById = async (id: number) => {
-  const client = await pool.connect();
-  try {
-    const query = `
-      SELECT p.*, j.nama_jabatan, g.nama_golongan 
-      FROM tb_pegawai p
-      INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
-      INNER JOIN tb_golongan g ON p.id_golongan = g.id_golongan
-      WHERE p.id_pegawai = $1 AND p.deleted_at IS NULL
-    `;
-    const result = await client.query(query, [id]);
-    return result.rows[0] || null;
-  } finally {
-    client.release();
-  }
-};
-
-// SOFT DELETE PEGAWAI
+// DELETE: Menggunakan Soft Delete
 export const softDeletePegawai = async (id: number): Promise<boolean> => {
   const client = await pool.connect();
   try {

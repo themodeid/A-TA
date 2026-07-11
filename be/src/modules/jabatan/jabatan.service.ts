@@ -22,12 +22,21 @@ export const createJabatan = async (data: {
 }) => {
   const client = await pool.connect();
   try {
+    // Skenario ON CONFLICT yang aman: Mengembalikan data lama jika duplikat aktif,
+    // atau me-restore kembali jika data tersebut sebelumnya sudah di-soft delete.
     const query = `
       INSERT INTO tb_jabatan (nama_jabatan, tunjangan_jabatan_struktural) 
       VALUES ($1, $2)
-      ON CONFLICT (nama_jabatan) DO UPDATE SET 
-        tunjangan_jabatan_struktural = EXCLUDED.tunjangan_jabatan_struktural,
-        deleted_at = NULL
+      ON CONFLICT (nama_jabatan) 
+      DO UPDATE SET 
+        tunjangan_jabatan_struktural = CASE 
+          WHEN tb_jabatan.deleted_at IS NOT NULL THEN EXCLUDED.tunjangan_jabatan_struktural 
+          ELSE tb_jabatan.tunjangan_jabatan_struktural 
+        END,
+        deleted_at = CASE 
+          WHEN tb_jabatan.deleted_at IS NOT NULL THEN NULL 
+          ELSE tb_jabatan.deleted_at 
+        END
       RETURNING *
     `;
     const values = [data.nama_jabatan, data.tunjangan_jabatan_struktural ?? 0];
@@ -55,20 +64,19 @@ export const updateJabatan = async (
 ) => {
   const client = await pool.connect();
   try {
-    // Ambil data lama terlebih dahulu sebagai fallback agar data tidak hilang/terganti undefined
-    const existing = await getJabatanById(id);
-    if (!existing) return null;
-
+    // Dioptimasi menggunakan COALESCE langsung di level SQL.
+    // Jika data.nama_jabatan bernilai null/undefined, Postgres otomatis memakai nilai lama (nama_jabatan).
     const query = `
       UPDATE tb_jabatan 
-      SET nama_jabatan = $1, tunjangan_jabatan_struktural = $2
+      SET 
+        nama_jabatan = COALESCE($1, nama_jabatan), 
+        tunjangan_jabatan_struktural = COALESCE($2, tunjangan_jabatan_struktural)
       WHERE id_jabatan = $3 AND deleted_at IS NULL
       RETURNING *
     `;
     const values = [
-      data.nama_jabatan ?? existing.nama_jabatan,
-      data.tunjangan_jabatan_struktural ??
-        existing.tunjangan_jabatan_struktural,
+      data.nama_jabatan ?? null,
+      data.tunjangan_jabatan_struktural ?? null,
       id,
     ];
     const result = await client.query(query, values);

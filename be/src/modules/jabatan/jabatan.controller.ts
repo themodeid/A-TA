@@ -29,13 +29,36 @@ export const createJabatan = async (
 ) => {
   try {
     const { nama_jabatan, tunjangan_jabatan_struktural } = req.body;
-    if (!nama_jabatan) {
-      return next(new AppError("Nama jabatan wajib diisi", 400));
+
+    // 1. Validasi Input Dasar
+    if (
+      !nama_jabatan ||
+      typeof nama_jabatan !== "string" ||
+      nama_jabatan.trim() === ""
+    ) {
+      return next(
+        new AppError("Nama jabatan wajib diisi dengan teks yang valid", 400),
+      );
+    }
+
+    // 2. Defensif: Pastikan nominal tunjangan dikonversi ke angka murni (menghindari string)
+    const nominalTunjangan =
+      tunjangan_jabatan_struktural !== undefined
+        ? Number(tunjangan_jabatan_struktural)
+        : 0;
+
+    if (isNaN(nominalTunjangan) || nominalTunjangan < 0) {
+      return next(
+        new AppError(
+          "Tunjangan jabatan struktural harus berupa angka positif",
+          400,
+        ),
+      );
     }
 
     const newJabatan = await jabatanService.createJabatan({
-      nama_jabatan,
-      tunjangan_jabatan_struktural,
+      nama_jabatan: nama_jabatan.trim(),
+      tunjangan_jabatan_struktural: nominalTunjangan,
     });
 
     return res.status(201).json({
@@ -45,6 +68,15 @@ export const createJabatan = async (
       data: newJabatan,
     });
   } catch (error: any) {
+    // Menangkap error jika melanggar unique constraint index aktif di database
+    if (error.code === "23505") {
+      return next(
+        new AppError(
+          "Nama jabatan tersebut sudah terdaftar dan masih aktif",
+          400,
+        ),
+      );
+    }
     return next(
       new AppError(`Gagal menambahkan jabatan: ${error.message}`, 400),
     );
@@ -57,8 +89,14 @@ export const getJabatanById = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const jabatan = await jabatanService.getJabatanById(Number(id));
+    const id = Number(req.params.id);
+
+    // 3. Validasi ID agar tidak memproses NaN atau angka invalid
+    if (isNaN(id) || id <= 0) {
+      return next(new AppError("ID Jabatan tidak valid", 400));
+    }
+
+    const jabatan = await jabatanService.getJabatanById(id);
 
     if (!jabatan) {
       return next(
@@ -84,13 +122,34 @@ export const updateJabatan = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const { nama_jabatan, tunjangan_jabatan_struktural } = req.body;
+    const id = Number(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return next(new AppError("ID Jabatan tidak valid", 400));
+    }
 
-    const updated = await jabatanService.updateJabatan(Number(id), {
-      nama_jabatan,
-      tunjangan_jabatan_struktural,
-    });
+    const { nama_jabatan, tunjangan_jabatan_struktural } = req.body;
+    const updateData: {
+      nama_jabatan?: string;
+      tunjangan_jabatan_struktural?: number;
+    } = {};
+
+    // 4. Sanitisasi Parsial: Hanya masukkan property ke service jika dikirim di body
+    if (nama_jabatan !== undefined) {
+      if (typeof nama_jabatan !== "string" || nama_jabatan.trim() === "") {
+        return next(new AppError("Nama jabatan baru tidak boleh kosong", 400));
+      }
+      updateData.nama_jabatan = nama_jabatan.trim();
+    }
+
+    if (tunjangan_jabatan_struktural !== undefined) {
+      const nominal = Number(tunjangan_jabatan_struktural);
+      if (isNaN(nominal) || nominal < 0) {
+        return next(new AppError("Tunjangan harus berupa angka positif", 400));
+      }
+      updateData.tunjangan_jabatan_struktural = nominal;
+    }
+
+    const updated = await jabatanService.updateJabatan(id, updateData);
 
     if (!updated) {
       return next(
@@ -105,6 +164,14 @@ export const updateJabatan = async (
       data: updated,
     });
   } catch (error: any) {
+    if (error.code === "23505") {
+      return next(
+        new AppError(
+          "Gagal memperbarui! Nama jabatan tersebut sudah digunakan oleh jabatan aktif lain",
+          400,
+        ),
+      );
+    }
     return next(
       new AppError(`Gagal memperbarui jabatan: ${error.message}`, 400),
     );
@@ -117,8 +184,12 @@ export const deleteJabatan = async (
   next: NextFunction,
 ) => {
   try {
-    const { id } = req.params;
-    const isDeleted = await jabatanService.softDeleteJabatan(Number(id));
+    const id = Number(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return next(new AppError("ID Jabatan tidak valid", 400));
+    }
+
+    const isDeleted = await jabatanService.softDeleteJabatan(id);
 
     if (!isDeleted) {
       return next(

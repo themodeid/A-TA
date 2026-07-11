@@ -1,165 +1,218 @@
-import { Request, Response, NextFunction, Express } from "express";
+import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as pegawaiService from "./pegawai.service";
 
+/**
+ * POST /api/pegawai
+ * Menambahkan data pegawai baru
+ */
 export const createPegawai = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const dataPegawai = req.body;
     const newPegawai = await pegawaiService.createPegawai(dataPegawai);
 
-    return res.status(201).json({
+    res.status(201).json({
       status: "success",
       statusCode: 201,
       message: "Data pegawai berhasil ditambahkan",
       data: newPegawai,
     });
   } catch (error: any) {
-    return next(new AppError(`Gagal menambah pegawai: ${error.message}`, 400));
+    next(new AppError(`Gagal menambah pegawai: ${error.message}`, 400));
   }
 };
 
-export const getAllMasterPegawai = async (req: Request, res: Response) => {
+/**
+ * GET /api/pegawai
+ * Mengambil seluruh data master pegawai aktif
+ */
+export const getAllMasterPegawai = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const semuaPegawai = await pegawaiService.getAllMasterPegawai();
 
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
+      statusCode: 200,
       data: semuaPegawai,
     });
   } catch (error: any) {
-    return res.status(500).json({
-      status: "error",
-      message: `Gagal mengambil data master pegawai: ${error.message}`,
-      statusCode: 500,
-    });
+    next(
+      new AppError(
+        `Gagal mengambil data master pegawai: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
-// mengambil data pegawai tertentu
-export const getMasterPegawai = async (req: Request, res: Response) => {
+/**
+ * GET /api/pegawai/payroll
+ * Mengambil data spesifik pegawai untuk kebutuhan kalkulasi payroll berdasarkan idPeriode & idPegawai
+ */
+export const getMasterPegawai = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
-    // 1. Ambil data dari params atau query (sesuaikan dengan route-mu)
     const idPeriodeRaw = req.query.idPeriode || req.params.idPeriode;
     const idPegawaiRaw = req.query.idPegawai || req.params.idPegawai;
 
-    // 2. Konversi ke Integer
     const idPeriode = parseInt(idPeriodeRaw as string, 10);
     const idPegawai = parseInt(idPegawaiRaw as string, 10);
 
-    // 3. WAJIB VALIDASI: Jika hasil konversi adalah NaN, langsung potong dengan bad request!
     if (isNaN(idPeriode) || isNaN(idPegawai)) {
-      return res.status(400).json({
-        status: "error",
-        message: `ID Periode atau ID Pegawai tidak valid. Diterima: idPeriode=${idPeriodeRaw}, idPegawai=${idPegawaiRaw}`,
+      res.status(400).json({
+        status: "fail",
         statusCode: 400,
+        message: `ID Periode atau ID Pegawai tidak valid. Diterima: idPeriode=${idPeriodeRaw}, idPegawai=${idPegawaiRaw}`,
       });
+      return;
     }
 
-    // 4. Baru panggil fungsi query jika data sudah aman
     const dataPayroll = await pegawaiService.getPegawaiDataForPayroll(
       idPeriode,
       idPegawai,
     );
 
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
+      statusCode: 200,
       data: dataPayroll,
     });
   } catch (error: any) {
-    return res.status(500).json({
-      status: "error",
-      message: `Gagal mengambil data pegawai: ${error.message}`,
-      statusCode: 500,
-      stack: error.stack,
-    });
+    next(
+      new AppError(
+        `Gagal mengambil data pegawai untuk payroll: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
+/**
+ * GET /api/pegawai/:id
+ * Mengambil detail ringkas satu pegawai berdasarkan ID
+ */
 export const getPegawaiById = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { id } = req.params;
-    const pegawai = await pegawaiService.getPegawaiById(Number(id));
+    const parsedId = Number(id);
 
-    if (!pegawai) {
-      return next(
-        new AppError("Pegawai tidak ditemukan atau telah dihapus", 404),
-      );
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Pegawai harus berupa angka yang valid.",
+      });
+      return;
     }
 
-    return res.status(200).json({
+    const pegawai = await pegawaiService.getPegawaiById(parsedId);
+
+    if (!pegawai) {
+      next(new AppError("Pegawai tidak ditemukan atau telah dihapus", 404));
+      return;
+    }
+
+    res.status(200).json({
       status: "success",
       statusCode: 200,
       data: pegawai,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal mengambil data pegawai: ${error.message}`, 500),
-    );
+    next(new AppError(`Gagal mengambil data pegawai: ${error.message}`, 500));
   }
 };
 
+/**
+ * PUT /api/pegawai/:id
+ * Mengubah data profil dasar pegawai
+ */
 export const updatePegawai = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { id } = req.params;
+    const parsedId = Number(id);
     const dataUpdate = req.body;
 
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Pegawai harus berupa angka yang valid.",
+      });
+      return;
+    }
+
     const updatedPegawai = await pegawaiService.updatePegawai(
-      Number(id),
+      parsedId,
       dataUpdate,
     );
 
     if (!updatedPegawai) {
-      return next(
-        new AppError("Pegawai tidak ditemukan untuk diperbarui", 404),
-      );
+      next(new AppError("Pegawai tidak ditemukan untuk diperbarui", 404));
+      return;
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
       statusCode: 200,
       message: "Data pegawai berhasil diperbarui",
       data: updatedPegawai,
     });
   } catch (error: any) {
-    return next(
-      new AppError(`Gagal memperbarui pegawai: ${error.message}`, 400),
-    );
+    next(new AppError(`Gagal memperbarui pegawai: ${error.message}`, 400));
   }
 };
 
+/**
+ * DELETE /api/pegawai/:id
+ * Mengapus data pegawai secara logis (Soft Delete)
+ */
 export const deletePegawai = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { id } = req.params;
-    const isDeleted = await pegawaiService.softDeletePegawai(Number(id));
+    const parsedId = Number(id);
 
-    if (!isDeleted) {
-      return next(
-        new AppError("Pegawai tidak ditemukan atau sudah dihapus", 404),
-      );
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Pegawai harus berupa angka yang valid.",
+      });
+      return;
     }
 
-    return res.status(200).json({
+    const isDeleted = await pegawaiService.softDeletePegawai(parsedId);
+
+    if (!isDeleted) {
+      next(new AppError("Pegawai tidak ditemukan atau sudah dihapus", 404));
+      return;
+    }
+
+    res.status(200).json({
       status: "success",
       statusCode: 200,
       message: "Data pegawai berhasil dihapus (Soft Delete)",
     });
   } catch (error: any) {
-    return next(new AppError(`Gagal menghapus pegawai: ${error.message}`, 500));
+    next(new AppError(`Gagal menghapus pegawai: ${error.message}`, 500));
   }
 };

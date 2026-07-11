@@ -6,6 +6,7 @@ import jabatanRoutes from "../modules/jabatan/jabatan.routes";
 import golonganRoutes from "../modules/golongan/golongan.routes";
 import konfigurasiRoutes from "../modules/konfigurasi/konfigurasi.routes";
 import gajiRoutes from "../modules/gaji/gaji.routes";
+import potonganRoutes from "../modules/potongan/potongan-routes";
 
 const router = Router();
 
@@ -15,5 +16,5 @@ router.use("/jabatan", jabatanRoutes);
 router.use("/golongan", golonganRoutes);
 router.use("/konfigurasi", konfigurasiRoutes);
 router.use("/gaji", gajiRoutes);
-
+router.use("/potongan", potonganRoutes);
 export default router;

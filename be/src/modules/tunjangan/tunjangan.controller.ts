@@ -1,79 +1,87 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { AppError } from "../../utils/appError";
 import * as repo from "./tunjangan.service";
 
 /**
  * 1. Get data tunjangan semua pegawai pada periode tertentu
- * URL: GET /api/tunjangan?id_periode=X
  */
 export const getTunjanganByPeriode = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { id_periode } = req.query;
+    const id_periode = Number(req.query.id_periode);
 
-    if (!id_periode) {
-      res.status(400).json({
-        status: "fail",
-        message: "Parameter 'id_periode' wajib disertakan!",
-      });
-      return;
+    if (!req.query.id_periode || isNaN(id_periode) || id_periode <= 0) {
+      return next(
+        new AppError(
+          "Parameter 'id_periode' wajib disertakan dengan angka yang valid!",
+          400,
+        ),
+      );
     }
 
-    const data = await repo.getTunjanganByPeriode(Number(id_periode));
+    const data = await repo.getTunjanganByPeriode(id_periode);
 
     res.status(200).json({
       status: "success",
+      statusCode: 200,
       results: data.length,
       data,
     });
   } catch (error: any) {
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Gagal mengambil data tunjangan bulanan.",
-    });
+    return next(
+      new AppError(
+        `Gagal mengambil data tunjangan bulanan: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
 /**
- * 2. Save / Upsert Tunjangan Bulanan Pegawai
- * URL: POST /api/tunjangan
- * Mendukung single object atau array (bulk) untuk input tipe spreadsheet di frontend
+ * 2. Save / Upsert Tunjangan Bulanan Pegawai (Mendukung bulk & single upload spreadsheet)
  */
 export const saveTunjanganBulanan = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const body = req.body;
 
-    // Validasi input kosong
     if (!body || (Array.isArray(body) && body.length === 0)) {
-      res.status(400).json({
-        status: "fail",
-        message: "Data yang dikirim tidak boleh kosong!",
-      });
-      return;
+      return next(
+        new AppError("Data payload yang dikirim tidak boleh kosong!", 400),
+      );
     }
 
-    // Ubah ke bentuk array jika inputnya cuma single object biar bisa diproses pakai loop yang sama
     const records = Array.isArray(body) ? body : [body];
     const savedData = [];
 
-    // Loop dan jalankan upsert ke repository
     for (const record of records) {
-      if (!record.id_periode || !record.id_pegawai) {
-        res.status(400).json({
-          status: "fail",
-          message: "Setiap data wajib memiliki 'id_periode' dan 'id_pegawai'!",
-        });
-        return;
+      const id_periode = Number(record.id_periode);
+      const id_pegawai = Number(record.id_pegawai);
+
+      if (
+        !record.id_periode ||
+        isNaN(id_periode) ||
+        !record.id_pegawai ||
+        isNaN(id_pegawai)
+      ) {
+        return next(
+          new AppError(
+            "Setiap item data wajib memiliki 'id_periode' dan 'id_pegawai' berupa angka!",
+            400,
+          ),
+        );
       }
 
-      // Pastikan nilai numeric default ke 0 kalau dikosongkan/null dari frontend
+      // Pastikan konversi tipe data angka mutlak untuk mencegah bug tipe string json lepas dari frontend
       const payload = {
-        id_periode: Number(record.id_periode),
-        id_pegawai: Number(record.id_pegawai),
+        id_periode,
+        id_pegawai,
         tunjangan_kesra: Number(record.tunjangan_kesra ?? 0),
         tunjangan_supervisi: Number(record.tunjangan_supervisi ?? 0),
         tunjangan_wali_kelas: Number(record.tunjangan_wali_kelas ?? 0),
@@ -97,112 +105,138 @@ export const saveTunjanganBulanan = async (
 
     res.status(200).json({
       status: "success",
+      statusCode: 200,
       message: `${savedData.length} data tunjangan bulanan berhasil disimpan/diperbarui.`,
       data: Array.isArray(body) ? savedData : savedData[0],
     });
   } catch (error: any) {
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Gagal menyimpan data tunjangan bulanan.",
-    });
+    return next(
+      new AppError(
+        `Gagal menyimpan data tunjangan bulanan: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
 /**
  * 3. Get detail tunjangan bulanan spesifik berdasarkan ID Transaksi
- * URL: GET /api/tunjangan/:id_tunjangan_bulanan
  */
 export const getTunjanganById = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { id_tunjangan_bulanan } = req.params;
-    const data = await repo.getTunjanganById(Number(id_tunjangan_bulanan));
-
-    if (!data) {
-      res.status(404).json({
-        status: "fail",
-        message: "Data tunjangan bulanan tidak ditemukan!",
-      });
-      return;
+    const id_tunjangan_bulanan = Number(req.params.id_tunjangan_bulanan);
+    if (isNaN(id_tunjangan_bulanan) || id_tunjangan_bulanan <= 0) {
+      return next(
+        new AppError("ID transaksi tunjangan bulanan tidak valid", 400),
+      );
     }
 
-    res.status(200).json({ status: "success", data });
+    const data = await repo.getTunjanganById(id_tunjangan_bulanan);
+
+    if (!data) {
+      return next(
+        new AppError(
+          "Data tunjangan bulanan tidak ditemukan atau pegawai terkait telah dihapus!",
+          404,
+        ),
+      );
+    }
+
+    res.status(200).json({ status: "success", statusCode: 200, data });
   } catch (error: any) {
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Gagal mengambil detail data tunjangan.",
-    });
+    return next(
+      new AppError(
+        `Gagal mengambil detail data tunjangan: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
 /**
  * 4. Update data tunjangan bulanan spesifik (Untuk revisi parsial)
- * URL: PUT /api/tunjangan/:id_tunjangan_bulanan
  */
 export const updateTunjanganBulanan = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { id_tunjangan_bulanan } = req.params;
-    const data = req.body;
+    const id_tunjangan_bulanan = Number(req.params.id_tunjangan_bulanan);
+    if (isNaN(id_tunjangan_bulanan) || id_tunjangan_bulanan <= 0) {
+      return next(
+        new AppError("ID transaksi tunjangan bulanan tidak valid", 400),
+      );
+    }
 
     const updated = await repo.updateTunjanganBulanan(
-      Number(id_tunjangan_bulanan),
-      data,
+      id_tunjangan_bulanan,
+      req.body,
     );
 
     if (!updated) {
-      res.status(404).json({
-        status: "fail",
-        message: "Gagal memperbarui, data tidak ditemukan!",
-      });
-      return;
+      return next(
+        new AppError(
+          "Gagal memperbarui! Data tidak ditemukan atau pegawai terkait sudah tidak aktif.",
+          404,
+        ),
+      );
     }
 
     res.status(200).json({
       status: "success",
-      message: "Data tunjangan bulanan berhasil diperbarui.",
+      statusCode: 200,
+      message: "Data jabatan berhasil diperbarui",
       data: updated,
     });
   } catch (error: any) {
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Gagal memperbarui data tunjangan bulanan.",
-    });
+    return next(
+      new AppError(
+        `Gagal memperbarui data tunjangan bulanan: ${error.message}`,
+        500,
+      ),
+    );
   }
 };
 
 /**
  * 5. Get data tunjangan spesifik untuk 1 pegawai di periode tertentu
- * URL: GET /api/tunjangan/pegawai/:id_pegawai?id_periode=X
  */
 export const getTunjanganPegawaiByPeriode = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { id_pegawai } = req.params;
-    const { id_periode } = req.query;
+    const id_pegawai = Number(req.params.id_pegawai);
+    const id_periode = Number(req.query.id_periode);
 
-    if (!id_periode) {
-      res.status(400).json({
-        status: "fail",
-        message: "Parameter 'id_periode' wajib diisi di query string!",
-      });
-      return;
+    if (isNaN(id_pegawai) || id_pegawai <= 0) {
+      return next(new AppError("Parameter 'id_pegawai' tidak valid!", 400));
+    }
+
+    if (!req.query.id_periode || isNaN(id_periode) || id_periode <= 0) {
+      return next(
+        new AppError(
+          "Parameter 'id_periode' wajib diisi dengan angka valid di query string!",
+          400,
+        ),
+      );
     }
 
     const data = await repo.getTunjanganPegawaiByPeriode(
-      Number(id_pegawai),
-      Number(id_periode),
+      id_pegawai,
+      id_periode,
     );
 
     if (!data) {
-      res.status(204).json({
+      res.status(200).json({
         status: "success",
+        statusCode: 200,
         message:
           "Belum ada rekaman data tunjangan untuk pegawai ini di periode tersebut.",
         data: null,
@@ -210,11 +244,13 @@ export const getTunjanganPegawaiByPeriode = async (
       return;
     }
 
-    res.status(200).json({ status: "success", data });
+    res.status(200).json({ status: "success", statusCode: 200, data });
   } catch (error: any) {
-    res.status(500).json({
-      status: "error",
-      message: error.message || "Gagal mengambil data tunjangan pegawai.",
-    });
+    return next(
+      new AppError(
+        `Gagal mengambil data tunjangan pegawai: ${error.message}`,
+        500,
+      ),
+    );
   }
 };

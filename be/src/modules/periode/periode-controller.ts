@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import * as PeriodeService from "../periode/periode-services"; // Sesuaikan path ke service kamu
+import * as PeriodeService from "../periode/periode-services"; // Jalur impor disesuaikan ke file service Anda
 
 /**
  * POST /api/periode
@@ -72,7 +72,6 @@ export const getPeriodeById = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // FIX: Tambahkan Type Casting 'as string' agar aman masuk ke parseInt
     const idPeriode = req.params.idPeriode as string;
     const parsedId = parseInt(idPeriode, 10);
 
@@ -110,7 +109,6 @@ export const updatePeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // FIX: Gunakan Type Casting 'as string'
     const idPeriode = req.params.idPeriode as string;
     const parsedId = parseInt(idPeriode, 10);
 
@@ -162,7 +160,6 @@ export const deletePeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // FIX: Gunakan Type Casting 'as string'
     const idPeriode = req.params.idPeriode as string;
     const parsedId = parseInt(idPeriode, 10);
 
@@ -200,10 +197,9 @@ export const getRekapByPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // FIX: Gunakan Type Casting 'as string'
     const idPeriode = req.params.idPeriode as string;
-
     const parsedIdPeriode = parseInt(idPeriode, 10);
+
     if (isNaN(parsedIdPeriode)) {
       res.status(400).json({
         status: "fail",
@@ -214,7 +210,7 @@ export const getRekapByPeriode = async (
 
     const rekapData = await PeriodeService.getPeriodeById(parsedIdPeriode);
 
-    if (!rekapData || (Array.isArray(rekapData) && rekapData.length === 0)) {
+    if (!rekapData) {
       res.status(404).json({
         status: "success",
         message: `Data rekap gaji untuk periode ID ${parsedIdPeriode} tidak ditemukan atau masih kosong.`,

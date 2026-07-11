@@ -1,131 +1,104 @@
 import { pool } from "../../config/database";
-import { PotonganBulanan, PotonganInput } from "./potongan.type";
+
+interface PotonganDetailInput {
+  id_master_potongan: number;
+  nilai_potongan: number;
+}
+
+interface UpsertPotonganInput {
+  id_periode: number;
+  id_pegawai: number;
+  details: PotonganDetailInput[];
+}
 
 /**
- * Mengambil semua data potongan bulanan
+ * Menyimpan detail potongan dan menghitung otomatis total_potongan_terhitung di tabel induk
  */
-export const getAllPotongan = async (): Promise<PotonganBulanan[]> => {
-  const query = `
-    SELECT 
-      id_potongan_bulanan, id_periode, id_pegawai,
-      potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya
-    FROM tb_potongan_bulanan
-    ORDER BY id_potongan_bulanan DESC;
-  `;
-  const { rows } = await pool.query(query);
-  return rows;
+export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
+  const { id_periode, id_pegawai, details } = data;
+
+  const total_potongan_terhitung = details.reduce(
+    (sum, item) => sum + Number(item.nilai_potongan),
+    0,
+  );
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Upsert ke tabel induk: tb_potongan_bulanan
+    const upsertIndukQuery = `
+      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (id_periode, id_pegawai) 
+      DO UPDATE SET total_potongan_terhitung = EXCLUDED.total_potongan_terhitung
+      RETURNING *;
+    `;
+    const indukResult = await client.query(upsertIndukQuery, [
+      id_periode,
+      id_pegawai,
+      total_potongan_terhitung,
+    ]);
+    const indukData = indukResult.rows[0];
+
+    // 2. Upsert ke tabel detail: tb_potongan_bulanan_detail
+    const savedDetails = [];
+    const upsertDetailQuery = `
+      INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (id_periode, id_pegawai, id_master_potongan) 
+      DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan
+      RETURNING *;
+    `;
+
+    for (const detail of details) {
+      const detailResult = await client.query(upsertDetailQuery, [
+        id_periode,
+        id_pegawai,
+        detail.id_master_potongan,
+        detail.nilai_potongan,
+      ]);
+      savedDetails.push(detailResult.rows[0]);
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      ...indukData,
+      details: savedDetails,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 /**
- * Mengambil data potongan bulanan berdasarkan ID
+ * Mengambil data rangkuman potongan beserta rincian detailnya
  */
-export const getPotonganById = async (
-  id: number,
-): Promise<PotonganBulanan | null> => {
-  const query = `
-    SELECT 
-      id_potongan_bulanan, id_periode, id_pegawai,
-      potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya
-    FROM tb_potongan_bulanan
-    WHERE id_potongan_bulanan = $1;
-  `;
-  const { rows } = await pool.query(query, [id]);
-  return rows[0] || null;
-};
-
-/**
- * Menyimpan data potongan bulanan baru (Satu pegawai per periode bersifat UNIQUE)
- */
-export const createPotongan = async (
-  data: PotonganInput,
-): Promise<PotonganBulanan> => {
-  // Cek apakah data potongan pegawai tersebut di periode yang sama sudah pernah diinput
-  const checkQuery = `
-    SELECT id_potongan_bulanan 
-    FROM tb_potongan_bulanan 
+export const getPotonganByPegawaiAndPeriode = async (
+  id_periode: number,
+  id_pegawai: number,
+) => {
+  const indukQuery = `
+    SELECT * FROM tb_potongan_bulanan 
     WHERE id_periode = $1 AND id_pegawai = $2;
   `;
-  const checkResult = await pool.query(checkQuery, [
-    data.id_periode,
-    data.id_pegawai,
-  ]);
+  const indukResult = await pool.query(indukQuery, [id_periode, id_pegawai]);
 
-  if (checkResult.rows.length > 0) {
-    throw new Error(
-      "Data potongan untuk pegawai ini di periode tersebut sudah ada",
-    );
-  }
+  if (indukResult.rows.length === 0) return null;
 
-  const query = `
-    INSERT INTO tb_potongan_bulanan (
-      id_periode, id_pegawai, 
-      potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING id_potongan_bulanan, id_periode, id_pegawai, potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya;
+  const detailQuery = `
+    SELECT * FROM tb_potongan_bulanan_detail 
+    WHERE id_periode = $1 AND id_pegawai = $2;
   `;
+  const detailResult = await pool.query(detailQuery, [id_periode, id_pegawai]);
 
-  const values = [
-    data.id_periode,
-    data.id_pegawai,
-    data.potongan_angsuran,
-    data.potongan_dana_wajib,
-    data.potongan_s_pskd,
-    data.potongan_pelkes,
-    data.potongan_lainnya,
-  ];
-
-  const { rows } = await pool.query(query, values);
-  return rows[0];
-};
-
-/**
- * Memperbarui data nominal potongan bulanan
- */
-export const updatePotongan = async (
-  id: number,
-  data: Partial<Omit<PotonganInput, "id_periode" | "id_pegawai">>,
-): Promise<PotonganBulanan | null> => {
-  const currentData = await getPotonganById(id);
-  if (!currentData) return null;
-
-  // Jika data input undefined/tidak dikirim, pertahankan nilai lama dari DB
-  const angsuran = data.potongan_angsuran ?? currentData.potongan_angsuran;
-  const danaWajib = data.potongan_dana_wajib ?? currentData.potongan_dana_wajib;
-  const sPskd = data.potongan_s_pskd ?? currentData.potongan_s_pskd;
-  const pelkes = data.potongan_pelkes ?? currentData.potongan_pelkes;
-  const lainnya = data.potongan_lainnya ?? currentData.potongan_lainnya;
-
-  const query = `
-    UPDATE tb_potongan_bulanan
-    SET 
-      potongan_angsuran = $1,
-      potongan_dana_wajib = $2,
-      potongan_s_pskd = $3,
-      potongan_pelkes = $4,
-      potongan_lainnya = $5
-    WHERE id_potongan_bulanan = $6
-    RETURNING id_potongan_bulanan, id_periode, id_pegawai, potongan_angsuran, potongan_dana_wajib, potongan_s_pskd, potongan_pelkes, potongan_lainnya;
-  `;
-
-  const { rows } = await pool.query(query, [
-    angsuran,
-    danaWajib,
-    sPskd,
-    pelkes,
-    lainnya,
-    id,
-  ]);
-  return rows[0] || null;
-};
-
-/**
- * Menghapus data potongan bulanan secara permanen (Hard Delete)
- */
-export const deletePotongan = async (id: number): Promise<boolean> => {
-  const query = `
-    DELETE FROM tb_potongan_bulanan
-    WHERE id_potongan_bulanan = $1;
-  `;
-  const result = await pool.query(query, [id]);
-  return (result.rowCount ?? 0) > 0;
+  return {
+    ...indukResult.rows[0],
+    details: detailResult.rows,
+  };
 };

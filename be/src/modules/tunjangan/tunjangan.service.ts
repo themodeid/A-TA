@@ -41,7 +41,6 @@ export const getTunjanganByPeriode = async (id_periode: number) => {
 
 /**
  * 2. Upsert (Insert atau Update) Tunjangan Bulanan Pegawai
- * Menggunakan ON CONFLICT berdasarkan constraint UNIQUE (id_periode, id_pegawai)
  */
 export const upsertTunjanganBulanan = async (data: TunjanganBulananInput) => {
   const client = await pool.connect();
@@ -100,12 +99,17 @@ export const upsertTunjanganBulanan = async (data: TunjanganBulananInput) => {
 };
 
 /**
- * 3. Get detail tunjangan bulanan berdasarkan ID transaksi utama
+ * 3. Get detail tunjangan bulanan berdasarkan ID transaksi utama (Proteksi Soft Delete Pegawai)
  */
 export const getTunjanganById = async (id_tunjangan_bulanan: number) => {
   const client = await pool.connect();
   try {
-    const query = `SELECT * FROM tb_tunjangan_bulanan WHERE id_tunjangan_bulanan = $1`;
+    const query = `
+      SELECT t.* 
+      FROM tb_tunjangan_bulanan t
+      JOIN tb_pegawai p ON t.id_pegawai = p.id_pegawai
+      WHERE t.id_tunjangan_bulanan = $1 AND p.deleted_at IS NULL
+    `;
     const result = await client.query(query, [id_tunjangan_bulanan]);
     return result.rows[0] || null;
   } finally {
@@ -114,7 +118,7 @@ export const getTunjanganById = async (id_tunjangan_bulanan: number) => {
 };
 
 /**
- * 4. Update Parsial Tunjangan Bulanan (Berdasarkan ID transaksi)
+ * 4. Update Parsial Tunjangan Bulanan (Optimasi COALESCE - 1x Query)
  */
 export const updateTunjanganBulanan = async (
   id_tunjangan_bulanan: number,
@@ -122,37 +126,44 @@ export const updateTunjanganBulanan = async (
 ) => {
   const client = await pool.connect();
   try {
-    // Ambil data eksisting sebagai cadangan jika field tidak dikirim di body
-    const existing = await getTunjanganById(id_tunjangan_bulanan);
-    if (!existing) return null;
-
+    // Query dioptimasi penuh menggunakan COALESCE langsung ke database tanpa fetch data awal
     const query = `
-      UPDATE tb_tunjangan_bulanan 
+      UPDATE tb_tunjangan_bulanan t
       SET 
-        tunjangan_kesra = $1, tunjangan_supervisi = $2, tunjangan_wali_kelas = $3, 
-        tunjangan_piket = $4, tunjangan_jurbeng = $5, honor_bulan = $6, 
-        tunjangan_khusus = $7, total_jam_lebih = $8, tunj_kel_gabungan = $9, 
-        tunjjab_25_pp1985 = $10, sb_dana_chuk_2_pp85 = $11, sb_dana_chuk_8_pp85 = $12, 
-        tunjangan_perbaikan_penghasilan = $13
-      WHERE id_tunjangan_bulanan = $14
-      RETURNING *
+        tunjangan_kesra = COALESCE($1, t.tunjangan_kesra), 
+        tunjangan_supervisi = COALESCE($2, t.tunjangan_supervisi), 
+        tunjangan_wali_kelas = COALESCE($3, t.tunjangan_wali_kelas), 
+        tunjangan_piket = COALESCE($4, t.tunjangan_piket), 
+        tunjangan_jurbeng = COALESCE($5, t.tunjangan_jurbeng), 
+        honor_bulan = COALESCE($6, t.honor_bulan), 
+        tunjangan_khusus = COALESCE($7, t.tunjangan_khusus), 
+        total_jam_lebih = COALESCE($8, t.total_jam_lebih), 
+        tunj_kel_gabungan = COALESCE($9, t.tunj_kel_gabungan), 
+        tunjjab_25_pp1985 = COALESCE($10, t.tunjjab_25_pp1985), 
+        sb_dana_chuk_2_pp85 = COALESCE($11, t.sb_dana_chuk_2_pp85), 
+        sb_dana_chuk_8_pp85 = COALESCE($12, t.sb_dana_chuk_8_pp85), 
+        tunjangan_perbaikan_penghasilan = COALESCE($13, t.tunjangan_perbaikan_penghasilan)
+      FROM tb_pegawai p
+      WHERE t.id_pegawai = p.id_pegawai 
+        AND t.id_tunjangan_bulanan = $14 
+        AND p.deleted_at IS NULL
+      RETURNING t.*
     `;
 
     const values = [
-      data.tunjangan_kesra ?? existing.tunjangan_kesra,
-      data.tunjangan_supervisi ?? existing.tunjangan_supervisi,
-      data.tunjangan_wali_kelas ?? existing.tunjangan_wali_kelas,
-      data.tunjangan_piket ?? existing.tunjangan_piket,
-      data.tunjangan_jurbeng ?? existing.tunjangan_jurbeng,
-      data.honor_bulan ?? existing.honor_bulan,
-      data.tunjangan_khusus ?? existing.tunjangan_khusus,
-      data.total_jam_lebih ?? existing.total_jam_lebih,
-      data.tunj_kel_gabungan ?? existing.tunj_kel_gabungan,
-      data.tunjjab_25_pp1985 ?? existing.tunjjab_25_pp1985,
-      data.sb_dana_chuk_2_pp85 ?? existing.sb_dana_chuk_2_pp85,
-      data.sb_dana_chuk_8_pp85 ?? existing.sb_dana_chuk_8_pp85,
-      data.tunjangan_perbaikan_penghasilan ??
-        existing.tunjangan_perbaikan_penghasilan,
+      data.tunjangan_kesra ?? null,
+      data.tunjangan_supervisi ?? null,
+      data.tunjangan_wali_kelas ?? null,
+      data.tunjangan_piket ?? null,
+      data.tunjangan_jurbeng ?? null,
+      data.honor_bulan ?? null,
+      data.tunjangan_khusus ?? null,
+      data.total_jam_lebih ?? null,
+      data.tunj_kel_gabungan ?? null,
+      data.tunjjab_25_pp1985 ?? null,
+      data.sb_dana_chuk_2_pp85 ?? null,
+      data.sb_dana_chuk_8_pp85 ?? null,
+      data.tunjangan_perbaikan_penghasilan ?? null,
       id_tunjangan_bulanan,
     ];
 
@@ -164,7 +175,7 @@ export const updateTunjanganBulanan = async (
 };
 
 /**
- * 5. Get data tunjangan spesifik untuk 1 pegawai di periode tertentu
+ * 5. Get data tunjangan spesifik untuk 1 pegawai di periode tertentu (Proteksi Soft Delete Pegawai)
  */
 export const getTunjanganPegawaiByPeriode = async (
   id_pegawai: number,
@@ -173,8 +184,10 @@ export const getTunjanganPegawaiByPeriode = async (
   const client = await pool.connect();
   try {
     const query = `
-      SELECT * FROM tb_tunjangan_bulanan 
-      WHERE id_pegawai = $1 AND id_periode = $2
+      SELECT t.* 
+      FROM tb_tunjangan_bulanan t
+      JOIN tb_pegawai p ON t.id_pegawai = p.id_pegawai
+      WHERE t.id_pegawai = $1 AND t.id_periode = $2 AND p.deleted_at IS NULL
     `;
     const result = await client.query(query, [id_pegawai, id_periode]);
     return result.rows[0] || null;
