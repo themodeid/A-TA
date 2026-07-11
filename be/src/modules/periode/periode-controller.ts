@@ -1,7 +1,43 @@
 import { Request, Response, NextFunction } from "express";
-import * as PeriodeService from "../periode/periode-services";
-// Asumsi service rekap gaji juga menggunakan gaya functional fungsional yang sama
-// import { getRekapByPeriodeService } from "../rekap-gaji/rekap-gaji-services";
+import * as PeriodeService from "../periode/periode-services"; // Sesuaikan path ke service kamu
+
+/**
+ * POST /api/periode
+ * Membuka periode baru
+ */
+export const createPeriode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { bulan_gaji, tanggal_awal, tanggal_akhir } = req.body;
+
+    // Validasi input dasar
+    if (!bulan_gaji || !tanggal_awal || !tanggal_akhir) {
+      res.status(400).json({
+        status: "fail",
+        message:
+          "Data bulan_gaji, tanggal_awal, dan tanggal_akhir wajib diisi.",
+      });
+      return;
+    }
+
+    const newPeriode = await PeriodeService.createPeriode({
+      bulan_gaji,
+      tanggal_awal,
+      tanggal_akhir,
+    });
+
+    res.status(201).json({
+      status: "success",
+      message: "Berhasil membuka periode baru.",
+      data: newPeriode,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * GET /api/periode
@@ -13,10 +49,8 @@ export const getAllPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // 1. Panggil data langsung dari fungsi service yang sudah di-import
     const periodeData = await PeriodeService.getAllPeriode();
 
-    // 2. Kirim response sukses jika data ada
     res.status(200).json({
       status: "success",
       message: "Berhasil mengambil data semua periode rekap gaji.",
@@ -24,13 +58,140 @@ export const getAllPeriode = async (
       data: periodeData,
     });
   } catch (error) {
-    // Dilempar ke global error handler Express
     next(error);
   }
 };
 
 /**
- * GET /api/rekap-gaji/periode/:idPeriode
+ * GET /api/periode/:idPeriode
+ * Mengambil detail satu periode berdasarkan ID
+ */
+export const getPeriodeById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // FIX: Tambahkan Type Casting 'as string' agar aman masuk ke parseInt
+    const idPeriode = req.params.idPeriode as string;
+    const parsedId = parseInt(idPeriode, 10);
+
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const data = await PeriodeService.getPeriodeById(parsedId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Berhasil mengambil detail periode.",
+      data,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("tidak ditemukan")) {
+      res.status(404).json({ status: "fail", message: error.message });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/periode/:idPeriode
+ * Mengubah data dasar periode dinamis
+ */
+export const updatePeriode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // FIX: Gunakan Type Casting 'as string'
+    const idPeriode = req.params.idPeriode as string;
+    const parsedId = parseInt(idPeriode, 10);
+
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const { bulan_gaji, tanggal_awal, tanggal_akhir, status } = req.body;
+
+    const updatedPeriode = await PeriodeService.updatePeriode(parsedId, {
+      bulan_gaji,
+      tanggal_awal,
+      tanggal_akhir,
+      status,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Berhasil memperbarui data periode.",
+      data: updatedPeriode,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("tidak ditemukan")) {
+      res.status(404).json({ status: "fail", message: error.message });
+      return;
+    }
+    if (
+      error instanceof Error &&
+      error.message.includes("Tidak ada data baru")
+    ) {
+      res.status(400).json({ status: "fail", message: error.message });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/periode/:idPeriode
+ * Menghapus periode menggunakan Soft-Delete
+ */
+export const deletePeriode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    // FIX: Gunakan Type Casting 'as string'
+    const idPeriode = req.params.idPeriode as string;
+    const parsedId = parseInt(idPeriode, 10);
+
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const deletedData = await PeriodeService.deletePeriode(parsedId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Berhasil menghapus (soft-delete) periode.",
+      data: deletedData,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("tidak ditemukan")) {
+      res.status(404).json({ status: "fail", message: error.message });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * GET /api/periode/:idPeriode/rekap
  * Handler untuk mengambil rekap gaji berdasarkan ID Periode
  */
 export const getRekapByPeriode = async (
@@ -39,16 +200,8 @@ export const getRekapByPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    // FIX: Gunakan Type Casting 'as string'
     const idPeriode = req.params.idPeriode as string;
-
-    // 1. Validasi input parameter
-    if (!idPeriode) {
-      res.status(400).json({
-        status: "fail",
-        message: "ID Periode wajib disertakan dalam parameter URL.",
-      });
-      return;
-    }
 
     const parsedIdPeriode = parseInt(idPeriode, 10);
     if (isNaN(parsedIdPeriode)) {
@@ -59,14 +212,8 @@ export const getRekapByPeriode = async (
       return;
     }
 
-    // 2. Panggil data dari Query Service Rekap Gaji
-    // Sesuaikan variabel/fungsi panggilannya dengan service rekap gaji milikmu
-    // Contoh jika menggunakan instance/object:
-    // const rekapData = await rekapGajiQueryService.getRekapByPeriode(parsedIdPeriode);
     const rekapData = await PeriodeService.getPeriodeById(parsedIdPeriode);
 
-    // 3. Cek apakah data ditemukan
-    // Note: Sesuaikan pengecekan jika rekapData mengembalikan Array atau Object tunggal
     if (!rekapData || (Array.isArray(rekapData) && rekapData.length === 0)) {
       res.status(404).json({
         status: "success",
@@ -76,13 +223,18 @@ export const getRekapByPeriode = async (
       return;
     }
 
-    // 4. Kirim response sukses jika data ada
     res.status(200).json({
       status: "success",
       message: "Berhasil mengambil data historical snapshot rekap gaji.",
       data: rekapData,
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("tidak ditemukan")) {
+      res
+        .status(404)
+        .json({ status: "success", message: error.message, data: [] });
+      return;
+    }
     next(error);
   }
 };

@@ -12,7 +12,6 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
   try {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = data;
 
-    // 1. Eksekusi fungsi stored procedure bawaan Postgres
     const result = await client.query(
       `SELECT fungsi_buka_periode_baru($1, $2, $3);`,
       [bulan_gaji, new Date(tanggal_awal), new Date(tanggal_akhir)],
@@ -24,14 +23,13 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
       throw new Error("Gagal membuka periode baru melalui Database Function");
     }
 
-    // 2. Ambil data detail periode yang baru saja dibuat lewat fungsi getPeriodeById
     return await getPeriodeById(newPeriodeId);
   } finally {
     client.release();
   }
 };
 
-// READ: Mengambil semua periode (yang belum dihapus/soft delete)
+// READ: Mengambil semua periode yang aktif
 export const getAllPeriode = async () => {
   const client = await pool.connect();
   try {
@@ -59,7 +57,9 @@ export const getPeriodeById = async (id: number) => {
     const periode = result.rows[0];
 
     if (!periode) {
-      throw new Error("Periode tidak ditemukan atau telah dihapus");
+      throw new Error(
+        `Periode dengan ID ${id} tidak ditemukan atau telah dihapus`,
+      );
     }
     return periode;
   } finally {
@@ -67,12 +67,12 @@ export const getPeriodeById = async (id: number) => {
   }
 };
 
-// UPDATE: Mengubah data dasar periode dinamis menggunakan murni SQL
+// UPDATE: Mengubah data dasar periode dinamis
 export const updatePeriode = async (
   id: number,
   data: Partial<CreatePeriodeDTO> & { status?: string },
 ) => {
-  // Pastikan periode ada sebelum di-update (akan melempar error jika null)
+  // Validasi keberadaan data
   await getPeriodeById(id);
 
   const client = await pool.connect();
@@ -81,7 +81,6 @@ export const updatePeriode = async (
     const values: any[] = [];
     let placeholderCounter = 1;
 
-    // Bangun query dinamis berdasarkan data yang dikirim oleh client
     if (data.bulan_gaji) {
       fields.push(`bulan_gaji = $${placeholderCounter++}`);
       values.push(data.bulan_gaji);
@@ -99,15 +98,14 @@ export const updatePeriode = async (
       values.push(data.status);
     }
 
-    // Selalu perbarui timestamp updated_at
-    fields.push(`updated_at = $${placeholderCounter++}`);
-    values.push(new Date());
-
-    if (fields.length === 1) {
+    // Selalu perbarui timestamp updated_at jika ada field lain yang berubah
+    if (fields.length > 0) {
+      fields.push(`updated_at = $${placeholderCounter++}`);
+      values.push(new Date());
+    } else {
       throw new Error("Tidak ada data baru yang dikirim untuk di-update");
     }
 
-    // Tambahkan id ke parameter terakhir untuk klausa WHERE
     values.push(id);
     const query = `
       UPDATE tb_periode 
@@ -123,7 +121,7 @@ export const updatePeriode = async (
   }
 };
 
-// DELETE: Menggunakan Soft-Delete sesuai pola database kamu
+// DELETE: Menggunakan Soft-Delete
 export const deletePeriode = async (id: number) => {
   await getPeriodeById(id);
 
