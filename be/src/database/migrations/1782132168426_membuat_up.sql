@@ -66,31 +66,30 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
 -- [PERBAIKAN NINO] status sekarang dibatasi CHECK constraint (lihat bawah).
 -- ASUMSI: 6 status ini berdasarkan alur role (Petugas Absensi -> Approver -> Staf Gaji).
 -- WAJIB DICEK ke kode backend Express lo, samain exact string-nya (case-sensitive).
-CREATE TABLE IF NOT EXISTS tb_periode (
-    id_periode SERIAL PRIMARY KEY,
-    bulan_gaji VARCHAR(20) UNIQUE NOT NULL, 
-    tanggal_awal DATE NOT NULL,      
-    tanggal_akhir DATE NOT NULL,     
-    status VARCHAR(30) DEFAULT 'Pengisian Absensi'
-        CHECK (status IN (
-            'Pengisian Absensi',
-            'Menunggu Approval',
-            'Disetujui',
-            'Ditolak',
-            'Diproses Gaji',
-            'Selesai'
-        )),
-    deleted_at TIMESTAMPTZ DEFAULT NULL
-);
-
--- Ekstensi & constraint EXCLUDE
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
-ALTER TABLE tb_periode DROP CONSTRAINT IF EXISTS chk_anti_overlap_periode;
-ALTER TABLE tb_periode ADD CONSTRAINT chk_anti_overlap_periode 
-EXCLUDE USING gist (
-    daterange(tanggal_awal, tanggal_akhir, '[]') WITH &&
-) WHERE (deleted_at IS NULL);
+CREATE TABLE IF NOT EXISTS tb_periode (
+    id_periode    SERIAL PRIMARY KEY,
+    bulan_gaji    VARCHAR(20) NOT NULL UNIQUE, 
+    tanggal_awal  DATE NOT NULL,      
+    tanggal_akhir DATE NOT NULL,     
+    status        VARCHAR(30) DEFAULT 'Pengisian Absensi' 
+                      CHECK (status IN (
+                          'Pengisian Absensi',
+                          'Menunggu Approval',
+                          'Disetujui',
+                          'Ditolak',
+                          'Diproses Gaji',
+                          'Selesai'
+                      )),
+    deleted_at    TIMESTAMPTZ DEFAULT NULL,
+
+    -- Constraint anti-overlap langsung didefinisikan di sini
+    CONSTRAINT chk_anti_overlap_periode 
+        EXCLUDE USING gist (
+            DATERANGE(tanggal_awal, tanggal_akhir, '[]') WITH &&
+        ) WHERE (deleted_at IS NULL)
+);
 
 -- 7. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
