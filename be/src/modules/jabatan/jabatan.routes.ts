@@ -7,12 +7,12 @@ const router = Router();
 // ROUTES: MASTER JABATAN
 // ==========================================
 router
-  .route("/jabatan")
+  .route("/")
   .get(masterController.getAllJabatan)
   .post(masterController.createJabatan);
 
 router
-  .route("/jabatan/:id")
+  .route("/:id")
   .get(masterController.getJabatanById)
   .put(masterController.updateJabatan)
   .delete(masterController.deleteJabatan);
