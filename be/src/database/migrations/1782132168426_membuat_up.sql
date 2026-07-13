@@ -385,7 +385,7 @@ BEGIN
     ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
 
     -- =========================================================================
-    -- 3. HITUNG NILAI TUNJANGAN VERTIKAL SECARA GENERIK
+    -- 3. HITUNG NILAI TUNJANGAN VERTIKAL SECARA GENERIK (FIXED JOIN SYNTAX)
     -- =========================================================================
     UPDATE public.tb_tunjangan_bulanan_detail td
     SET nilai_terhitung = CASE t.formula_type
@@ -397,16 +397,17 @@ BEGIN
             ELSE td.nilai_terhitung
         END
     FROM public.tb_tunjangan t,
-         public.tb_pegawai p
-    JOIN public.tb_absensi_summary abs ON abs.id_pegawai = p.id_pegawai
-    JOIN public.tb_rekap_gaji rg ON rg.id_pegawai = p.id_pegawai
-    JOIN public.tb_tunjangan_bulanan tb ON tb.id_pegawai = p.id_pegawai
+         public.tb_pegawai p,
+         public.tb_absensi_summary abs,
+         public.tb_rekap_gaji rg,
+         public.tb_tunjangan_bulanan tb
     WHERE td.id_periode = p_id_periode
       AND td.id_pegawai = p.id_pegawai
       AND td.id_tunjangan = t.id_tunjangan
-      AND abs.id_periode = p_id_periode
-      AND rg.id_periode = p_id_periode
-      AND tb.id_periode = p_id_periode
+      AND p.id_pegawai = td.id_pegawai
+      AND abs.id_pegawai = td.id_pegawai AND abs.id_periode = p_id_periode
+      AND rg.id_pegawai = td.id_pegawai  AND rg.id_periode = p_id_periode
+      AND tb.id_pegawai = td.id_pegawai  AND tb.id_periode = p_id_periode
       AND t.formula_type IN ('HARIAN_HADIR_WFO', 'PERSEN_GAJI_JIKA_KAWIN', 'PERSEN_GAJI_PER_ANAK', 'PER_JAM_LEMBUR');
 
     -- =========================================================================
@@ -441,12 +442,13 @@ BEGIN
     WHERE id_periode = p_id_periode;
 
     -- =========================================================================
-    -- 7. SNAPSHOT DETAIL UNTUK AUDIT SLIP GAJI
+    -- 7. SNAPSHOT DETAIL UNTUK AUDIT SLIP GAJI (FIXED JOIN SCOPE)
     -- =========================================================================
     DELETE FROM public.tb_rekap_gaji_detail rgd
     USING public.tb_rekap_gaji rg
     WHERE rgd.id_rekap = rg.id_rekap AND rg.id_periode = p_id_periode;
 
+    -- Tunjangan Struktural
     INSERT INTO public.tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
     SELECT rg.id_rekap, 'TUNJANGAN', 'Tunjangan Struktural ' || rg.jabatan_snapshot, j.tunjangan_jabatan_struktural, 'TUNJ_JABATAN'
     FROM public.tb_rekap_gaji rg
@@ -454,6 +456,7 @@ BEGIN
     JOIN public.tb_jabatan j ON p.id_jabatan = j.id_jabatan
     WHERE rg.id_periode = p_id_periode AND j.tunjangan_jabatan_struktural > 0;
 
+    -- Tunjangan Variabel / Formula-Driven
     INSERT INTO public.tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
     SELECT 
         rg.id_rekap, 
@@ -467,9 +470,10 @@ BEGIN
     FROM public.tb_rekap_gaji rg
     JOIN public.tb_tunjangan_bulanan_detail td ON rg.id_pegawai = td.id_pegawai AND rg.id_periode = td.id_periode
     JOIN public.tb_tunjangan t ON td.id_tunjangan = t.id_tunjangan
-    JOIN public.tb_tunjangan_bulanan tb ON tb.id_pegawai = rg.id_pegawai AND tb.id_periode = tb.id_periode
+    JOIN public.tb_tunjangan_bulanan tb ON tb.id_pegawai = rg.id_pegawai AND tb.id_periode = rg.id_periode
     WHERE rg.id_periode = p_id_periode AND td.nilai_terhitung > 0;
 
+    -- Potongan
     INSERT INTO public.tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
     SELECT rg.id_rekap, 'POTONGAN', mp.nama_potongan, pbd.nilai_potongan, mp.kode_potongan
     FROM public.tb_rekap_gaji rg
