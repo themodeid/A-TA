@@ -13,11 +13,10 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = data;
 
     // Jalankan query dengan memanggil fungsi database yang sudah kita buat
+    // Jalankan query dengan memanggil fungsi database dengan skema yang jelas
     const result = await client.query(
-      `SELECT public.fungsi_buka_periode_baru($1, $2, $3) AS id_periode;`,
+      `SELECT public.fungsi_buka_periode_baru($1::varchar, $2::date, $3::date) AS id_periode;`,
       [bulan_gaji, tanggal_awal, tanggal_akhir],
-      // Nino hapus 'new Date()'-nya ya. Biar dikirim dalam bentuk string format 'YYYY-MM-DD'.
-      // PostgreSQL bakal otomatis nge-cast string itu jadi tipe DATE yang valid.
     );
 
     const newPeriodeId = result.rows[0]?.id_periode;
@@ -81,7 +80,7 @@ export const updatePeriode = async (
   id: number,
   data: Partial<CreatePeriodeDTO> & { status?: string },
 ) => {
-  // Validasi keberadaan data
+  // 1. Validasi keberadaan data (Pastikan id_periode ini memang ada)
   await getPeriodeById(id);
 
   const client = await pool.connect();
@@ -91,30 +90,30 @@ export const updatePeriode = async (
     let placeholderCounter = 1;
 
     if (data.bulan_gaji) {
-      fields.push(`bulan_gaji = $${placeholderCounter++}`);
+      fields.push(`bulan_gaji = $${placeholderCounter++}::varchar`);
       values.push(data.bulan_gaji);
     }
     if (data.tanggal_awal) {
-      fields.push(`tanggal_awal = $${placeholderCounter++}`);
-      values.push(new Date(data.tanggal_awal));
+      // Kirim string mentah 'YYYY-MM-DD', lalu cast ke ::date di Postgres
+      fields.push(`tanggal_awal = $${placeholderCounter++}::date`);
+      values.push(data.tanggal_awal);
     }
     if (data.tanggal_akhir) {
-      fields.push(`tanggal_akhir = $${placeholderCounter++}`);
-      values.push(new Date(data.tanggal_akhir));
+      // Kirim string mentah 'YYYY-MM-DD', lalu cast ke ::date di Postgres
+      fields.push(`tanggal_akhir = $${placeholderCounter++}::date`);
+      values.push(data.tanggal_akhir);
     }
     if (data.status) {
-      fields.push(`status = $${placeholderCounter++}`);
+      fields.push(`status = $${placeholderCounter++}::varchar`);
       values.push(data.status);
     }
 
-    // Selalu perbarui timestamp updated_at jika ada field lain yang berubah
-    if (fields.length > 0) {
-      fields.push(`updated_at = $${placeholderCounter++}`);
-      values.push(new Date());
-    } else {
+    // Cek apakah ada field yang mau di-update
+    if (fields.length === 0) {
       throw new Error("Tidak ada data baru yang dikirim untuk di-update");
     }
 
+    // Masukkan id ke paling akhir array parameter untuk WHERE clause
     values.push(id);
     const query = `
       UPDATE tb_periode 
@@ -125,6 +124,9 @@ export const updatePeriode = async (
 
     const result = await client.query(query, values);
     return result.rows[0];
+  } catch (error) {
+    console.error("Error di updatePeriode Service:", error);
+    throw error;
   } finally {
     client.release();
   }

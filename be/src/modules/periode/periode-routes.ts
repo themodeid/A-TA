@@ -11,10 +11,10 @@ router.route("/").get(controller.getAllPeriode).post(controller.createPeriode);
 router
   .route("/:idPeriode")
   .get(controller.getPeriodeById)
-  .put(controller.updatePeriode)
+  .patch(controller.updatePeriode)
   .delete(controller.deletePeriode);
 
 // Base URL: /:idPeriode/rekap
-router.get("//:idPeriode/rekap", controller.getRekapByPeriode);
+router.get("/:idPeriode/rekap", controller.getRekapByPeriode);
 
 export default router;

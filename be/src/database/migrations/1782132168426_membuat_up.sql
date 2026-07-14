@@ -91,6 +91,28 @@ CREATE TABLE IF NOT EXISTS tb_periode (
         ) WHERE (deleted_at IS NULL)
 );
 
+CREATE OR REPLACE FUNCTION public.fungsi_buka_periode_baru(
+    p_bulan_gaji VARCHAR,
+    p_tanggal_awal DATE,
+    p_tanggal_akhir DATE
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_id_periode INTEGER;
+BEGIN
+    -- 1. Insert data periode baru ke tb_periode
+    INSERT INTO public.tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir)
+    VALUES (p_bulan_gaji, p_tanggal_awal, p_tanggal_akhir)
+    RETURNING id_periode INTO v_id_periode;
+
+    -- 2. Mengembalikan id_periode yang baru dibuat ke Node.js
+    RETURN v_id_periode;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION '%', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 7. Master Pegawai
 CREATE TABLE IF NOT EXISTS tb_pegawai (
     id_pegawai SERIAL PRIMARY KEY,
