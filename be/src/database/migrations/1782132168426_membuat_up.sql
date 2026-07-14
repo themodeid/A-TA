@@ -100,16 +100,18 @@ RETURNS INTEGER AS $$
 DECLARE
     v_id_periode INTEGER;
 BEGIN
-    -- 1. Insert data periode baru ke tb_periode
+    -- 1. Validasi input (Penting biar gak ada data rusak masuk!)
+    IF p_tanggal_awal > p_tanggal_akhir THEN
+        RAISE EXCEPTION 'tanggal_awal tidak boleh lebih besar dari tanggal_akhir';
+    END IF;
+
+    -- 2. Insert data periode baru
     INSERT INTO public.tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir)
     VALUES (p_bulan_gaji, p_tanggal_awal, p_tanggal_akhir)
     RETURNING id_periode INTO v_id_periode;
 
-    -- 2. Mengembalikan id_periode yang baru dibuat ke Node.js
+    -- 3. Kembalikan ID ke Node.js
     RETURN v_id_periode;
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION '%', SQLERRM;
 END;
 $$ LANGUAGE plpgsql;
 
