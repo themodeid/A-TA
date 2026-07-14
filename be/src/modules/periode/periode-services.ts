@@ -12,18 +12,27 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
   try {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = data;
 
+    // Jalankan query dengan memanggil fungsi database yang sudah kita buat
     const result = await client.query(
-      `SELECT fungsi_buka_periode_baru($1, $2, $3);`,
-      [bulan_gaji, new Date(tanggal_awal), new Date(tanggal_akhir)],
+      `SELECT public.fungsi_buka_periode_baru($1, $2, $3) AS id_periode;`,
+      [bulan_gaji, tanggal_awal, tanggal_akhir],
+      // Nino hapus 'new Date()'-nya ya. Biar dikirim dalam bentuk string format 'YYYY-MM-DD'.
+      // PostgreSQL bakal otomatis nge-cast string itu jadi tipe DATE yang valid.
     );
 
-    const newPeriodeId = result.rows[0]?.fungsi_buka_periode_baru;
+    const newPeriodeId = result.rows[0]?.id_periode;
 
     if (!newPeriodeId) {
       throw new Error("Gagal membuka periode baru melalui Database Function");
     }
 
+    // Ambil data lengkap periode yang baru dibuat untuk dikembalikan ke controller
     return await getPeriodeById(newPeriodeId);
+  } catch (error) {
+    // Tambahin logging sedikit biar kalau database-nya nolak (misal karena overlap tanggal),
+    // lo bisa tau error asli dari PostgreSQL-nya apa.
+    console.error("Error di createPeriode Service:", error);
+    throw error;
   } finally {
     client.release();
   }
