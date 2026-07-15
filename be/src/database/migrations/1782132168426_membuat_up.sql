@@ -11,11 +11,6 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 2. Master Parameter / Tunjangan
--- [PERBAIKAN NINO] Tambah kolom formula_type: menentukan CARA HITUNG tunjangan
--- secara data-driven, bukan hardcode kode_kondisi di function.
--- Nambah tunjangan baru yang pola hitungnya REUSE salah satu formula_type ini
--- otomatis kehandle tanpa ubah SQL sama sekali.
 CREATE TABLE IF NOT EXISTS tb_tunjangan (
     id_tunjangan SERIAL PRIMARY KEY,
     nama_tunjangan VARCHAR(100) NOT NULL,
@@ -62,10 +57,7 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 6. Master Periode Cut-off 
--- [PERBAIKAN NINO] status sekarang dibatasi CHECK constraint (lihat bawah).
--- ASUMSI: 6 status ini berdasarkan alur role (Petugas Absensi -> Approver -> Staf Gaji).
--- WAJIB DICEK ke kode backend Express lo, samain exact string-nya (case-sensitive).
+
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 CREATE TABLE IF NOT EXISTS tb_periode (
@@ -325,14 +317,103 @@ INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potong
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00)
 ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
 
+INSERT INTO public.tb_rekap_gaji 
+  (id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot, total_penghasilan_bruto, total_potongan, total_penerimaan_clean) 
+VALUES 
+  -- 1. Drs. Budi Santoso (Kepala Sekolah, Gol IV/a)
+  -- Bruto: GP (3.500.000) + T.Jabatan (2.000.000) + T.Trans (720.000) + T.Istri (350.000) + T.Anak (140.000) = 6.710.000
+  -- Potongan: 600.000 | Netto: 6.110.000
+  ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), 
+   (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%'), 
+   'Kepala Sekolah', 'Golongan IV/a (Pembina)', 3500000.00, 6710000.00, 600000.00, 6110000.00),
 
--- ==========================================
--- IV. PERFORMANCE INDEXES
--- ==========================================
--- Catatan: tabel transaksional (tb_absensi_summary, tb_tunjangan_bulanan,
--- tb_potongan_bulanan, tb_rekap_gaji, dan kedua tabel _detail) sudah otomatis
--- ke-index lewat UNIQUE(id_periode, id_pegawai, ...) masing-masing.
--- Jadi nggak perlu index tambahan di situ.
+  -- 2. Siti Aminah S.Pd (Wali Kelas, Gol III/b)
+  -- Bruto: GP (2.900.000) + T.Jabatan (500.000) + T.Trans (750.000) + Lembur 12.5 jam x 25rb (312.500) = 4.462.500
+  -- Potongan: 110.000 (Catatan: Di master default dana wajib+pskd+pelkes=100rb, disesuaikan ke data header 110.000) | Netto: 4.352.500
+  ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), 
+   (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%'), 
+   'Wali Kelas', 'Golongan III/b (Penata Muda Tk. I)', 2900000.00, 4462500.00, 110000.00, 4352500.00),
+
+  -- 3. Rian Hidayat (Guru Tetap / Staf TU, GTT)
+  -- Bruto: GP (1.500.000) + T.Jabatan (0) + T.Trans (660.000) + Lembur 5 jam x 25rb (125.000) + Honor Bulan (200.000) = 2.485.000
+  -- Potongan: 450.000 | Netto: 2.035.000
+  ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), 
+   (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%'), 
+   'Guru Tetap / Staf TU', 'GTT/PTT (Guru/Pegawai Tidak Tetap)', 1500000.00, 2485000.00, 450000.00, 2035000.00)
+ON CONFLICT (id_periode, id_pegawai) DO UPDATE 
+SET 
+  total_penghasilan_bruto = EXCLUDED.total_penghasilan_bruto,
+  total_potongan = EXCLUDED.total_potongan,
+  total_penerimaan_clean = EXCLUDED.total_penerimaan_clean;
+
+-- Hapus detail lama jika ada kecocokan rekap agar tidak duplikat saat seeding ulang
+DELETE FROM public.tb_rekap_gaji_detail 
+WHERE id_rekap IN (SELECT id_rekap FROM public.tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'));
+
+-- Masukkan data breakdown slip gaji
+INSERT INTO public.tb_rekap_gaji_detail 
+  (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot) 
+VALUES 
+  -- =========================================================================
+  -- DETAILS FOR: Drs. Budi Santoso
+  -- =========================================================================
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'TUNJANGAN', 'Tunjangan Struktural Kepala Sekolah', 2000000.00, 'TUNJ_JABATAN'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'TUNJANGAN', 'Uang Transport WFO', 720000.00, 'TRN_WFO'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'TUNJANGAN', 'Tunjangan Istri', 350000.00, 'TUNJ_ISTRI'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'TUNJANGAN', 'Tunjangan Anak', 140000.00, 'TUNJ_ANAK'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'POTONGAN', 'Potongan Angsuran', 500000.00, 'POT_ANGSURAN'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'POTONGAN', 'Potongan Dana Wajib', 50000.00, 'POT_DANA_WAJIB'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'POTONGAN', 'Potongan S_PSKD', 20000.00, 'POT_S_PSKD'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%')), 
+   'POTONGAN', 'Potongan Pelkes', 30000.00, 'POT_PELKES'),
+
+  -- =========================================================================
+  -- DETAILS FOR: Siti Aminah S.Pd
+  -- =========================================================================
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%')), 
+   'TUNJANGAN', 'Tunjangan Struktural Wali Kelas', 500000.00, 'TUNJ_JABATAN'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%')), 
+   'TUNJANGAN', 'Uang Transport WFO', 750000.00, 'TRN_WFO'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%')), 
+   'TUNJANGAN', 'Honor Lembur (12.5 Jam)', 312500.00, 'LEMBUR_PER_JAM'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%')), 
+   'POTONGAN', 'Potongan Dana Wajib', 50000.00, 'POT_DANA_WAJIB'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%')), 
+   'POTONGAN', 'Potongan Lainnya / Penyesuaian', 60000.00, 'POT_LAINNYA'),
+
+  -- =========================================================================
+  -- DETAILS FOR: Rian Hidayat
+  -- =========================================================================
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%')), 
+   'TUNJANGAN', 'Uang Transport WFO', 660000.00, 'TRN_WFO'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%')), 
+   'TUNJANGAN', 'Honor Lembur (5 Jam)', 125000.00, 'LEMBUR_PER_JAM'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%')), 
+   'TUNJANGAN', 'Honor Tambahan Bulan Ini', 200000.00, 'HONOR_BULANAN_MANUAL'),
+  
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%')), 
+   'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
+
 CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
