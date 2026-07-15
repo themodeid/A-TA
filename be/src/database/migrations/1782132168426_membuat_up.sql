@@ -231,7 +231,7 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
 
 
 -- =========================================================================
--- III. SEED DATA / DATA DEFAULT
+-- III. SEED DATA / DATA DEFAULT (DISESUAIKAN)
 -- =========================================================================
 
 -- Seed Master Tunjangan (dengan formula_type)
@@ -239,7 +239,6 @@ INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjanga
 ('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik', 'TRN_WFO', 'HARIAN_HADIR_WFO'),
 ('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan istri 10% dari gaji pokok', 'TUNJ_ISTRI', 'PERSEN_GAJI_JIKA_KAWIN'),
 ('Tunjangan Anak', 0.02, 'PERSENTASE', 'BULANAN', 'Tunjangan per anak 2% dari gaji pokok', 'TUNJ_ANAK', 'PERSEN_GAJI_PER_ANAK'),
--- ⚠️ GANTI 25000.00 SESUAI RATE LEMBUR ASLI SEKOLAH LO. Ini placeholder.
 ('Honor Lembur Per Jam', 25000.00, 'NOMINAL', 'PER_JAM', 'Rate lembur per jam, flat untuk semua pegawai', 'LEMBUR_PER_JAM', 'PER_JAM_LEMBUR')
 ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai, formula_type = EXCLUDED.formula_type;
 
@@ -272,10 +271,13 @@ INSERT INTO tb_golongan (nama_golongan, gaji_pokok_standar) VALUES
 ('GTT/PTT (Guru/Pegawai Tidak Tetap)', 1500000.00)
 ON CONFLICT (nama_golongan) DO NOTHING;
 
--- Seed Master Periode
+-- ==========================================
+-- [PERUBAHAN DISESUAIKAN SINKRON API]
+-- ==========================================
+-- 1. Periode Juli 2026 disesuaikan ke tanggal 16 Juni - 15 Juli dengan status 'Selesai'
 INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status) 
-VALUES ('Juli 2026', '2026-06-26', '2026-07-25', 'Pengisian Absensi')
-ON CONFLICT (bulan_gaji) DO NOTHING;
+VALUES ('Juli 2026', '2026-06-16', '2026-07-15', 'Selesai')
+ON CONFLICT (bulan_gaji) DO UPDATE SET tanggal_awal = EXCLUDED.tanggal_awal, tanggal_akhir = EXCLUDED.tanggal_akhir, status = EXCLUDED.status;
 
 -- Seed Master Pegawai
 INSERT INTO tb_pegawai (nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, jumlah_anak, gaji_pokok_dasar) VALUES 

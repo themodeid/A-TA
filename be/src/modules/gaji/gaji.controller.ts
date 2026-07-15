@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import * as queryService from "./services/gaji-crud-services";
-import * as commandService from "./services/kalkulasi-gaji.service";
+import { KalkulasiGajiService } from "./services/kalkulasi-gaji.service";
 import { AppError } from "../../utils/appError";
+
+const kalkulasiService = new KalkulasiGajiService();
 
 /**
  * HTTP Handler untuk memicu kalkulasi penggajian bulanan
@@ -34,7 +36,7 @@ export const hitungGajiBulanan = async (
       );
     }
 
-    await commandService.kalkulasiPeriode(parsedIdPeriode);
+    await kalkulasiService.kalkulasiGajiAkhir(parsedIdPeriode);
 
     res.status(200).json({
       status: "success",
