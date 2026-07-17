@@ -6,10 +6,11 @@ export const getAbsensiByPeriode = async (idPeriode: number) => {
     SELECT
       asum.id_absensi_summary,
       asum.id_pegawai,
-      p.nama_dan_tanggal_lahir, -- Diubah dari p.nama_lengkap sesuai DDL baru
+      p.nama_dan_tanggal_lahir, 
       j.nama_jabatan,
       g.nama_golongan,
       asum.id_periode,
+      prd.bulan_gaji,
       asum.total_hadir_ops_wfo,
       asum.total_hadir_ops_wfh,
       asum.total_izin,
@@ -18,10 +19,28 @@ export const getAbsensiByPeriode = async (idPeriode: number) => {
     FROM tb_absensi_summary asum
     LEFT JOIN tb_pegawai p ON asum.id_pegawai = p.id_pegawai
     LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+    LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+    LEFT JOIN tb_periode prd ON asum.id_periode = prd.id_periode -- JOIN ke tabel periode
     WHERE asum.id_periode = $1 AND p.deleted_at IS NULL
     ORDER BY p.nama_dan_tanggal_lahir ASC;
   `;
+
   const result = await pool.query(query, [idPeriode]);
+  return result.rows;
+};
+
+export const getAllPeriodeTersedia = async () => {
+  // Hanya mengambil kolom identitas periode saja, diurutkan dari periode terbaru
+  const query = `
+    SELECT 
+      id_periode, 
+      bulan_gaji, 
+      status
+    FROM tb_periode
+    ORDER BY id_periode DESC;
+  `;
+
+  const result = await pool.query(query);
   return result.rows;
 };
 
@@ -58,12 +77,11 @@ export const createAbsensiBulk = async (
   idPeriode: number,
   dataAbsenList: any[],
 ) => {
-  // 1. Filter hanya data yang punya id_pegawai valid (bukan null, undefined, atau string kosong)
+  // 1. Filter hanya data yang punya id_pegawai valid
   const validDataList = dataAbsenList.filter(
     (data) => data && data.id_pegawai && !isNaN(Number(data.id_pegawai)),
   );
 
-  // Jika setelah difilter ternyata kosong semua, langsung return array kosong
   if (validDataList.length === 0) return [];
 
   const client = await pool.connect();
@@ -71,7 +89,7 @@ export const createAbsensiBulk = async (
     await client.query("BEGIN");
 
     const values: any[] = [];
-    const valuePlaceholders = validDataList // Gunakan list yang sudah bersih
+    const valuePlaceholders = validDataList
       .map((data, index) => {
         const offset = index * 7;
 
@@ -89,13 +107,24 @@ export const createAbsensiBulk = async (
       })
       .join(", ");
 
+    // 2. Gunakan Common Table Expression (WITH) untuk JOIN setelah INSERT
+    // *Sesuaikan nama tabel 'tb_periode' dan kolomnya (bulan, tahun, nama_periode) dengan database-mu
     const query = `
-      INSERT INTO tb_absensi_summary (
-        id_periode, id_pegawai, total_hadir_ops_wfo, 
-        total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
-      ) VALUES ${valuePlaceholders}
-      ON CONFLICT (id_periode, id_pegawai) DO NOTHING
-      RETURNING *;
+      WITH inserted_rows AS (
+        INSERT INTO tb_absensi_summary (
+          id_periode, id_pegawai, total_hadir_ops_wfo, 
+          total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
+        ) VALUES ${valuePlaceholders}
+        ON CONFLICT (id_periode, id_pegawai) DO NOTHING
+        RETURNING *
+      )
+      SELECT 
+        i.*,
+        p.nama_periode,
+        p.bulan,
+        p.tahun
+      FROM inserted_rows i
+      LEFT JOIN tb_periode p ON i.id_periode = p.id;
     `;
 
     const result = await client.query(query, values);

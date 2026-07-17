@@ -2,7 +2,25 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as absensiService from "./absensi.service.crud";
 
-// 2. Mengambil semua data absensi pegawai berdasarkan ID Periode spesifik
+export const getAllPeriode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await absensiService.getAllPeriodeTersedia();
+
+    return res.status(200).json({
+      status: "success",
+      statusCode: 200,
+      message: `Berhasil mengambil ${result.length} daftar periode yang tersedia.`,
+      data: result,
+    });
+  } catch (error: any) {
+    return next(new AppError(error.message, 500));
+  }
+};
+
 export const getAbsensiByPeriode = async (
   req: Request,
   res: Response,
@@ -10,16 +28,28 @@ export const getAbsensiByPeriode = async (
 ) => {
   try {
     const { idPeriode } = req.params;
+
+    if (!idPeriode) {
+      return next(
+        new AppError("Parameter idPeriode tidak ditemukan di URL.", 400),
+      );
+    }
+
+    // Panggil service untuk ambil list semua pegawai di periode ini
     const result = await absensiService.getAbsensiByPeriode(Number(idPeriode));
+
+    // Ambil info nama periode dari data pertama sebagai identitas di message response
+    const sampleData = result[0];
+    const bulanGaji = sampleData?.bulan_gaji || "Periode Terkait";
 
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Data absensi berdasarkan periode berhasil diambil",
+      message: `Berhasil mengambil ${result.length} data absensi untuk periode ${bulanGaji}.`,
       data: result,
     });
-  } catch (error) {
-    return next(error);
+  } catch (error: any) {
+    return next(new AppError(error.message, 500));
   }
 };
 
@@ -52,11 +82,9 @@ export const createAbsensiBulk = async (
   next: NextFunction,
 ) => {
   try {
-    // 1. Ambil idPeriode dari URL params, dataAbsenList dari body
     const { idPeriode } = req.params;
     const { dataAbsenList } = req.body;
 
-    // 2. Validasi kelayakan data
     if (!idPeriode || !Array.isArray(dataAbsenList)) {
       return next(
         new AppError(
@@ -66,16 +94,30 @@ export const createAbsensiBulk = async (
       );
     }
 
-    // 3. Panggil service dengan idPeriode yang dikonversi ke Number
+    // 1. Jalankan proses bulk insert seperti biasa
+    // Di dalam controller kamu (createAbsensiBulk)
     const result = await absensiService.createAbsensiBulk(
       Number(idPeriode),
       dataAbsenList,
     );
 
+    // Ambil data periode dari baris pertama hasil query (jika ada data yang di-insert)
+    const sampleData = result[0];
+    const namaPeriode = sampleData?.nama_periode || `Periode ID ${idPeriode}`;
+    const bulanTahun =
+      sampleData?.bulan && sampleData?.tahun
+        ? `${sampleData.bulan} ${sampleData.tahun}`
+        : "Tidak diketahui";
+
     return res.status(201).json({
       status: "success",
       statusCode: 201,
-      message: `${result.length} data absensi berhasil diinisialisasi untuk periode ini.`,
+      message: `${result.length} data absensi berhasil diinisialisasi untuk ${namaPeriode} (${bulanTahun}).`,
+      periode: {
+        id: Number(idPeriode),
+        nama: namaPeriode,
+        bulan_tahun: bulanTahun,
+      },
       data: result,
     });
   } catch (error: any) {
