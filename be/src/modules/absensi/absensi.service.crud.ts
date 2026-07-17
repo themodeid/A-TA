@@ -1,17 +1,5 @@
 import { pool } from "../../config/database";
 
-// 1. Mengambil daftar periode berdasarkan tahun
-export const getPeriodeByTahun = async (tahun: number) => {
-  const query = `
-    SELECT id_periode, bulan_gaji, tanggal_awal, tanggal_akhir, status 
-    FROM tb_periode 
-    WHERE EXTRACT(YEAR FROM tanggal_awal) = $1 AND deleted_at IS NULL
-    ORDER BY tanggal_awal DESC;
-  `;
-  const result = await pool.query(query, [tahun]);
-  return result.rows;
-};
-
 // 2. Mengambil summary absensi pegawai terpilih (Menyesuaikan kolom nama_dan_tanggal_lahir)
 export const getAbsensiByPeriode = async (idPeriode: number) => {
   const query = `
@@ -20,6 +8,7 @@ export const getAbsensiByPeriode = async (idPeriode: number) => {
       asum.id_pegawai,
       p.nama_dan_tanggal_lahir, -- Diubah dari p.nama_lengkap sesuai DDL baru
       j.nama_jabatan,
+      g.nama_golongan,
       asum.id_periode,
       asum.total_hadir_ops_wfo,
       asum.total_hadir_ops_wfh,
@@ -61,6 +50,86 @@ export const getAbsensiById = async (id: number) => {
     WHERE asum.id_absensi_summary = $1 AND p.deleted_at IS NULL;
   `;
   const result = await pool.query(query, [id]);
+  return result.rows[0] || null;
+};
+
+// 1a. Bulk Create Absensi (Untuk inisialisasi awal periode/upload data massal)
+export const createAbsensiBulk = async (
+  idPeriode: number,
+  dataAbsenList: any[],
+) => {
+  // 1. Filter hanya data yang punya id_pegawai valid (bukan null, undefined, atau string kosong)
+  const validDataList = dataAbsenList.filter(
+    (data) => data && data.id_pegawai && !isNaN(Number(data.id_pegawai)),
+  );
+
+  // Jika setelah difilter ternyata kosong semua, langsung return array kosong
+  if (validDataList.length === 0) return [];
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const values: any[] = [];
+    const valuePlaceholders = validDataList // Gunakan list yang sudah bersih
+      .map((data, index) => {
+        const offset = index * 7;
+
+        values.push(
+          idPeriode,
+          Number(data.id_pegawai),
+          Number(data.total_hadir_ops_wfo || 0),
+          Number(data.total_hadir_ops_wfh || 0),
+          Number(data.total_izin || 0),
+          Number(data.total_sakit || 0),
+          Number(data.total_alpha || 0),
+        );
+
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
+      })
+      .join(", ");
+
+    const query = `
+      INSERT INTO tb_absensi_summary (
+        id_periode, id_pegawai, total_hadir_ops_wfo, 
+        total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
+      ) VALUES ${valuePlaceholders}
+      ON CONFLICT (id_periode, id_pegawai) DO NOTHING
+      RETURNING *;
+    `;
+
+    const result = await client.query(query, values);
+
+    await client.query("COMMIT");
+    return result.rows;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// 1b. Single Create Absensi (Jika ada pegawai susulan yang baru masuk tengah bulan)
+export const createAbsensiSingle = async (data: any) => {
+  const query = `
+    INSERT INTO tb_absensi_summary (
+      id_periode, id_pegawai, total_hadir_ops_wfo, 
+      total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (id_periode, id_pegawai) DO NOTHING
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [
+    Number(data.id_periode),
+    Number(data.id_pegawai),
+    Number(data.total_hadir_ops_wfo || 0),
+    Number(data.total_hadir_ops_wfh || 0),
+    Number(data.total_izin || 0),
+    Number(data.total_sakit || 0),
+    Number(data.total_alpha || 0),
+  ]);
+
   return result.rows[0] || null;
 };
 

@@ -1,36 +1,12 @@
 import { Router } from "express";
-import { uploadExcel } from "../../middlewares/upload";
-import {
-  getPeriodeByTahun,
-  getAbsensiByPeriode,
-  getAbsensiById,
-  updateAbsensi,
-  deleteAbsensi,
-} from "./absensi.controller";
+import * as absensiController from "./absensi.controller";
 
 const router = Router();
 
-// ==========================================
-// ENDPOINT PERIODE
-// ==========================================
-
-// GET /absensi/periode?tahun=2026
-router.get("/periode", getPeriodeByTahun);
-
-// ==========================================
-// ENDPOINT REKAP ABSENSI (CRUD)
-// ==========================================
-
-// GET /absensi/periode/:idPeriode (Ambil rekap berdasarkan id periode)
-router.get("/periode/:idPeriode", getAbsensiByPeriode);
-
-// GET /absensi/:id (Detail rekap per baris summary)
-router.get("/:id", getAbsensiById);
-
-// PUT /absensi/:id (Update angka rekap)
-router.put("/:id", updateAbsensi);
-
-// DELETE /absensi/:id (Hapus data rekap)
-router.delete("/:id", deleteAbsensi);
+// Urutan Routing CRUD Lengkap
+router.post("/periode/:idPeriode/bulk", absensiController.createAbsensiBulk); // C - Massal per Perioderouter.post("/", absensiController.createAbsensiSingle); // C - Satuan
+router.get("/:id", absensiController.getAbsensiById); // R - Detail baris
+router.put("/:id", absensiController.updateAbsensi); // U - Edit & Auto-sync Tunjangan
+router.delete("/:id", absensiController.deleteAbsensi); // D - Hapus
 
 export default router;

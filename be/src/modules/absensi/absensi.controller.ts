@@ -2,30 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/appError";
 import * as absensiService from "./absensi.service.crud";
 
-// 1. Mengambil daftar periode berdasarkan parameter tahun di query (?tahun=2026)
-export const getPeriodeByTahun = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const { tahun } = req.query;
-    if (!tahun) {
-      return next(new AppError("Parameter tahun wajib disertakan", 400));
-    }
-
-    const result = await absensiService.getPeriodeByTahun(Number(tahun));
-    return res.status(200).json({
-      status: "success",
-      statusCode: 200,
-      message: `Daftar periode untuk tahun ${tahun} berhasil diambil`,
-      data: result,
-    });
-  } catch (error) {
-    return next(error);
-  }
-};
-
 // 2. Mengambil semua data absensi pegawai berdasarkan ID Periode spesifik
 export const getAbsensiByPeriode = async (
   req: Request,
@@ -66,6 +42,73 @@ export const getAbsensiById = async (
     });
   } catch (error) {
     return next(error);
+  }
+};
+
+// 1a. Controller untuk Bulk Create Absensi
+export const createAbsensiBulk = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    // 1. Ambil idPeriode dari URL params, dataAbsenList dari body
+    const { idPeriode } = req.params;
+    const { dataAbsenList } = req.body;
+
+    // 2. Validasi kelayakan data
+    if (!idPeriode || !Array.isArray(dataAbsenList)) {
+      return next(
+        new AppError(
+          "Payload tidak valid. Butuh parameter idPeriode di URL dan dataAbsenList berupa array di body.",
+          400,
+        ),
+      );
+    }
+
+    // 3. Panggil service dengan idPeriode yang dikonversi ke Number
+    const result = await absensiService.createAbsensiBulk(
+      Number(idPeriode),
+      dataAbsenList,
+    );
+
+    return res.status(201).json({
+      status: "success",
+      statusCode: 201,
+      message: `${result.length} data absensi berhasil diinisialisasi untuk periode ini.`,
+      data: result,
+    });
+  } catch (error: any) {
+    return next(new AppError(error.message, 400));
+  }
+};
+
+// 1b. Controller untuk Single Create Absensi
+export const createAbsensiSingle = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await absensiService.createAbsensiSingle(req.body);
+
+    if (!result) {
+      return next(
+        new AppError(
+          "Gagal menambah absensi. Data mungkin sudah terdaftar (Conflict).",
+          409,
+        ),
+      );
+    }
+
+    return res.status(201).json({
+      status: "success",
+      statusCode: 201,
+      message: "Data absensi pegawai berhasil ditambahkan.",
+      data: result,
+    });
+  } catch (error: any) {
+    return next(new AppError(error.message, 400));
   }
 };
 

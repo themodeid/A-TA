@@ -305,19 +305,23 @@ INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, n
 ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
 
 -- Seed Transaksi Potongan Utama (Header)
+-- Seed Potongan Bulanan (Header)
 INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), 600000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), 110000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 450000.00)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Detail Potongan Vertikal
+-- Seed Detail Potongan Vertikal (SUDAH DISINKRONKAN)
 INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_ANGSURAN'), 500000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_S_PSKD'), 20000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_PELKES'), 30000.00),
-((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00)
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_LAINNYA'), 60000.00),
+((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_LAINNYA'), 450000.00)
+
 ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
 
 -- Seed Rekap Utama
@@ -401,7 +405,7 @@ VALUES
   
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
-   
+
 CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
