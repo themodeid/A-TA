@@ -1,4 +1,4 @@
-import { pool } from "../../config/database";
+import { pool } from "../../../config/database";
 
 // Interface untuk standarisasi struktur data tunjangan bulanan
 export interface TunjanganBulananInput {

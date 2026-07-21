@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import * as queryService from "./services/gaji-crud-services";
 // Import fungsi langsung tanpa import class
 import { kalkulasiGajiAkhir } from "./services/kalkulasi-gaji.service";
-import { AppError } from "../../utils/appError";
+import { AppError } from "../../../utils/appError";
 
 export const hitungGajiBulanan = async (
   req: Request,

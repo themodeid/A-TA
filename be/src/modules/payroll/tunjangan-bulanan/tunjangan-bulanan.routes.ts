@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import * as controller from "./tunjanganBulananController";
+import * as controller from "./tunjangan-bulanan.controller";
 
 // 1. Inisialisasi wadah data kosong untuk semua pegawai di awal periode
 // URL Target: POST /api/v1/tunjangan-bulanan/initialize

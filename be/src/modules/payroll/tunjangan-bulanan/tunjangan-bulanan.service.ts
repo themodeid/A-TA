@@ -1,4 +1,4 @@
-import { pool } from "../../config/database";
+import { pool } from "../../../config/database";
 
 // Definisi interface untuk tipe data input massal dari frontend
 interface TunjanganInput {

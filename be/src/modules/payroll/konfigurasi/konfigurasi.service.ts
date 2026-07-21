@@ -1,5 +1,5 @@
 // modules/tunjangan/tunjangan.service.ts
-import { pool } from "../../config/database"; // Sesuaikan dengan koneksi database proyekmu
+import { pool } from "../../../config/database"; // Sesuaikan dengan koneksi database proyekmu
 
 export const getAllTunjangan = async () => {
   // Hanya ambil yang BELUM di-soft delete

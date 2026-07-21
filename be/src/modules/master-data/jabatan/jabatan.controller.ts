@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "../../utils/appError";
+import { AppError } from "../../../utils/appError";
 import * as jabatanService from "./jabatan.service";
 
 export const getAllJabatan = async (

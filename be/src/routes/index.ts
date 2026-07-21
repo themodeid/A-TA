@@ -1,15 +1,15 @@
 import { Router } from "express";
-import absensiRoutes from "../modules/absensi/absensi.route";
-import pegawaiRoutes from "../modules/pegawai/pegawai.routes";
-import jabatanRoutes from "../modules/jabatan/jabatan.routes";
+import absensiRoutes from "../modules/absensi/absensi.routes";
+import pegawaiRoutes from "../modules/master-data/pegawai/pegawai.routes";
+import jabatanRoutes from "../modules/master-data/jabatan/jabatan.routes";
 // import authRoutes from "../modules/auth/auth.routes";
-import golonganRoutes from "../modules/golongan/golongan.routes";
-import konfigurasiRoutes from "../modules/konfigurasi/konfigurasi.routes";
-import gajiRoutes from "../modules/gaji/gaji.routes";
-import potonganRoutes from "../modules/potongan/potongan-routes";
-import periodeRoutes from "../modules/periode/periode-routes";
-import tunjanganRoutes from "../modules/tunjangan/tunjnagan.routes";
-import tunjanganBulananRoutes from "../modules/tunjangan_bulanan/tunjangan_bulanan_routes";
+import golonganRoutes from "../modules/master-data/golongan/golongan.routes";
+import konfigurasiRoutes from "../modules/payroll/konfigurasi/konfigurasi.routes";
+import gajiRoutes from "../modules/payroll/gaji/gaji.routes";
+import potonganRoutes from "../modules/payroll/potongan/potongan.routes";
+import periodeRoutes from "../modules/periode/periode.routes";
+import tunjanganRoutes from "../modules/payroll/tunjangan/tunjangan.routes";
+import tunjanganBulananRoutes from "../modules/payroll/tunjangan-bulanan/tunjangan-bulanan.routes";
 const router = Router();
 
 router.use("/absensi", absensiRoutes);

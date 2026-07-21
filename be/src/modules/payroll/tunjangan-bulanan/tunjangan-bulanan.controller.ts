@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import * as tunjanganService from "../tunjangan_bulanan/tunjanganBulananService"; // Sesuaikan path jika service-mu sudah .ts juga
+import * as tunjanganService from "./tunjangan-bulanan.service"; // Sesuaikan path jika service-mu sudah .ts juga
 
 export const getAllTunjanganByPeriode = async (req: Request, res: Response) => {
   try {

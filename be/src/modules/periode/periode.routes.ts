@@ -1,6 +1,6 @@
 // src/routes/periode.routes.ts
 import { Router } from "express";
-import * as controller from "./periode-controller";
+import * as controller from "./periode.controller";
 
 const router = Router();
 

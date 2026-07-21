@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import * as PeriodeService from "../periode/periode-services"; // Jalur impor disesuaikan ke file service Anda
+import * as PeriodeService from "./periode.service"; // Jalur impor disesuaikan ke file service Anda
 
 /**
  * POST /api/periode

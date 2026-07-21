@@ -1,4 +1,4 @@
-import { pool } from "../../config/database";
+import { pool } from "../../../config/database";
 
 export interface PegawaiInputDTO {
   // Disamakan persis dengan nama kolom di database PostgreSQL kamu
