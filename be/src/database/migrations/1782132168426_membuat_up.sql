@@ -1,6 +1,8 @@
 -- ==========================================
 -- I. MASTER TABLES (Tabel Utama / Referensi)
 -- ==========================================
+-- 0. Extension wajib untuk Exclude Overlap
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 1. Master Pengguna
 CREATE TABLE IF NOT EXISTS tb_pengguna (
@@ -11,28 +13,27 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
+-- 2. Master Tunjangan
 CREATE TABLE IF NOT EXISTS tb_tunjangan (
     id_tunjangan SERIAL PRIMARY KEY,
     nama_tunjangan VARCHAR(100) NOT NULL,
     nilai NUMERIC(12, 2) NOT NULL,
-    jenis_tunjangan VARCHAR(20) NOT NULL,
-    sifat_tunjangan VARCHAR(20) NOT NULL,
+    jenis_tunjangan VARCHAR(20) NOT NULL CHECK (jenis_tunjangan IN ('NOMINAL', 'PERSENTASE')),
+    sifat_tunjangan VARCHAR(20) NOT NULL CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN', 'PER_JAM')),
     keterangan TEXT,
     kode_kondisi VARCHAR(20) NOT NULL DEFAULT 'UMUM',
     formula_type VARCHAR(30) DEFAULT NULL,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT unique_kode_kondisi UNIQUE (kode_kondisi),
-    CONSTRAINT chk_jenis_tunjangan CHECK (jenis_tunjangan IN ('NOMINAL', 'PERSENTASE')),
-    CONSTRAINT chk_sifat_tunjangan CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN', 'PER_JAM')),
     CONSTRAINT chk_formula_type CHECK (formula_type IN (
-        'HARIAN_HADIR_WFO',        -- nilai_terhitung = jumlah hadir WFO * rate
-        'PERSEN_GAJI_JIKA_KAWIN',  -- nilai_terhitung = gaji_pokok * persen, hanya jika status_perkawinan='K'
-        'PERSEN_GAJI_PER_ANAK',    -- nilai_terhitung = gaji_pokok * persen * jumlah_anak
-        'PER_JAM_LEMBUR'           -- rate per jam, dikonsumsi langsung dari total_jam_lebih
+        'HARIAN_HADIR_WFO',
+        'PERSEN_GAJI_JIKA_KAWIN',
+        'PERSEN_GAJI_PER_ANAK',
+        'PER_JAM_LEMBUR'
     ) OR formula_type IS NULL)
 );
 
--- 3. Master Potongan (VERTIKAL - Pengganti kolom hardcode)
+-- 3. Master Potongan
 CREATE TABLE IF NOT EXISTS tb_master_potongan (
     id_master_potongan SERIAL PRIMARY KEY,
     nama_potongan VARCHAR(100) NOT NULL,
@@ -57,26 +58,22 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
-
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-
+-- 6. Periode Gaji & Function
 CREATE TABLE IF NOT EXISTS tb_periode (
-    id_periode    SERIAL PRIMARY KEY,
-    bulan_gaji    VARCHAR(20) NOT NULL UNIQUE, 
-    tanggal_awal  DATE NOT NULL,      
+    id_periode SERIAL PRIMARY KEY,
+    bulan_gaji VARCHAR(20) NOT NULL UNIQUE, 
+    tanggal_awal DATE NOT NULL,      
     tanggal_akhir DATE NOT NULL,     
-    status        VARCHAR(30) DEFAULT 'Pengisian Absensi' 
-                      CHECK (status IN (
-                          'Pengisian Absensi',
-                          'Menunggu Approval',
-                          'Disetujui',
-                          'Ditolak',
-                          'Diproses Gaji',
-                          'Selesai'
-                      )),
-    deleted_at    TIMESTAMPTZ DEFAULT NULL,
-
-    -- Constraint anti-overlap langsung didefinisikan di sini
+    status VARCHAR(30) DEFAULT 'Pengisian Absensi' 
+        CHECK (status IN (
+            'Pengisian Absensi',
+            'Menunggu Approval',
+            'Disetujui',
+            'Ditolak',
+            'Diproses Gaji',
+            'Selesai'
+        )),
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT chk_anti_overlap_periode 
         EXCLUDE USING gist (
             DATERANGE(tanggal_awal, tanggal_akhir, '[]') WITH &&
@@ -92,17 +89,14 @@ RETURNS INTEGER AS $$
 DECLARE
     v_id_periode INTEGER;
 BEGIN
-    -- 1. Validasi input (Penting biar gak ada data rusak masuk!)
     IF p_tanggal_awal > p_tanggal_akhir THEN
         RAISE EXCEPTION 'tanggal_awal tidak boleh lebih besar dari tanggal_akhir';
     END IF;
 
-    -- 2. Insert data periode baru
     INSERT INTO public.tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir)
     VALUES (p_bulan_gaji, p_tanggal_awal, p_tanggal_akhir)
     RETURNING id_periode INTO v_id_periode;
 
-    -- 3. Kembalikan ID ke Node.js
     RETURN v_id_periode;
 END;
 $$ LANGUAGE plpgsql;
@@ -121,12 +115,7 @@ CREATE TABLE IF NOT EXISTS tb_pegawai (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
-
--- ==========================================
--- II. TRANSACTIONAL TABLES (Tabel Transaksi)
--- ==========================================
-
--- 8. Transaksi Absensi Bulanan
+-- 8. Transaksi Absensi Summary
 CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     id_absensi_summary SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -139,17 +128,17 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
     UNIQUE (id_periode, id_pegawai)
 );
 
--- 9. Log Approval 
+-- 9. Log Approval (Diselaraskan menggunakan TIMESTAMPTZ)
 CREATE TABLE IF NOT EXISTS tb_approval (
     id_approval SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     approver_id INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna),
     status VARCHAR(20) NOT NULL CHECK (status IN ('Pending', 'Approved', 'Rejected')),
     catatan TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. Transaksi Tunjangan Bulanan (VERTIKAL Bersih)
+-- 10. Transaksi Tunjangan Bulanan & Detail
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -168,7 +157,7 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan_detail (
     CONSTRAINT unique_periode_pegawai_tunjangan UNIQUE (id_periode, id_pegawai, id_tunjangan)
 );
 
--- 11. Transaksi Potongan Bulanan (VERTIKAL Bersih, Bebas Kolom Hardcode)
+-- 11. Transaksi Potongan Bulanan & Detail
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     id_potongan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
@@ -186,7 +175,7 @@ CREATE TABLE IF NOT EXISTS tb_potongan_bulanan_detail (
     CONSTRAINT unique_periode_pegawai_potongan UNIQUE (id_periode, id_pegawai, id_master_potongan)
 );
 
--- 12. Rekap Gaji Akhir (Snapshot Bersejarah Vertikal)
+-- 12. Rekap Gaji Akhir & Detail
 CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     id_rekap SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE RESTRICT,
@@ -196,8 +185,8 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji (
     gaji_pokok_snapshot NUMERIC(12, 2) DEFAULT 0,
     total_penghasilan_bruto NUMERIC(12, 2) DEFAULT 0,
     total_potongan NUMERIC(12, 2) DEFAULT 0,
-    total_penerimaan_clean NUMERIC(12, 2) DEFAULT 0, -- Penerimaan bersih final
-    created_at TIMESTAMP DEFAULT NOW(),
+    total_penerimaan_clean NUMERIC(12, 2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (id_periode, id_pegawai)
 );
 
@@ -213,31 +202,18 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji_detail (
 -- 13. Log Audit Koreksi Jam
 CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     id_koreksi SERIAL PRIMARY KEY,
-    
-    -- CONTEXT
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
-    
-    -- AUDIT WHO
     id_staf_gaji INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna), 
-    
-    -- VALUES (Histori Sebelum -> Delta -> Sesudah)
     jam_awal NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
-    jam_koreksi NUMERIC(5, 2) NOT NULL,              -- Selisih jam
-    jam_akhir NUMERIC(5, 2) NOT NULL DEFAULT 0.00,    -- Hasil akhir
-    
-    -- METADATA
-    jenis_koreksi VARCHAR(20) NOT NULL DEFAULT 'ADD', -- 'ADD' / 'SUBTRACT'
+    jam_koreksi NUMERIC(5, 2) NOT NULL,
+    jam_akhir NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+    jenis_koreksi VARCHAR(20) NOT NULL DEFAULT 'ADD' CHECK (jenis_koreksi IN ('ADD', 'SUBTRACT')),
     keterangan TEXT NOT NULL,
     bukti_dokumen VARCHAR(255),
-    
-    -- AUDIT WHEN
-    created_at TIMESTAMP DEFAULT NOW(),
-
-    -- VALIDASI KEAMANAN DATA
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT chk_jam_non_negatif CHECK (jam_awal >= 0 AND jam_akhir >= 0)
 );
-
 
 -- =========================================================================
 -- III. SEED DATA / DATA DEFAULT (VERSI PERBAIKAN AMAN CONFLICT)
@@ -423,8 +399,7 @@ VALUES
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
 
-CREATE INDEX IF NOT EXISTS idx_pegawai_active ON tb_pegawai(id_pegawai) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_jabatan_active ON tb_jabatan(id_jabatan) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_golongan_active ON tb_golongan(id_golongan) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_periode_active ON tb_periode(id_periode) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pengguna_active ON tb_pengguna(id_pengguna) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_tunjangan_detail_lookup ON tb_tunjangan_bulanan_detail(id_periode, id_pegawai);
+CREATE INDEX IF NOT EXISTS idx_potongan_detail_lookup ON tb_potongan_bulanan_detail(id_periode, id_pegawai);
+CREATE INDEX IF NOT EXISTS idx_rekap_gaji_periode ON tb_rekap_gaji(id_periode);
+CREATE INDEX IF NOT EXISTS idx_pegawai_deleted_at ON tb_pegawai(deleted_at) WHERE deleted_at IS NULL;
