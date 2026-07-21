@@ -213,12 +213,29 @@ CREATE TABLE IF NOT EXISTS tb_rekap_gaji_detail (
 -- 13. Log Audit Koreksi Jam
 CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     id_koreksi SERIAL PRIMARY KEY,
+    
+    -- CONTEXT
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
+    
+    -- AUDIT WHO
     id_staf_gaji INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna), 
-    jam_koreksi NUMERIC(5, 2) NOT NULL, 
-    keterangan TEXT NOT NULL, 
-    created_at TIMESTAMP DEFAULT NOW()
+    
+    -- VALUES (Histori Sebelum -> Delta -> Sesudah)
+    jam_awal NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+    jam_koreksi NUMERIC(5, 2) NOT NULL,              -- Selisih jam
+    jam_akhir NUMERIC(5, 2) NOT NULL DEFAULT 0.00,    -- Hasil akhir
+    
+    -- METADATA
+    jenis_koreksi VARCHAR(20) NOT NULL DEFAULT 'ADD', -- 'ADD' / 'SUBTRACT'
+    keterangan TEXT NOT NULL,
+    bukti_dokumen VARCHAR(255),
+    
+    -- AUDIT WHEN
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    -- VALIDASI KEAMANAN DATA
+    CONSTRAINT chk_jam_non_negatif CHECK (jam_awal >= 0 AND jam_akhir >= 0)
 );
 
 

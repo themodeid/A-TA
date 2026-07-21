@@ -9,7 +9,7 @@ import gajiRoutes from "../modules/gaji/gaji.routes";
 import potonganRoutes from "../modules/potongan/potongan-routes";
 import periodeRoutes from "../modules/periode/periode-routes";
 import tunjanganRoutes from "../modules/tunjangan/tunjnagan.routes";
-
+import tunjanganBulananRoutes from "../modules/tunjangan_bulanan/tunjangan_bul_routes";
 const router = Router();
 
 router.use("/absensi", absensiRoutes);
@@ -21,4 +21,5 @@ router.use("/gaji", gajiRoutes);
 router.use("/potongan", potonganRoutes);
 router.use("/periode", periodeRoutes);
 router.use("/tunjangan", tunjanganRoutes);
+router.use("/tunjangan_bulanan", tunjanganBulananRoutes);
 export default router;
