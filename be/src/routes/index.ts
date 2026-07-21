@@ -9,7 +9,7 @@ import gajiRoutes from "../modules/gaji/gaji.routes";
 import potonganRoutes from "../modules/potongan/potongan-routes";
 import periodeRoutes from "../modules/periode/periode-routes";
 import tunjanganRoutes from "../modules/tunjangan/tunjnagan.routes";
-import tunjanganBulananRoutes from "../modules/tunjangan_bulanan/tunjangan_bul_routes";
+import tunjanganBulananRoutes from "../modules/tunjangan_bulanan/tunjangan_bulanan_routes";
 const router = Router();
 
 router.use("/absensi", absensiRoutes);
