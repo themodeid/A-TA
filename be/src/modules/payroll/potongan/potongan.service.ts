@@ -42,24 +42,46 @@ export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
     ]);
     const indukData = indukResult.rows[0];
 
-    // 2. Upsert ke tabel detail: tb_potongan_bulanan_detail
-    const savedDetails = [];
-    const upsertDetailQuery = `
-      INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (id_periode, id_pegawai, id_master_potongan) 
-      DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan
-      RETURNING *;
-    `;
+    // 2. HAPUS detail potongan lama yang TIDAK ADA dalam array input baru (PENTING!)
+    const activeMasterIds = details.map((d) => d.id_master_potongan);
 
-    for (const detail of details) {
-      const detailResult = await client.query(upsertDetailQuery, [
+    if (activeMasterIds.length > 0) {
+      await client.query(
+        `DELETE FROM tb_potongan_bulanan_detail 
+         WHERE id_periode = $1 
+           AND id_pegawai = $2 
+           AND id_master_potongan NOT IN (${activeMasterIds.map((_, i) => `$${i + 3}`).join(",")})`,
+        [id_periode, id_pegawai, ...activeMasterIds],
+      );
+    } else {
+      // Jika user mengosongkan semua detail
+      await client.query(
+        `DELETE FROM tb_potongan_bulanan_detail WHERE id_periode = $1 AND id_pegawai = $2`,
+        [id_periode, id_pegawai],
+      );
+    }
+
+    // 3. Upsert ke tabel detail menggunakan Batch/Unnest (Lebih Cepat & Efisien)
+    let savedDetails: any[] = [];
+    if (details.length > 0) {
+      const masterIds = details.map((d) => d.id_master_potongan);
+      const nilaiList = details.map((d) => d.nilai_potongan);
+
+      const batchUpsertQuery = `
+        INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+        SELECT $1, $2, UNNEST($3::int[]), UNNEST($4::numeric[])
+        ON CONFLICT (id_periode, id_pegawai, id_master_potongan) 
+        DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan
+        RETURNING *;
+      `;
+
+      const detailResult = await client.query(batchUpsertQuery, [
         id_periode,
         id_pegawai,
-        detail.id_master_potongan,
-        detail.nilai_potongan,
+        masterIds,
+        nilaiList,
       ]);
-      savedDetails.push(detailResult.rows[0]);
+      savedDetails = detailResult.rows;
     }
 
     await client.query("COMMIT");
@@ -77,7 +99,7 @@ export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
 };
 
 /**
- * Mengambil data rangkuman potongan beserta rincian detailnya
+ * Mengambil data rangkuman potongan beserta rincian detailnya (Include nama_potongan)
  */
 export const getPotonganByPegawaiAndPeriode = async (
   id_periode: number,
@@ -91,9 +113,19 @@ export const getPotonganByPegawaiAndPeriode = async (
 
   if (indukResult.rows.length === 0) return null;
 
+  // JOIN dengan master potongan agar frontend langsung dapat nama komponennya
   const detailQuery = `
-    SELECT * FROM tb_potongan_bulanan_detail 
-    WHERE id_periode = $1 AND id_pegawai = $2;
+    SELECT 
+      d.id_potongan_detail,
+      d.id_periode,
+      d.id_pegawai,
+      d.id_master_potongan,
+      m.nama_potongan,
+      m.kode_potongan,
+      d.nilai_potongan
+    FROM tb_potongan_bulanan_detail d
+    JOIN tb_master_potongan m ON d.id_master_potongan = m.id_master_potongan
+    WHERE d.id_periode = $1 AND d.id_pegawai = $2;
   `;
   const detailResult = await pool.query(detailQuery, [id_periode, id_pegawai]);
 

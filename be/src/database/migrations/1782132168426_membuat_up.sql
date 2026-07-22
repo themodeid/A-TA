@@ -13,32 +13,45 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 2. Master Tunjangan
+-- 1. Tabel Master Formula Tunjangan (Ganti Hardcode CHECK)
+CREATE TABLE IF NOT EXISTS tb_formula_tunjangan (
+    kode_formula VARCHAR(30) PRIMARY KEY, -- Misal: 'HARIAN_HADIR_WFO', 'PERSEN_GAJI_JIKA_KAWIN'
+    nama_formula VARCHAR(100) NOT NULL,   -- Misal: 'Tunjangan Uang Makan WFO'
+    keterangan TEXT
+);
+
+-- 2. Tabel Master Tunjangan (Pakai Foreign Key)
 CREATE TABLE IF NOT EXISTS tb_tunjangan (
     id_tunjangan SERIAL PRIMARY KEY,
     nama_tunjangan VARCHAR(100) NOT NULL,
-    nilai NUMERIC(12, 2) NOT NULL,
-    jenis_tunjangan VARCHAR(20) NOT NULL CHECK (jenis_tunjangan IN ('NOMINAL', 'PERSENTASE')),
-    sifat_tunjangan VARCHAR(20) NOT NULL CHECK (sifat_tunjangan IN ('BULANAN', 'HARIAN', 'PER_JAM')),
+    nilai NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    jenis_tunjangan VARCHAR(20) NOT NULL DEFAULT 'NOMINAL',
+    sifat_tunjangan VARCHAR(20) NOT NULL DEFAULT 'BULANAN',
     keterangan TEXT,
     kode_kondisi VARCHAR(20) NOT NULL DEFAULT 'UMUM',
-    formula_type VARCHAR(30) DEFAULT NULL,
+    formula_type VARCHAR(30) REFERENCES tb_formula_tunjangan(kode_formula) ON DELETE SET NULL,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
-    CONSTRAINT unique_kode_kondisi UNIQUE (kode_kondisi),
-    CONSTRAINT chk_formula_type CHECK (formula_type IN (
-        'HARIAN_HADIR_WFO',
-        'PERSEN_GAJI_JIKA_KAWIN',
-        'PERSEN_GAJI_PER_ANAK',
-        'PER_JAM_LEMBUR'
-    ) OR formula_type IS NULL)
+
+    CONSTRAINT unique_kode_kondisi UNIQUE (kode_kondisi)
 );
 
 -- 3. Master Potongan
+CREATE TABLE IF NOT EXISTS tb_formula_potongan (
+    kode_formula VARCHAR(30) PRIMARY KEY, -- Misal: 'HARIAN_MANGKIR', 'PPH21_2026'
+    nama_formula VARCHAR(100) NOT NULL,   -- Misal: 'Potongan Mangkir Harian'
+    keterangan TEXT
+);
+
+-- Tabel Master Potongan cukup pakai FOREIGN KEY
 CREATE TABLE IF NOT EXISTS tb_master_potongan (
     id_master_potongan SERIAL PRIMARY KEY,
     nama_potongan VARCHAR(100) NOT NULL,
-    kode_potongan VARCHAR(20) UNIQUE NOT NULL, 
-    nilai_default NUMERIC(12, 2) DEFAULT 0,     
+    nilai NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    jenis_potongan VARCHAR(20) NOT NULL DEFAULT 'NOMINAL',
+    sifat_potongan VARCHAR(20) NOT NULL DEFAULT 'BULANAN',
+    keterangan TEXT,
+    kode_potongan VARCHAR(20) UNIQUE NOT NULL,
+    formula_type VARCHAR(30) REFERENCES tb_formula_potongan(kode_formula) ON DELETE SET NULL,
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
