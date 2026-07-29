@@ -15,8 +15,9 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
 
 -- 1. Tabel Master Formula Tunjangan (Ganti Hardcode CHECK)
 CREATE TABLE IF NOT EXISTS tb_formula_tunjangan (
-    kode_formula VARCHAR(30) PRIMARY KEY, -- Misal: 'HARIAN_HADIR_WFO', 'PERSEN_GAJI_JIKA_KAWIN'
-    nama_formula VARCHAR(100) NOT NULL,   -- Misal: 'Tunjangan Uang Makan WFO'
+    id_formula_tunjangan SERIAL PRIMARY KEY, -- ID Angka tetap ada
+    kode_formula VARCHAR(30) UNIQUE NOT NULL, -- Tetap harus UNIQUE untuk di-refer Backend
+    nama_formula VARCHAR(100) NOT NULL,
     keterangan TEXT
 );
 
@@ -37,8 +38,9 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan (
 
 -- 3. Master Potongan
 CREATE TABLE IF NOT EXISTS tb_formula_potongan (
-    kode_formula VARCHAR(30) PRIMARY KEY, -- Misal: 'HARIAN_MANGKIR', 'PPH21_2026'
-    nama_formula VARCHAR(100) NOT NULL,   -- Misal: 'Potongan Mangkir Harian'
+    id_formula_potongan SERIAL PRIMARY KEY, -- ID Angka tetap ada
+    kode_formula VARCHAR(30) UNIQUE NOT NULL, -- Tetap harus UNIQUE untuk di-refer Backend
+    nama_formula VARCHAR(100) NOT NULL,
     keterangan TEXT
 );
 
@@ -241,13 +243,13 @@ INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjanga
 ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai, formula_type = EXCLUDED.formula_type;
 
 -- Seed Master Potongan
-INSERT INTO tb_master_potongan (nama_potongan, kode_potongan, nilai_default) VALUES
+INSERT INTO tb_master_potongan (nama_potongan, kode_potongan, nilai) VALUES
 ('Potongan Angsuran', 'POT_ANGSURAN', 0.00),
 ('Potongan Dana Wajib', 'POT_DANA_WAJIB', 50000.00),
 ('Potongan S_PSKD', 'POT_S_PSKD', 20000.00),
 ('Potongan Pelkes', 'POT_PELKES', 30000.00),
 ('Potongan Lainnya', 'POT_LAINNYA', 0.00)
-ON CONFLICT (kode_potongan) DO UPDATE SET nilai_default = EXCLUDED.nilai_default;
+ON CONFLICT (kode_potongan) DO UPDATE SET nilai = EXCLUDED.nilai;
 
 -- Seed Master Jabatan
 INSERT INTO tb_jabatan (nama_jabatan, tunjangan_jabatan_struktural) VALUES 
