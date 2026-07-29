@@ -1,4 +1,4 @@
-import { pool } from "../../../config/database";
+import { pool } from "../../../../config/database";
 
 interface PotonganDetailInput {
   id_master_potongan: number;
@@ -17,8 +17,16 @@ interface UpsertPotonganInput {
 export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
   const { id_periode, id_pegawai, details } = data;
 
-  const total_potongan_terhitung = details.reduce(
-    (sum, item) => sum + Number(item.nilai_potongan),
+  // 1. Sanitasi & Pastikan nilai_potongan selalu numeric valid
+  const sanitizedDetails = details.map((item) => ({
+    id_master_potongan: Number(item.id_master_potongan),
+    nilai_potongan: isNaN(Number(item.nilai_potongan))
+      ? 0
+      : Number(item.nilai_potongan),
+  }));
+
+  const total_potongan_terhitung = sanitizedDetails.reduce(
+    (sum, item) => sum + item.nilai_potongan,
     0,
   );
 
@@ -27,7 +35,7 @@ export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Upsert ke tabel induk: tb_potongan_bulanan
+    // 2. Upsert ke tabel induk: tb_potongan_bulanan
     const upsertIndukQuery = `
       INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
       VALUES ($1, $2, $3)
@@ -42,30 +50,22 @@ export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
     ]);
     const indukData = indukResult.rows[0];
 
-    // 2. HAPUS detail potongan lama yang TIDAK ADA dalam array input baru (PENTING!)
-    const activeMasterIds = details.map((d) => d.id_master_potongan);
+    // 3. Hapus detail lama yang tidak ada di payload baru (Menggunakan ANY agar aman dari Limit Param)
+    const activeMasterIds = sanitizedDetails.map((d) => d.id_master_potongan);
 
-    if (activeMasterIds.length > 0) {
-      await client.query(
-        `DELETE FROM tb_potongan_bulanan_detail 
-         WHERE id_periode = $1 
-           AND id_pegawai = $2 
-           AND id_master_potongan NOT IN (${activeMasterIds.map((_, i) => `$${i + 3}`).join(",")})`,
-        [id_periode, id_pegawai, ...activeMasterIds],
-      );
-    } else {
-      // Jika user mengosongkan semua detail
-      await client.query(
-        `DELETE FROM tb_potongan_bulanan_detail WHERE id_periode = $1 AND id_pegawai = $2`,
-        [id_periode, id_pegawai],
-      );
-    }
+    await client.query(
+      `DELETE FROM tb_potongan_bulanan_detail 
+       WHERE id_periode = $1 
+         AND id_pegawai = $2 
+         AND id_master_potongan != ALL($3::int[])`,
+      [id_periode, id_pegawai, activeMasterIds],
+    );
 
-    // 3. Upsert ke tabel detail menggunakan Batch/Unnest (Lebih Cepat & Efisien)
+    // 4. Batch Upsert Detail menggunakan UNNEST
     let savedDetails: any[] = [];
-    if (details.length > 0) {
-      const masterIds = details.map((d) => d.id_master_potongan);
-      const nilaiList = details.map((d) => d.nilai_potongan);
+    if (sanitizedDetails.length > 0) {
+      const masterIds = sanitizedDetails.map((d) => d.id_master_potongan);
+      const nilaiList = sanitizedDetails.map((d) => d.nilai_potongan);
 
       const batchUpsertQuery = `
         INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)

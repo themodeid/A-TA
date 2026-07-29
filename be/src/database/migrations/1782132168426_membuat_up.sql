@@ -229,12 +229,24 @@ CREATE TABLE IF NOT EXISTS tb_koreksi_jam (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT chk_jam_non_negatif CHECK (jam_awal >= 0 AND jam_akhir >= 0)
 );
+-- ============================================================
+-- 1. SEED MASTER DATA
+-- ============================================================
 
--- =========================================================================
--- III. SEED DATA / DATA DEFAULT (VERSI PERBAIKAN AMAN CONFLICT)
--- =========================================================================
+-- Seed Master Formula Tunjangan
+INSERT INTO tb_formula_tunjangan (kode_formula, nama_formula, keterangan) VALUES
+('HARIAN_HADIR_WFO', 'Harian Hadir WFO', 'Perhitungan dikali total kehadiran WFO'),
+('PERSEN_GAJI_JIKA_KAWIN', 'Persentase Gaji (Kawin)', 'Persentase dari gaji pokok jika status Kawin'),
+('PERSEN_GAJI_PER_ANAK', 'Persentase Gaji per Anak', 'Persentase dari gaji pokok dikali jumlah anak'),
+('PER_JAM_LEMBUR', 'Nominal per Jam Lembur', 'Nominal flat dikali total jam lembur')
+ON CONFLICT (kode_formula) DO NOTHING;
 
--- Seed Master Tunjangan (dengan formula_type)
+-- Seed Master Formula Potongan
+INSERT INTO tb_formula_potongan (kode_formula, nama_formula, keterangan) VALUES
+('NOMINAL_FLAT', 'Nominal Flat', 'Potongan bernilai tetap/flat per bulan')
+ON CONFLICT (kode_formula) DO NOTHING;
+
+-- Seed Master Tunjangan
 INSERT INTO tb_tunjangan (nama_tunjangan, nilai, jenis_tunjangan, sifat_tunjangan, keterangan, kode_kondisi, formula_type) VALUES 
 ('Uang Transport WFO', 30000.00, 'NOMINAL', 'HARIAN', 'Uang transport fisik', 'TRN_WFO', 'HARIAN_HADIR_WFO'),
 ('Tunjangan Istri', 0.10, 'PERSENTASE', 'BULANAN', 'Tunjangan istri 10% dari gaji pokok', 'TUNJ_ISTRI', 'PERSEN_GAJI_JIKA_KAWIN'),
@@ -271,12 +283,12 @@ INSERT INTO tb_golongan (nama_golongan, gaji_pokok_standar) VALUES
 ('GTT/PTT (Guru/Pegawai Tidak Tetap)', 1500000.00)
 ON CONFLICT (nama_golongan) DO NOTHING;
 
--- Periode Juli 2026 disesuaikan ke tanggal 16 Juni - 15 Juli dengan status 'Selesai'
+-- Periode Juli 2026
 INSERT INTO tb_periode (bulan_gaji, tanggal_awal, tanggal_akhir, status) 
 VALUES ('Juli 2026', '2026-06-16', '2026-07-15', 'Selesai')
 ON CONFLICT (bulan_gaji) DO UPDATE SET tanggal_awal = EXCLUDED.tanggal_awal, tanggal_akhir = EXCLUDED.tanggal_akhir, status = EXCLUDED.status;
 
--- Seed Master Pegawai menggunakan WHERE NOT EXISTS (Aman dari kendala Unique Constraint)
+-- Seed Master Pegawai
 INSERT INTO tb_pegawai (nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_perkawinan, jumlah_anak, gaji_pokok_dasar)
 SELECT 'Drs. Budi Santoso - 1975-05-12', (SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan='Kepala Sekolah'), (SELECT id_golongan FROM tb_golongan WHERE nama_golongan='Golongan IV/a (Pembina)'), 'K', 2, 3500000.00
 WHERE NOT EXISTS (SELECT 1 FROM tb_pegawai WHERE nama_dan_tanggal_lahir = 'Drs. Budi Santoso - 1975-05-12');
@@ -289,21 +301,25 @@ INSERT INTO tb_pegawai (nama_dan_tanggal_lahir, id_jabatan, id_golongan, status_
 SELECT 'Rian Hidayat - 1998-11-02', (SELECT id_jabatan FROM tb_jabatan WHERE nama_jabatan='Guru Tetap / Staf TU'), (SELECT id_golongan FROM tb_golongan WHERE nama_golongan='GTT/PTT (Guru/Pegawai Tidak Tetap)'), 'TK', 0, 1500000.00
 WHERE NOT EXISTS (SELECT 1 FROM tb_pegawai WHERE nama_dan_tanggal_lahir = 'Rian Hidayat - 1998-11-02');
 
--- Seed Transaksi Absensi
+-- ============================================================
+-- 2. SEED TRANSAKSI OPERASIONAL
+-- ============================================================
+
+-- Transaksi Absensi
 INSERT INTO tb_absensi_summary (id_periode, id_pegawai, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), 24, 0, 1, 0, 0),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), 25, 0, 0, 0, 0),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 22, 0, 0, 3, 0)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Transaksi Tunjangan Bulanan Variabel
+-- Tunjangan Bulanan Variabel
 INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), 0.00, 0.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), 12.50, 0.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 5.00, 200000.00)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Detail Tunjangan Vertikal
+-- Detail Tunjangan Vertikal
 INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_tunjangan FROM tb_tunjangan WHERE kode_kondisi='TRN_WFO'), 720000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_tunjangan FROM tb_tunjangan WHERE kode_kondisi='TUNJ_ISTRI'), 350000.00),
@@ -312,15 +328,14 @@ INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, n
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), (SELECT id_tunjangan FROM tb_tunjangan WHERE kode_kondisi='TRN_WFO'), 660000.00)
 ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
 
--- Seed Transaksi Potongan Utama (Header)
--- Seed Potongan Bulanan (Header)
+-- Potongan Bulanan Header
 INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), 600000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), 110000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 450000.00)
 ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
 
--- Seed Detail Potongan Vertikal (SUDAH DISINKRONKAN)
+-- Detail Potongan Vertikal
 INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan) VALUES
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_ANGSURAN'), 500000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
@@ -329,10 +344,12 @@ INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potong
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_DANA_WAJIB'), 50000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_LAINNYA'), 60000.00),
 ((SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'), (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), (SELECT id_master_potongan FROM tb_master_potongan WHERE kode_potongan='POT_LAINNYA'), 450000.00)
-
 ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
 
--- Seed Rekap Utama
+-- ============================================================
+-- 3. SEED REKAP GAJI & SLIP GAJI (SNAPSHOT)
+-- ============================================================
+
 INSERT INTO public.tb_rekap_gaji 
   (id_periode, id_pegawai, jabatan_snapshot, pangkat_golongan_snapshot, gaji_pokok_snapshot, total_penghasilan_bruto, total_potongan, total_penerimaan_clean) 
 VALUES 
@@ -353,66 +370,57 @@ SET
   total_potongan = EXCLUDED.total_potongan,
   total_penerimaan_clean = EXCLUDED.total_penerimaan_clean;
 
--- Hapus detail lama jika ada kecocokan rekap agar tidak duplikat saat seeding ulang
+-- Clean detail lama periode terkait sebelum insert breakdown baru
 DELETE FROM public.tb_rekap_gaji_detail 
 WHERE id_rekap IN (SELECT id_rekap FROM public.tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026'));
 
--- Masukkan data breakdown slip gaji (Subquery aman dengan LIMIT 1)
+-- Insert Breakdown Detail
 INSERT INTO public.tb_rekap_gaji_detail 
   (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot) 
 VALUES 
+  -- Detail Drs. Budi Santoso
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Tunjangan Struktural Kepala Sekolah', 2000000.00, 'TUNJ_STRUKTURAL'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Uang Transport WFO', 720000.00, 'TRN_WFO'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Tunjangan Istri', 350000.00, 'TUNJ_ISTRI'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Tunjangan Anak', 140000.00, 'TUNJ_ANAK'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan Angsuran', 500000.00, 'POT_ANGSURAN'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan Dana Wajib', 50000.00, 'POT_DANA_WAJIB'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan S_PSKD', 20000.00, 'POT_S_PSKD'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Drs. Budi Santoso%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan Pelkes', 30000.00, 'POT_PELKES'),
 
-  -- DETAILS FOR: Siti Aminah S.Pd
+  -- Detail Siti Aminah S.Pd
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Tunjangan Struktural Wali Kelas', 500000.00, 'TUNJ_STRUKTURAL'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Uang Transport WFO', 750000.00, 'TRN_WFO'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Honor Lembur (12.5 Jam)', 312500.00, 'LEMBUR_PER_JAM'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan Dana Wajib', 50000.00, 'POT_DANA_WAJIB'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Siti Aminah%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Potongan Lainnya / Penyesuaian', 60000.00, 'POT_LAINNYA'),
 
-  -- DETAILS FOR: Rian Hidayat
+  -- Detail Rian Hidayat
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Uang Transport WFO', 660000.00, 'TRN_WFO'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Honor Lembur (5 Jam)', 125000.00, 'LEMBUR_PER_JAM'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'TUNJANGAN', 'Honor Tambahan Bulan Ini', 200000.00, 'HONOR_BULANAN_MANUAL'),
-  
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 
    'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
+
+-- ============================================================
+-- 4. INDEKS OPTIMASI QUERY
+-- ============================================================
 
 CREATE INDEX IF NOT EXISTS idx_tunjangan_detail_lookup ON tb_tunjangan_bulanan_detail(id_periode, id_pegawai);
 CREATE INDEX IF NOT EXISTS idx_potongan_detail_lookup ON tb_potongan_bulanan_detail(id_periode, id_pegawai);
