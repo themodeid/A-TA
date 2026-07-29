@@ -73,61 +73,70 @@ export const getAbsensiById = async (id: number) => {
 };
 
 // 1a. Bulk Create Absensi (Untuk inisialisasi awal periode/upload data massal)
+// 1a. Bulk Create Absensi (Fix ON CONFLICT & Join tb_periode)
 export const createAbsensiBulk = async (
   idPeriode: number,
   dataAbsenList: any[],
 ) => {
-  // 1. Filter hanya data yang punya id_pegawai valid
+  // 1. Filter data yang valid
   const validDataList = dataAbsenList.filter(
     (data) => data && data.id_pegawai && !isNaN(Number(data.id_pegawai)),
   );
-
-  if (validDataList.length === 0) return [];
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    const values: any[] = [];
-    const valuePlaceholders = validDataList
-      .map((data, index) => {
-        const offset = index * 7;
+    if (validDataList.length > 0) {
+      const values: any[] = [];
+      const valuePlaceholders = validDataList
+        .map((data, index) => {
+          const offset = index * 7;
 
-        values.push(
-          idPeriode,
-          Number(data.id_pegawai),
-          Number(data.total_hadir_ops_wfo || 0),
-          Number(data.total_hadir_ops_wfh || 0),
-          Number(data.total_izin || 0),
-          Number(data.total_sakit || 0),
-          Number(data.total_alpha || 0),
-        );
+          values.push(
+            idPeriode,
+            Number(data.id_pegawai),
+            Number(data.total_hadir_ops_wfo || 0),
+            Number(data.total_hadir_ops_wfh || 0),
+            Number(data.total_izin || 0),
+            Number(data.total_sakit || 0),
+            Number(data.total_alpha || 0),
+          );
 
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
-      })
-      .join(", ");
+          return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
+        })
+        .join(", ");
 
-    // 2. Gunakan Common Table Expression (WITH) untuk JOIN setelah INSERT
-    // *Sesuaikan nama tabel 'tb_periode' dan kolomnya (bulan, tahun, nama_periode) dengan database-mu
-    const query = `
-      WITH inserted_rows AS (
+      // UPSERT (ON CONFLICT UPDATE): Agar jika data rekap sudah ada, nilainya diperbarui & RETURNING tetap mengembalikan data!
+      const insertQuery = `
         INSERT INTO tb_absensi_summary (
           id_periode, id_pegawai, total_hadir_ops_wfo, 
           total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
         ) VALUES ${valuePlaceholders}
-        ON CONFLICT (id_periode, id_pegawai) DO NOTHING
-        RETURNING *
-      )
+        ON CONFLICT (id_periode, id_pegawai) DO UPDATE SET
+          total_hadir_ops_wfo = EXCLUDED.total_hadir_ops_wfo,
+          total_hadir_ops_wfh = EXCLUDED.total_hadir_ops_wfh,
+          total_izin = EXCLUDED.total_izin,
+          total_sakit = EXCLUDED.total_sakit,
+          total_alpha = EXCLUDED.total_alpha
+        RETURNING *;
+      `;
+
+      await client.query(insertQuery, values);
+    }
+
+    // 2. Ambil data gabungan terbaru beserta info periode (Gunakan bulan_gaji & id_periode)
+    const selectQuery = `
       SELECT 
-        i.*,
-        p.nama_periode,
-        p.bulan,
-        p.tahun
-      FROM inserted_rows i
-      LEFT JOIN tb_periode p ON i.id_periode = p.id;
+        asum.*,
+        prd.bulan_gaji AS nama_periode,
+        prd.bulan_gaji AS bulan_tahun
+      FROM tb_absensi_summary asum
+      LEFT JOIN tb_periode prd ON asum.id_periode = prd.id_periode
+      WHERE asum.id_periode = $1;
     `;
 
-    const result = await client.query(query, values);
+    const result = await client.query(selectQuery, [idPeriode]);
 
     await client.query("COMMIT");
     return result.rows;
@@ -227,12 +236,13 @@ export const updateAbsensi = async (id: number, data: any) => {
 };
 
 // 5. Hapus Data Rekap Absensi
-export const deleteAbsensi = async (id: number) => {
+// Delete SEMUA absensi dalam 1 periode (Hard Delete)
+export const deleteAbsensiByPeriode = async (idPeriode: number) => {
   const query = `
     DELETE FROM tb_absensi_summary 
-    WHERE id_absensi_summary = $1
+    WHERE id_periode = $1
     RETURNING *;
   `;
-  const result = await pool.query(query, [id]);
-  return result.rows[0] || null;
+  const result = await pool.query(query, [idPeriode]);
+  return result.rows; // Mengembalikan array semua data yang berhasil terhapus
 };

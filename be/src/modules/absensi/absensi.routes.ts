@@ -32,6 +32,6 @@ router.get("/:id", absensiController.getAbsensiById);
 router.put("/:id", absensiController.updateAbsensi);
 
 // 7. Delete - Hapus data absensi
-router.delete("/:id", absensiController.deleteAbsensi);
+router.delete("/delete/:idPeriode", absensiController.deleteAbsensiByPeriode);
 
 export default router;

@@ -94,25 +94,21 @@ export const createAbsensiBulk = async (
       );
     }
 
-    // 1. Jalankan proses bulk insert seperti biasa
-    // Di dalam controller kamu (createAbsensiBulk)
+    // 1. Jalankan proses bulk insert
     const result = await absensiService.createAbsensiBulk(
       Number(idPeriode),
       dataAbsenList,
     );
 
-    // Ambil data periode dari baris pertama hasil query (jika ada data yang di-insert)
+    // 2. Ambil properti yang BENAR-BENAR dikembalikan oleh query SQL (bulan_tahun / nama_periode)
     const sampleData = result[0];
     const namaPeriode = sampleData?.nama_periode || `Periode ID ${idPeriode}`;
-    const bulanTahun =
-      sampleData?.bulan && sampleData?.tahun
-        ? `${sampleData.bulan} ${sampleData.tahun}`
-        : "Tidak diketahui";
+    const bulanTahun = sampleData?.bulan_tahun || namaPeriode;
 
     return res.status(201).json({
       status: "success",
       statusCode: 201,
-      message: `${result.length} data absensi berhasil diinisialisasi untuk ${namaPeriode} (${bulanTahun}).`,
+      message: `${result.length} data absensi berhasil diinisialisasi untuk ${namaPeriode}.`,
       periode: {
         id: Number(idPeriode),
         nama: namaPeriode,
@@ -183,28 +179,42 @@ export const updateAbsensi = async (
 };
 
 // 5. Hard delete rekap absensi per record
-export const deleteAbsensi = async (
+export const deleteAbsensiByPeriode = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const result = await absensiService.deleteAbsensi(Number(req.params.id));
-    if (!result) {
+    const { idPeriode } = req.params;
+
+    if (!idPeriode || isNaN(Number(idPeriode))) {
+      return next(
+        new AppError("Parameter idPeriode tidak valid pada URL.", 400),
+      );
+    }
+
+    const deletedRows = await absensiService.deleteAbsensiByPeriode(
+      Number(idPeriode),
+    );
+
+    // Jika array kosong (length === 0), berarti memang tidak ada data di periode tersebut
+    if (!deletedRows || deletedRows.length === 0) {
       return next(
         new AppError(
-          "Data absensi tidak ditemukan atau sudah dihapus sebelumnya",
+          `Data absensi untuk Periode ID ${idPeriode} tidak ditemukan atau sudah dihapus.`,
           404,
         ),
       );
     }
+
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: "Absensi berhasil dihapus",
-      data: result,
+      message: `Berhasil menghapus seluruh data absensi (${deletedRows.length} record) untuk Periode ID ${idPeriode}.`,
+      total_deleted: deletedRows.length,
+      data: deletedRows,
     });
-  } catch (error) {
-    return next(error);
+  } catch (error: any) {
+    return next(new AppError(error.message, 500));
   }
 };
