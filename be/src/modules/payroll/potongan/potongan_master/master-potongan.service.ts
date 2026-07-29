@@ -23,8 +23,7 @@ export const getAllMasterPotongan = async () => {
       jenis_potongan,
       sifat_potongan,
       formula_type,
-      keterangan,
-      created_at
+      keterangan
     FROM tb_master_potongan
     WHERE deleted_at IS NULL
     ORDER BY id_master_potongan ASC;

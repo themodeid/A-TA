@@ -26,7 +26,7 @@ export async function kalkulasiGajiAkhir(
 
     // Ambil master potongan
     const masterPotonganRes = await client.query(
-      `SELECT id_master_potongan, nilai_default, nama_potongan, kode_potongan 
+      `SELECT id_master_potongan, nilai, nama_potongan, kode_potongan 
        FROM public.tb_master_potongan 
        WHERE deleted_at IS NULL`,
     );
@@ -120,7 +120,7 @@ export async function kalkulasiGajiAkhir(
       let totalPotongan = 0;
       const listPotonganDetail = [];
       for (const pot of masterPotongan) {
-        const nilaiPotongan = Number(pot.nilai_default);
+        const nilaiPotongan = Number(pot.nilai);
         totalPotongan += nilaiPotongan;
 
         await client.query(
