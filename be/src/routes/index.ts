@@ -12,8 +12,8 @@ import golonganRoutes from "../modules/master-data/golongan/golongan.routes";
 import konfigurasiRoutes from "../modules/payroll/konfigurasi/konfigurasi.routes";
 import gajiRoutes from "../modules/payroll/gaji/gaji.routes";
 import potonganRoutes from "../modules/payroll/potongan/potongan_bulanan/potongan.routes";
-import tunjanganRoutes from "../modules/payroll/tunjangan/tunjangan.routes";
-import tunjanganBulananRoutes from "../modules/payroll/tunjangan-bulanan/tunjangan-bulanan.routes";
+import tunjanganRoutes from "../modules/payroll/tunjangan/tunjangan-master/tunjangan.routes";
+import tunjanganBulananRoutes from "../modules/payroll/tunjangan/tunjangan-bulanan/tunjangan-bulanan.routes";
 import periodeRoutes from "../modules/payroll/periode/periode.routes";
 import potonganMasterRoutes from "../modules/payroll/potongan/potongan_master/master-potongan.routes";
 
@@ -30,10 +30,10 @@ router.use("/master/golongan", golonganRoutes);
 // 3. Payroll Routes
 router.use("/payroll/konfigurasi", konfigurasiRoutes);
 router.use("/payroll/gaji", gajiRoutes);
+router.use("/payroll/periode", periodeRoutes);
 router.use("/payroll/potongan", potonganRoutes);
 router.use("/payroll/potongan-master", potonganMasterRoutes);
 router.use("/payroll/tunjangan", tunjanganRoutes);
 router.use("/payroll/tunjangan-bulanan", tunjanganBulananRoutes);
-router.use("/payroll/periode", periodeRoutes);
 
 export default router;

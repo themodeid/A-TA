@@ -4,7 +4,7 @@ import * as controller from "./tunjangan-bulanan.controller";
 
 // 1. Inisialisasi wadah data kosong untuk semua pegawai di awal periode
 // URL Target: POST /api/v1/tunjangan-bulanan/initialize
-router.post("/initialize", controller.initializeTunjangan);
+router.post("/", controller.initializeTunjangan);
 
 // 2. Ambil semua data tunjangan bulanan (Header) berdasarkan id_periode yang dikirim via query
 // URL Target: GET /api/v1/tunjangan-bulanan?id_periode=1
