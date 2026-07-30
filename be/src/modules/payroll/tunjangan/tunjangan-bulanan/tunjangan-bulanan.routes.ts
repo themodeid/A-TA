@@ -1,16 +1,15 @@
-import express from "express";
-const router = express.Router();
-import * as controller from "./tunjangan-bulanan.controller";
+import { Router } from "express";
+import * as tunjanganController from "./tunjangan-bulanan.controller";
 
-// 1. Inisialisasi wadah data kosong untuk semua pegawai di awal periode
-// URL Target: POST /api/v1/tunjangan-bulanan/initialize
-router.post("/", controller.initializeTunjangan);
+const router = Router();
 
-// 2. Ambil semua data tunjangan bulanan (Header) berdasarkan id_periode yang dikirim via query
-// URL Target: GET /api/v1/tunjangan-bulanan?id_periode=1
-router.get("/:id_periode", controller.getAllTunjanganByPeriode);
+// GET data grid per periode
+router.get("/periode/:id_periode", tunjanganController.getByPeriode);
 
-// 3. Simpan/Update massal jam lembur & honor bulanan (Header + Sinkronisasi otomatis ke Detail)
-// URL Target: PUT /api/v1/tunjangan-bulanan/save-bulk
-router.put("/save-bulk", controller.saveBulkTunjangan);
+// POST inisialisasi awal periode
+router.post("/initialize", tunjanganController.initializePeriode);
+
+// POST save bulk (header + detail)
+router.post("/bulk-save", tunjanganController.saveBulkData);
+
 export default router;

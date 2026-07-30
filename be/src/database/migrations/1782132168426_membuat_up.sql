@@ -153,26 +153,28 @@ CREATE TABLE IF NOT EXISTS tb_approval (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. Transaksi Tunjangan Bulanan & Detail
+-- 1. Transaksi Tunjangan Bulanan (Header)
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan (
     id_tunjangan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
     id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE, 
-    total_jam_lebih NUMERIC(5, 2) DEFAULT 0,
-    honor_bulan NUMERIC(12, 2) DEFAULT 0,
+    total_jam_lebih NUMERIC(5, 2) DEFAULT 0.00,
+    honor_bulan NUMERIC(12, 2) DEFAULT 0.00,
+    total_tunjangan_terhitung NUMERIC(12, 2) DEFAULT 0.00, -- Tambahan agar seimbang dengan potongan
     UNIQUE (id_periode, id_pegawai)
 );
 
+-- 2. Detail Tunjangan Vertikal (Detail)
 CREATE TABLE IF NOT EXISTS tb_tunjangan_bulanan_detail (
-    id_detail SERIAL PRIMARY KEY,
-    id_periode INT REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
-    id_pegawai INT REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
-    id_tunjangan INT REFERENCES tb_tunjangan(id_tunjangan) ON DELETE RESTRICT,
-    nilai_terhitung NUMERIC(12, 2) DEFAULT 0,
+    id_tunjangan_detail SERIAL PRIMARY KEY, -- Disamakan penamaannya dengan id_potongan_detail
+    id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
+    id_pegawai INTEGER NOT NULL REFERENCES tb_pegawai(id_pegawai) ON DELETE CASCADE,
+    id_tunjangan INTEGER NOT NULL REFERENCES tb_tunjangan(id_tunjangan) ON DELETE RESTRICT,
+    nilai_terhitung NUMERIC(12, 2) DEFAULT 0.00,
     CONSTRAINT unique_periode_pegawai_tunjangan UNIQUE (id_periode, id_pegawai, id_tunjangan)
 );
 
--- 11. Transaksi Potongan Bulanan & Detail
+-- 11. Transaksi Potongan Bulanan (Header)
 CREATE TABLE IF NOT EXISTS tb_potongan_bulanan (
     id_potongan_bulanan SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,

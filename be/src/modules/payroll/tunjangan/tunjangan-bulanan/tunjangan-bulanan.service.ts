@@ -1,37 +1,59 @@
 import { pool } from "../../../../config/database";
 
-// Definisi interface untuk tipe data input massal dari frontend
-interface TunjanganInput {
+// Interface untuk Input Detail Tunjangan
+export interface TunjanganDetailInput {
+  id_tunjangan: number;
+  nilai_terhitung: number;
+}
+
+// Interface untuk Input Per Pegawai
+export interface TunjanganPegawaiInput {
   id_pegawai: number;
-  total_jam_lebih: number;
-  honor_bulan: number;
+  total_jam_lebih?: number;
+  honor_bulan?: number;
+  details: TunjanganDetailInput[];
 }
 
 // ==========================================
-// LOGIKA MENGAMBIL DATA UNTUK TABEL GRID UI (BERDASARKAN PERIODE)
+// 1. LOGIKA GET ALL BY PERIODE (NESTED JSON ARRAY)
 // ==========================================
 export const getAllByPeriode = async (id_periode: number) => {
   const queryText = `
-        SELECT 
-            tb.id_tunjangan_bulanan,
-            tb.id_periode,
-            tb.id_pegawai,
-            p.nama_dan_tanggal_lahir,
-            tb.total_jam_lebih,
-            tb.honor_bulan
-        FROM tb_tunjangan_bulanan tb
-        JOIN tb_pegawai p ON tb.id_pegawai = p.id_pegawai
-        WHERE tb.id_periode = $1
-        ORDER BY p.nama_dan_tanggal_lahir ASC;
-    `;
+    SELECT 
+      tb.id_tunjangan_bulanan,
+      tb.id_periode,
+      tb.id_pegawai,
+      p.nama_dan_tanggal_lahir,
+      tb.total_jam_lebih,
+      tb.honor_bulan,
+      tb.total_tunjangan_terhitung,
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id_tunjangan_detail', tbd.id_tunjangan_detail,
+            'id_tunjangan', tbd.id_tunjangan,
+            'nama_tunjangan', t.nama_tunjangan,
+            'kode_kondisi', t.kode_kondisi,
+            'nilai_terhitung', tbd.nilai_terhitung
+          )
+        ) FILTER (WHERE tbd.id_tunjangan_detail IS NOT NULL), '[]'
+      ) AS details
+    FROM tb_tunjangan_bulanan tb
+    JOIN tb_pegawai p ON tb.id_pegawai = p.id_pegawai
+    LEFT JOIN tb_tunjangan_bulanan_detail tbd 
+      ON tb.id_periode = tbd.id_periode AND tb.id_pegawai = tbd.id_pegawai
+    LEFT JOIN tb_tunjangan t ON tbd.id_tunjangan = t.id_tunjangan
+    WHERE tb.id_periode = $1
+    GROUP BY tb.id_tunjangan_bulanan, p.nama_dan_tanggal_lahir
+    ORDER BY p.nama_dan_tanggal_lahir ASC;
+  `;
 
-  // Menggunakan pool secara langsung untuk single-query tanpa transaksi
   const result = await pool.query(queryText, [id_periode]);
   return result.rows;
 };
 
 // ==========================================
-// LOGIKA INISIALISASI PERIODE BARU
+// 2. LOGIKA INISIALISASI PERIODE BARU
 // ==========================================
 export const initialize = async (id_periode: number) => {
   const client = await pool.connect();
@@ -50,11 +72,11 @@ export const initialize = async (id_periode: number) => {
     }
 
     const initQuery = `
-        INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
-        SELECT $1, id_pegawai, 0.00, 0.00
-        FROM tb_pegawai
-        WHERE deleted_at IS NULL
-        ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+      INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan, total_tunjangan_terhitung)
+      SELECT $1, id_pegawai, 0.00, 0.00, 0.00
+      FROM tb_pegawai
+      WHERE deleted_at IS NULL
+      ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
     `;
     await client.query(initQuery, [id_periode]);
 
@@ -69,85 +91,96 @@ export const initialize = async (id_periode: number) => {
 };
 
 // ==========================================
-// LOGIKA SIMPAN MASSAL (BULK SAVE)
+// 3. LOGIKA SIMPAN MASSAL (BULK SAVE HEADER & DETAIL)
 // ==========================================
 export const saveBulk = async (
   id_periode: number,
-  data_input: TunjanganInput[],
+  data_input: TunjanganPegawaiInput[],
 ) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // 1. Ambil Rate Lembur & Master ID Tunjangan Lembur
-    const rateMaster = await client.query(
-      "SELECT id_tunjangan, nilai FROM tb_tunjangan WHERE kode_kondisi = 'LEMBUR_PER_JAM' LIMIT 1",
-    );
-    if (rateMaster.rows.length === 0) {
-      throw new Error(
-        "Master data 'LEMBUR_PER_JAM' belum diseed! Silakan isi master data terlebih dahulu.",
-      );
-    }
-    const { id_tunjangan: idTunjangLembur, nilai: rateLembur } =
-      rateMaster.rows[0];
+    // Array tampungan Unnest
+    const arrHeaderPeriode: number[] = [];
+    const arrHeaderPegawai: number[] = [];
+    const arrHeaderJamLebih: number[] = [];
+    const arrHeaderHonorBulan: number[] = [];
+    const arrHeaderTotalSum: number[] = [];
 
-    // 2. Extract Data Array untuk dikirim sekaligus via UNNEST
-    const arrPeriode: number[] = [];
-    const arrPegawai: number[] = [];
-    const arrJamLebih: number[] = [];
-    const arrHonorBulan: number[] = [];
+    const arrDetailPeriode: number[] = [];
+    const arrDetailPegawai: number[] = [];
+    const arrDetailIdTunjangan: number[] = [];
+    const arrDetailNilai: number[] = [];
 
     for (const item of data_input) {
-      arrPeriode.push(id_periode);
-      arrPegawai.push(item.id_pegawai);
-      arrJamLebih.push(parseFloat(item.total_jam_lebih.toString()) || 0);
-      arrHonorBulan.push(parseFloat(item.honor_bulan.toString()) || 0);
+      let totalSumDetails = 0;
+
+      if (item.details && item.details.length > 0) {
+        for (const detail of item.details) {
+          arrDetailPeriode.push(id_periode);
+          arrDetailPegawai.push(item.id_pegawai);
+          arrDetailIdTunjangan.push(detail.id_tunjangan);
+
+          const val = parseFloat(detail.nilai_terhitung.toString()) || 0;
+          arrDetailNilai.push(val);
+          totalSumDetails += val;
+        }
+      }
+
+      const jamLebih = parseFloat((item.total_jam_lebih || 0).toString());
+      const honor = parseFloat((item.honor_bulan || 0).toString());
+
+      arrHeaderPeriode.push(id_periode);
+      arrHeaderPegawai.push(item.id_pegawai);
+      arrHeaderJamLebih.push(jamLebih);
+      arrHeaderHonorBulan.push(honor);
+      // Total Header = Accumulation Details + Honor
+      arrHeaderTotalSum.push(totalSumDetails + honor);
     }
 
-    if (arrPegawai.length > 0) {
-      // 3. QUERY BATCH 1: Bulk Upsert Header (tb_tunjangan_bulanan)
-      const upsertHeaderBulk = `
-        INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
-        SELECT * FROM UNNEST($1::int[], $2::int[], $3::numeric[], $4::numeric[])
+    // A. Bulk Upsert Header (tb_tunjangan_bulanan)
+    if (arrHeaderPegawai.length > 0) {
+      const upsertHeader = `
+        INSERT INTO tb_tunjangan_bulanan (
+          id_periode, id_pegawai, total_jam_lebih, honor_bulan, total_tunjangan_terhitung
+        )
+        SELECT * FROM UNNEST($1::int[], $2::int[], $3::numeric[], $4::numeric[], $5::numeric[])
         ON CONFLICT (id_periode, id_pegawai)
         DO UPDATE SET 
-            total_jam_lebih = EXCLUDED.total_jam_lebih,
-            honor_bulan = EXCLUDED.honor_bulan;
+          total_jam_lebih = EXCLUDED.total_jam_lebih,
+          honor_bulan = EXCLUDED.honor_bulan,
+          total_tunjangan_terhitung = EXCLUDED.total_tunjangan_terhitung;
       `;
-      await client.query(upsertHeaderBulk, [
-        arrPeriode,
-        arrPegawai,
-        arrJamLebih,
-        arrHonorBulan,
+      await client.query(upsertHeader, [
+        arrHeaderPeriode,
+        arrHeaderPegawai,
+        arrHeaderJamLebih,
+        arrHeaderHonorBulan,
+        arrHeaderTotalSum,
       ]);
+    }
 
-      // 4. QUERY BATCH 2: Bulk Upsert Detail Lembur (tb_tunjangan_bulanan_detail)
-      // Kalkulasi nominal lembur langsung dihitung oleh Postgres ($5 * rateLembur)
-      const upsertDetailLemburBulk = `
-        INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
-        SELECT 
-          u.id_periode, 
-          u.id_pegawai, 
-          $3::int, 
-          (u.jam_lebih * $4::numeric)
-        FROM UNNEST($1::int[], $2::int[], $5::numeric[]) AS u(id_periode, id_pegawai, jam_lebih)
+    // B. Bulk Upsert Details (tb_tunjangan_bulanan_detail)
+    if (arrDetailPegawai.length > 0) {
+      const upsertDetail = `
+        INSERT INTO tb_tunjangan_bulanan_detail (
+          id_periode, id_pegawai, id_tunjangan, nilai_terhitung
+        )
+        SELECT * FROM UNNEST($1::int[], $2::int[], $3::int[], $4::numeric[])
         ON CONFLICT (id_periode, id_pegawai, id_tunjangan)
         DO UPDATE SET nilai_terhitung = EXCLUDED.nilai_terhitung;
       `;
-      await client.query(upsertDetailLemburBulk, [
-        arrPeriode,
-        arrPegawai,
-        idTunjangLembur,
-        rateLembur,
-        arrJamLebih,
+      await client.query(upsertDetail, [
+        arrDetailPeriode,
+        arrDetailPegawai,
+        arrDetailIdTunjangan,
+        arrDetailNilai,
       ]);
     }
 
     await client.query("COMMIT");
-    return {
-      message:
-        "Semua data tunjangan bulanan berhasil disimpan dan disinkronkan!",
-    };
+    return { message: "Data tunjangan dan rincian detail berhasil disimpan!" };
   } catch (error: any) {
     await client.query("ROLLBACK");
     throw error;
