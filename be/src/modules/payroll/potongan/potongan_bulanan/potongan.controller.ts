@@ -1,81 +1,69 @@
 import { Request, Response } from "express";
 import * as potonganService from "./potongan.service";
 
-export const upsertPotongan = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getPotonganByPeriode = async (req: Request, res: Response) => {
   try {
-    const { id_periode, id_pegawai, details } = req.body;
-
-    if (!id_periode || !id_pegawai || !Array.isArray(details)) {
-      res.status(400).json({
-        status: "fail",
-        message:
-          "Payload tidak valid. Pastikan id_periode, id_pegawai, dan details (array) dikirim.",
-      });
-      return;
+    const { id_periode } = req.params;
+    if (!id_periode) {
+      return res.status(400).json({ message: "ID Periode wajib diisi!" });
     }
 
-    const result = await potonganService.upsertPotonganBulanan({
-      id_periode: Number(id_periode),
-      id_pegawai: Number(id_pegawai),
-      details,
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "Data potongan berhasil diperbarui.",
-      data: result,
-    });
-  } catch (error: any) {
-    console.error("Error saat melakukan upsert potongan:", error);
-    res.status(500).json({
-      status: "error",
-      message: "Terjadi kesalahan pada server.",
-      error: error.message,
-    });
-  }
-};
-
-export const getPotonganDetail = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { id_periode, id_pegawai } = req.query;
-
-    if (!id_periode || !id_pegawai) {
-      res.status(400).json({
-        status: "fail",
-        message: "Query parameter id_periode dan id_pegawai wajib disertakan.",
-      });
-      return;
-    }
-
-    const data = await potonganService.getPotonganByPegawaiAndPeriode(
-      Number(id_periode),
-      Number(id_pegawai),
-    );
-
-    if (!data) {
-      res.status(404).json({
-        status: "fail",
-        message:
-          "Data potongan tidak ditemukan untuk periode dan pegawai tersebut.",
-      });
-      return;
-    }
-
-    res.status(200).json({
+    const data = await potonganService.getAllByPeriode(Number(id_periode));
+    return res.status(200).json({
       status: "success",
       data,
     });
   } catch (error: any) {
-    res.status(500).json({
+    return res.status(500).json({
       status: "error",
-      message: "Terjadi kesalahan saat mengambil data.",
-      error: error.message,
+      message: error.message || "Terjadi kesalahan pada server",
+    });
+  }
+};
+
+export const initPotonganPeriode = async (req: Request, res: Response) => {
+  try {
+    const { id_periode } = req.body;
+    if (!id_periode) {
+      return res.status(400).json({ message: "ID Periode wajib diisi!" });
+    }
+
+    const result = await potonganService.initialize(Number(id_periode));
+    return res.status(200).json({
+      status: "success",
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      status: "error",
+      message: error.message || "Gagal menginisialisasi potongan",
+    });
+  }
+};
+
+export const saveBulkPotongan = async (req: Request, res: Response) => {
+  try {
+    const { id_periode, data_input } = req.body;
+
+    if (!id_periode || !Array.isArray(data_input)) {
+      return res.status(400).json({
+        message:
+          "Payload tidak valid! Pastikan id_periode dan data_input diisi.",
+      });
+    }
+
+    const result = await potonganService.saveBulk(
+      Number(id_periode),
+      data_input,
+    );
+    return res.status(200).json({
+      status: "success",
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message || "Gagal menyimpan data potongan massal",
     });
   }
 };

@@ -79,6 +79,7 @@ export const saveBulk = async (
   try {
     await client.query("BEGIN");
 
+    // 1. Ambil Rate Lembur & Master ID Tunjangan Lembur
     const rateMaster = await client.query(
       "SELECT id_tunjangan, nilai FROM tb_tunjangan WHERE kode_kondisi = 'LEMBUR_PER_JAM' LIMIT 1",
     );
@@ -90,39 +91,55 @@ export const saveBulk = async (
     const { id_tunjangan: idTunjangLembur, nilai: rateLembur } =
       rateMaster.rows[0];
 
-    for (const item of data_input) {
-      const { id_pegawai, total_jam_lebih, honor_bulan } = item;
+    // 2. Extract Data Array untuk dikirim sekaligus via UNNEST
+    const arrPeriode: number[] = [];
+    const arrPegawai: number[] = [];
+    const arrJamLebih: number[] = [];
+    const arrHonorBulan: number[] = [];
 
-      const updateHeader = `
-            INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (id_periode, id_pegawai)
-            DO UPDATE SET 
-                total_jam_lebih = EXCLUDED.total_jam_lebih,
-                honor_bulan = EXCLUDED.honor_bulan;
-        `;
-      await client.query(updateHeader, [
-        id_periode,
-        id_pegawai,
-        total_jam_lebih,
-        honor_bulan,
+    for (const item of data_input) {
+      arrPeriode.push(id_periode);
+      arrPegawai.push(item.id_pegawai);
+      arrJamLebih.push(parseFloat(item.total_jam_lebih.toString()) || 0);
+      arrHonorBulan.push(parseFloat(item.honor_bulan.toString()) || 0);
+    }
+
+    if (arrPegawai.length > 0) {
+      // 3. QUERY BATCH 1: Bulk Upsert Header (tb_tunjangan_bulanan)
+      const upsertHeaderBulk = `
+        INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan)
+        SELECT * FROM UNNEST($1::int[], $2::int[], $3::numeric[], $4::numeric[])
+        ON CONFLICT (id_periode, id_pegawai)
+        DO UPDATE SET 
+            total_jam_lebih = EXCLUDED.total_jam_lebih,
+            honor_bulan = EXCLUDED.honor_bulan;
+      `;
+      await client.query(upsertHeaderBulk, [
+        arrPeriode,
+        arrPegawai,
+        arrJamLebih,
+        arrHonorBulan,
       ]);
 
-      const uangLemburTerhitung =
-        parseFloat(total_jam_lebih.toString()) *
-        parseFloat(rateLembur.toString());
-
-      const updateDetailLembur = `
-            INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (id_periode, id_pegawai, id_tunjangan)
-            DO UPDATE SET nilai_terhitung = EXCLUDED.nilai_terhitung;
-        `;
-      await client.query(updateDetailLembur, [
-        id_periode,
-        id_pegawai,
+      // 4. QUERY BATCH 2: Bulk Upsert Detail Lembur (tb_tunjangan_bulanan_detail)
+      // Kalkulasi nominal lembur langsung dihitung oleh Postgres ($5 * rateLembur)
+      const upsertDetailLemburBulk = `
+        INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
+        SELECT 
+          u.id_periode, 
+          u.id_pegawai, 
+          $3::int, 
+          (u.jam_lebih * $4::numeric)
+        FROM UNNEST($1::int[], $2::int[], $5::numeric[]) AS u(id_periode, id_pegawai, jam_lebih)
+        ON CONFLICT (id_periode, id_pegawai, id_tunjangan)
+        DO UPDATE SET nilai_terhitung = EXCLUDED.nilai_terhitung;
+      `;
+      await client.query(upsertDetailLemburBulk, [
+        arrPeriode,
+        arrPegawai,
         idTunjangLembur,
-        uangLemburTerhitung,
+        rateLembur,
+        arrJamLebih,
       ]);
     }
 

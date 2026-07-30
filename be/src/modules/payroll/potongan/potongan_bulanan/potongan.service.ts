@@ -1,96 +1,86 @@
 import { pool } from "../../../../config/database";
 
-interface PotonganDetailInput {
+// Interface untuk input dari Frontend/Client
+export interface PotonganDetailInput {
   id_master_potongan: number;
   nilai_potongan: number;
 }
 
-interface UpsertPotonganInput {
-  id_periode: number;
+export interface PotonganPegawaiInput {
   id_pegawai: number;
   details: PotonganDetailInput[];
 }
 
-/**
- * Menyimpan detail potongan dan menghitung otomatis total_potongan_terhitung di tabel induk
- */
-export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
-  const { id_periode, id_pegawai, details } = data;
+// ==========================================
+// 1. GET ALL BY PERIODE (Untuk Grid UI)
+// ==========================================
+export const getAllByPeriode = async (id_periode: number) => {
+  const queryText = `
+    SELECT 
+      pb.id_potongan_bulanan,
+      pb.id_periode,
+      pb.id_pegawai,
+      p.nama_dan_tanggal_lahir,
+      pb.total_potongan_terhitung,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id_potongan_detail', pbd.id_potongan_detail,
+            'id_master_potongan', pbd.id_master_potongan,
+            'nama_potongan', mp.nama_potongan,
+            'kode_potongan', mp.kode_potongan,
+            'nilai_potongan', pbd.nilai_potongan
+          )
+        ) FILTER (WHERE pbd.id_potongan_detail IS NOT NULL), '[]'
+      ) AS details
+    FROM tb_potongan_bulanan pb
+    JOIN tb_pegawai p ON pb.id_pegawai = p.id_pegawai
+    LEFT JOIN tb_potongan_bulanan_detail pbd 
+      ON pb.id_periode = pbd.id_periode AND pb.id_pegawai = pbd.id_pegawai
+    LEFT JOIN tb_master_potongan mp 
+      ON pbd.id_master_potongan = mp.id_master_potongan
+    WHERE pb.id_periode = $1
+    GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir
+    ORDER BY p.nama_dan_tanggal_lahir ASC;
+  `;
 
-  // 1. Sanitasi & Pastikan nilai_potongan selalu numeric valid
-  const sanitizedDetails = details.map((item) => ({
-    id_master_potongan: Number(item.id_master_potongan),
-    nilai_potongan: isNaN(Number(item.nilai_potongan))
-      ? 0
-      : Number(item.nilai_potongan),
-  }));
+  const result = await pool.query(queryText, [id_periode]);
+  return result.rows;
+};
 
-  const total_potongan_terhitung = sanitizedDetails.reduce(
-    (sum, item) => sum + item.nilai_potongan,
-    0,
-  );
-
+// ==========================================
+// 2. INITIALIZE PERIODE BARU
+// ==========================================
+export const initialize = async (id_periode: number) => {
   const client = await pool.connect();
-
   try {
     await client.query("BEGIN");
 
-    // 2. Upsert ke tabel induk: tb_potongan_bulanan
-    const upsertIndukQuery = `
-      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (id_periode, id_pegawai) 
-      DO UPDATE SET total_potongan_terhitung = EXCLUDED.total_potongan_terhitung
-      RETURNING *;
-    `;
-    const indukResult = await client.query(upsertIndukQuery, [
-      id_periode,
-      id_pegawai,
-      total_potongan_terhitung,
-    ]);
-    const indukData = indukResult.rows[0];
-
-    // 3. Hapus detail lama yang tidak ada di payload baru (Menggunakan ANY agar aman dari Limit Param)
-    const activeMasterIds = sanitizedDetails.map((d) => d.id_master_potongan);
-
-    await client.query(
-      `DELETE FROM tb_potongan_bulanan_detail 
-       WHERE id_periode = $1 
-         AND id_pegawai = $2 
-         AND id_master_potongan != ALL($3::int[])`,
-      [id_periode, id_pegawai, activeMasterIds],
+    // Cek status periode
+    const pCheck = await client.query(
+      "SELECT status FROM tb_periode WHERE id_periode = $1",
+      [id_periode],
     );
-
-    // 4. Batch Upsert Detail menggunakan UNNEST
-    let savedDetails: any[] = [];
-    if (sanitizedDetails.length > 0) {
-      const masterIds = sanitizedDetails.map((d) => d.id_master_potongan);
-      const nilaiList = sanitizedDetails.map((d) => d.nilai_potongan);
-
-      const batchUpsertQuery = `
-        INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
-        SELECT $1, $2, UNNEST($3::int[]), UNNEST($4::numeric[])
-        ON CONFLICT (id_periode, id_pegawai, id_master_potongan) 
-        DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan
-        RETURNING *;
-      `;
-
-      const detailResult = await client.query(batchUpsertQuery, [
-        id_periode,
-        id_pegawai,
-        masterIds,
-        nilaiList,
-      ]);
-      savedDetails = detailResult.rows;
+    if (pCheck.rows.length === 0) throw new Error("Periode tidak ditemukan!");
+    if (pCheck.rows[0].status !== "Pengisian Absensi") {
+      throw new Error(
+        "Gagal. Status periode ini bukan Pengisian Absensi atau sudah dikunci!",
+      );
     }
 
-    await client.query("COMMIT");
+    // Insert Header Potongan untuk semua pegawai aktif
+    const initHeaderQuery = `
+      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+      SELECT $1, id_pegawai, 0.00
+      FROM tb_pegawai
+      WHERE deleted_at IS NULL
+      ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+    `;
+    await client.query(initHeaderQuery, [id_periode]);
 
-    return {
-      ...indukData,
-      details: savedDetails,
-    };
-  } catch (error) {
+    await client.query("COMMIT");
+    return { message: "Inisialisasi wadah potongan bulanan berhasil!" };
+  } catch (error: any) {
     await client.query("ROLLBACK");
     throw error;
   } finally {
@@ -98,39 +88,71 @@ export const upsertPotonganBulanan = async (data: UpsertPotonganInput) => {
   }
 };
 
-/**
- * Mengambil data rangkuman potongan beserta rincian detailnya (Include nama_potongan)
- */
-export const getPotonganByPegawaiAndPeriode = async (
+export const saveBulk = async (
   id_periode: number,
-  id_pegawai: number,
+  data_input: PotonganPegawaiInput[],
 ) => {
-  const indukQuery = `
-    SELECT * FROM tb_potongan_bulanan 
-    WHERE id_periode = $1 AND id_pegawai = $2;
-  `;
-  const indukResult = await pool.query(indukQuery, [id_periode, id_pegawai]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  if (indukResult.rows.length === 0) return null;
+    // 1. Ratakan (Flatten) data array dari Javascript untuk dikirim sekaligus ke SQL
+    const arrPeriode: number[] = [];
+    const arrPegawai: number[] = [];
+    const arrMasterPot: number[] = [];
+    const arrNilaiPot: number[] = [];
 
-  // JOIN dengan master potongan agar frontend langsung dapat nama komponennya
-  const detailQuery = `
-    SELECT 
-      d.id_potongan_detail,
-      d.id_periode,
-      d.id_pegawai,
-      d.id_master_potongan,
-      m.nama_potongan,
-      m.kode_potongan,
-      d.nilai_potongan
-    FROM tb_potongan_bulanan_detail d
-    JOIN tb_master_potongan m ON d.id_master_potongan = m.id_master_potongan
-    WHERE d.id_periode = $1 AND d.id_pegawai = $2;
-  `;
-  const detailResult = await pool.query(detailQuery, [id_periode, id_pegawai]);
+    for (const item of data_input) {
+      if (item.details && item.details.length > 0) {
+        for (const detail of item.details) {
+          arrPeriode.push(id_periode);
+          arrPegawai.push(item.id_pegawai);
+          arrMasterPot.push(detail.id_master_potongan);
+          arrNilaiPot.push(parseFloat(detail.nilai_potongan.toString()) || 0);
+        }
+      }
+    }
 
-  return {
-    ...indukResult.rows[0],
-    details: detailResult.rows,
-  };
+    // 2. QUERY BATCH 1: Bulk Upsert Detail sekaligus dalam 1 Kali Hit Query
+    if (arrPegawai.length > 0) {
+      const upsertDetailBulk = `
+        INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+        SELECT * FROM UNNEST($1::int[], $2::int[], $3::int[], $4::numeric[])
+        ON CONFLICT (id_periode, id_pegawai, id_master_potongan)
+        DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan;
+      `;
+      await client.query(upsertDetailBulk, [
+        arrPeriode,
+        arrPegawai,
+        arrMasterPot,
+        arrNilaiPot,
+      ]);
+    }
+
+    // 3. QUERY BATCH 2: Auto Recalculate & Sync ke Header langsung dari Postgres!
+    // Memastikan total_potongan_terhitung selalu presisi 100% dari data detail
+    const syncHeaderQuery = `
+      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+      SELECT 
+        pbd.id_periode,
+        pbd.id_pegawai,
+        COALESCE(SUM(pbd.nilai_potongan), 0) as total_potongan
+      FROM tb_potongan_bulanan_detail pbd
+      WHERE pbd.id_periode = $1
+      GROUP BY pbd.id_periode, pbd.id_pegawai
+      ON CONFLICT (id_periode, id_pegawai)
+      DO UPDATE SET total_potongan_terhitung = EXCLUDED.total_potongan_terhitung;
+    `;
+    await client.query(syncHeaderQuery, [id_periode]);
+
+    await client.query("COMMIT");
+    return {
+      message: "Data potongan bulanan berhasil disimpan dan disinkronkan!",
+    };
+  } catch (error: any) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
