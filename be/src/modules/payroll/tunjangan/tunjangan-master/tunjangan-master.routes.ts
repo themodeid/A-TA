@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as controller from "./tunjangan.controller";
+import * as controller from "./tunjangan-master.controller";
 
 const router = Router();
 

@@ -3,7 +3,7 @@ import {
   getPotonganByPeriode,
   initPotonganPeriode,
   saveBulkPotongan,
-} from "./potongan.controller";
+} from "./potongan-bulanan.controller";
 
 const router = Router();
 

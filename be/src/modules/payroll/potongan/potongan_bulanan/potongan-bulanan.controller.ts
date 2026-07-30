@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import * as potonganService from "./potongan.service";
+import * as potonganService from "./potongan-bulanan.service";
 
 export const getPotonganByPeriode = async (req: Request, res: Response) => {
   try {
