@@ -13,7 +13,6 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = data;
 
     // Jalankan query dengan memanggil fungsi database yang sudah kita buat
-    // Jalankan query dengan memanggil fungsi database dengan skema yang jelas
     const result = await client.query(
       `SELECT public.fungsi_buka_periode_baru($1::varchar, $2::date, $3::date) AS id_periode;`,
       [bulan_gaji, tanggal_awal, tanggal_akhir],
@@ -28,8 +27,6 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
     // Ambil data lengkap periode yang baru dibuat untuk dikembalikan ke controller
     return await getPeriodeById(newPeriodeId);
   } catch (error) {
-    // Tambahin logging sedikit biar kalau database-nya nolak (misal karena overlap tanggal),
-    // lo bisa tau error asli dari PostgreSQL-nya apa.
     console.error("Error di createPeriode Service:", error);
     throw error;
   } finally {

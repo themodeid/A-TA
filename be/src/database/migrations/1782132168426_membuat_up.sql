@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan (
 -- 3. Master Potongan
 CREATE TABLE IF NOT EXISTS tb_formula_potongan (
     id_formula_potongan SERIAL PRIMARY KEY, -- ID Angka tetap ada
-    kode_formula VARCHAR(30) UNIQUE NOT NULL, -- Tetap harus UNIQUE untuk di-refer Backend
+    kode_formula VARCHAR(30) UNIQUE NOT NULL, 
     nama_formula VARCHAR(100) NOT NULL,
     keterangan TEXT
 );
