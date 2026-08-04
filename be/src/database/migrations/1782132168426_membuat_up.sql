@@ -147,7 +147,6 @@ CREATE TABLE IF NOT EXISTS tb_absensi_summary (
 CREATE TABLE IF NOT EXISTS tb_approval (
     id_approval SERIAL PRIMARY KEY,
     id_periode INTEGER NOT NULL REFERENCES tb_periode(id_periode) ON DELETE CASCADE,
-    approver_id INTEGER NOT NULL REFERENCES tb_pengguna(id_pengguna),
     status VARCHAR(20) NOT NULL CHECK (status IN ('Pending', 'Approved', 'Rejected')),
     catatan TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()

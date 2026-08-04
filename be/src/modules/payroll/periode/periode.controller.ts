@@ -51,19 +51,10 @@ export const approve = async (
       return;
     }
 
+    // Cukup ambil catatan dari req.body
     const { catatan } = req.body;
-    const approver_id = (req as any).user?.id_pengguna || req.body.approver_id;
-
-    if (!approver_id) {
-      res.status(400).json({
-        status: "fail",
-        message: "Approver ID wajib disertakan.",
-      });
-      return;
-    }
 
     const result = await periodeService.approvePeriode(parsedId, {
-      approver_id,
       catatan,
     });
 
@@ -108,7 +99,6 @@ export const reject = async (
     }
 
     const result = await periodeService.rejectPeriode(parsedId, {
-      approver_id,
       catatan,
     });
 

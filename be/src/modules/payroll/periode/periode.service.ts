@@ -6,9 +6,8 @@ export interface CreatePeriodeDTO {
   tanggal_akhir: Date | string;
 }
 
-// Interface pendukung untuk Approval
+// 1. Buang approver_id dari DTO
 export interface ApprovalDTO {
-  approver_id: number;
   catatan?: string;
 }
 
@@ -25,13 +24,12 @@ export const submitApprovalPeriode = async (id: number) => {
   return await updatePeriode(id, { status: "Menunggu Approval" });
 };
 
-// 2. APPROVE PERIODE: 'Menunggu Approval' -> 'Disetujui' + Transaction Log
 export const approvePeriode = async (id: number, data: ApprovalDTO) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // Lock baris periode untuk menghindari race condition
+    // Lock baris periode
     const checkQuery = `
       SELECT status FROM tb_periode 
       WHERE id_periode = $1 AND deleted_at IS NULL 
@@ -59,17 +57,13 @@ export const approvePeriode = async (id: number, data: ApprovalDTO) => {
     `;
     const updatedPeriodeRes = await client.query(updateQuery, [id]);
 
-    // Insert Log ke tb_approval
+    // 2. Query INSERT tanpa approver_id
     const logQuery = `
-      INSERT INTO tb_approval (id_periode, approver_id, status, catatan)
-      VALUES ($1, $2, 'Approved', $3)
+      INSERT INTO tb_approval (id_periode, status, catatan)
+      VALUES ($1, 'Approved', $2)
       RETURNING *;
     `;
-    await client.query(logQuery, [
-      id,
-      data.approver_id,
-      data.catatan || "Disetujui",
-    ]);
+    await client.query(logQuery, [id, data.catatan || "Disetujui"]);
 
     await client.query("COMMIT");
     return updatedPeriodeRes.rows[0];
@@ -117,15 +111,11 @@ export const rejectPeriode = async (id: number, data: ApprovalDTO) => {
 
     // Insert Log ke tb_approval
     const logQuery = `
-      INSERT INTO tb_approval (id_periode, approver_id, status, catatan)
-      VALUES ($1, $2, 'Rejected', $3)
+      INSERT INTO tb_approval (id_periode, status, catatan)
+      VALUES ($1, 'Rejected', $2)
       RETURNING *;
     `;
-    await client.query(logQuery, [
-      id,
-      data.approver_id,
-      data.catatan || "Ditolak",
-    ]);
+    await client.query(logQuery, [id, data.catatan || "Ditolak"]);
 
     await client.query("COMMIT");
     return updatedPeriodeRes.rows[0];
