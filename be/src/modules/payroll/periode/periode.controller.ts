@@ -1,5 +1,126 @@
 import { Request, Response, NextFunction } from "express";
-import * as PeriodeService from "./periode.service"; // Jalur impor disesuaikan ke file service Anda
+import * as periodeService from "./periode.service";
+
+/**
+ * POST /api/periode/:id/submit-approval
+ * Mengajukan periode dari 'Pengisian Absensi'/'Ditolak' -> 'Menunggu Approval'
+ */
+export const submitApproval = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const result = await periodeService.submitApprovalPeriode(parsedId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Periode berhasil diajukan untuk approval.",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/periode/:id/approve
+ * Menyetujui periode (Status -> 'Disetujui' & Insert Log Audit)
+ */
+export const approve = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const { catatan } = req.body;
+    const approver_id = (req as any).user?.id_pengguna || req.body.approver_id;
+
+    if (!approver_id) {
+      res.status(400).json({
+        status: "fail",
+        message: "Approver ID wajib disertakan.",
+      });
+      return;
+    }
+
+    const result = await periodeService.approvePeriode(parsedId, {
+      approver_id,
+      catatan,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Periode berhasil disetujui (Approved).",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/periode/:id/reject
+ * Menolak periode (Status -> 'Ditolak' & Insert Log Audit)
+ */
+export const reject = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const { catatan } = req.body;
+    const approver_id = (req as any).user?.id_pengguna || req.body.approver_id;
+
+    if (!approver_id) {
+      res.status(400).json({
+        status: "fail",
+        message: "Approver ID wajib disertakan.",
+      });
+      return;
+    }
+
+    const result = await periodeService.rejectPeriode(parsedId, {
+      approver_id,
+      catatan,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Periode berhasil ditolak (Rejected).",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * POST /api/periode
@@ -13,7 +134,6 @@ export const createPeriode = async (
   try {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = req.body;
 
-    // Validasi input dasar
     if (!bulan_gaji || !tanggal_awal || !tanggal_akhir) {
       res.status(400).json({
         status: "fail",
@@ -23,7 +143,7 @@ export const createPeriode = async (
       return;
     }
 
-    const newPeriode = await PeriodeService.createPeriode({
+    const newPeriode = await periodeService.createPeriode({
       bulan_gaji,
       tanggal_awal,
       tanggal_akhir,
@@ -41,7 +161,7 @@ export const createPeriode = async (
 
 /**
  * GET /api/periode
- * Mengambil semua periode rekap gaji yang aktif (belum soft delete)
+ * Mengambil semua periode aktif
  */
 export const getAllPeriode = async (
   req: Request,
@@ -49,7 +169,7 @@ export const getAllPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const periodeData = await PeriodeService.getAllPeriode();
+    const periodeData = await periodeService.getAllPeriode();
 
     res.status(200).json({
       status: "success",
@@ -63,8 +183,8 @@ export const getAllPeriode = async (
 };
 
 /**
- * GET /api/periode/:idPeriode
- * Mengambil detail satu periode berdasarkan ID
+ * GET /api/periode/:id
+ * Detail satu periode
  */
 export const getPeriodeById = async (
   req: Request,
@@ -72,8 +192,7 @@ export const getPeriodeById = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const idPeriode = req.params.idPeriode as string;
-    const parsedId = parseInt(idPeriode, 10);
+    const parsedId = parseInt(req.params.id as string, 10);
 
     if (isNaN(parsedId)) {
       res.status(400).json({
@@ -83,7 +202,7 @@ export const getPeriodeById = async (
       return;
     }
 
-    const data = await PeriodeService.getPeriodeById(parsedId);
+    const data = await periodeService.getPeriodeById(parsedId);
 
     res.status(200).json({
       status: "success",
@@ -100,8 +219,8 @@ export const getPeriodeById = async (
 };
 
 /**
- * PUT /api/periode/:idPeriode
- * Mengubah data dasar periode dinamis
+ * PATCH /api/periode/:id
+ * Update data periode
  */
 export const updatePeriode = async (
   req: Request,
@@ -109,8 +228,7 @@ export const updatePeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const idPeriode = req.params.idPeriode as string;
-    const parsedId = parseInt(idPeriode, 10);
+    const parsedId = parseInt(req.params.id as string, 10);
 
     if (isNaN(parsedId)) {
       res.status(400).json({
@@ -122,7 +240,7 @@ export const updatePeriode = async (
 
     const { bulan_gaji, tanggal_awal, tanggal_akhir, status } = req.body;
 
-    const updatedPeriode = await PeriodeService.updatePeriode(parsedId, {
+    const updatedPeriode = await periodeService.updatePeriode(parsedId, {
       bulan_gaji,
       tanggal_awal,
       tanggal_akhir,
@@ -151,8 +269,8 @@ export const updatePeriode = async (
 };
 
 /**
- * DELETE /api/periode/:idPeriode
- * Menghapus periode menggunakan Soft-Delete
+ * DELETE /api/periode/:id
+ * Soft delete periode
  */
 export const deletePeriode = async (
   req: Request,
@@ -160,8 +278,7 @@ export const deletePeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const idPeriode = req.params.idPeriode as string;
-    const parsedId = parseInt(idPeriode, 10);
+    const parsedId = parseInt(req.params.id as string, 10);
 
     if (isNaN(parsedId)) {
       res.status(400).json({
@@ -171,7 +288,7 @@ export const deletePeriode = async (
       return;
     }
 
-    const deletedData = await PeriodeService.deletePeriode(parsedId);
+    const deletedData = await periodeService.deletePeriode(parsedId);
 
     res.status(200).json({
       status: "success",
@@ -188,8 +305,8 @@ export const deletePeriode = async (
 };
 
 /**
- * GET /api/periode/:idPeriode/rekap
- * Handler untuk mengambil rekap gaji berdasarkan ID Periode
+ * GET /api/periode/:id/rekap
+ * Historical snapshot rekap gaji per periode
  */
 export const getRekapByPeriode = async (
   req: Request,
@@ -197,10 +314,9 @@ export const getRekapByPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const idPeriode = req.params.idPeriode as string;
-    const parsedIdPeriode = parseInt(idPeriode, 10);
+    const parsedId = parseInt(req.params.id as string, 10);
 
-    if (isNaN(parsedIdPeriode)) {
+    if (isNaN(parsedId)) {
       res.status(400).json({
         status: "fail",
         message: "ID Periode harus berupa angka yang valid.",
@@ -208,12 +324,12 @@ export const getRekapByPeriode = async (
       return;
     }
 
-    const rekapData = await PeriodeService.getPeriodeById(parsedIdPeriode);
+    const rekapData = await periodeService.getPeriodeById(parsedId);
 
     if (!rekapData) {
       res.status(404).json({
         status: "success",
-        message: `Data rekap gaji untuk periode ID ${parsedIdPeriode} tidak ditemukan atau masih kosong.`,
+        message: `Data rekap gaji untuk periode ID ${parsedId} tidak ditemukan atau masih kosong.`,
         data: [],
       });
       return;

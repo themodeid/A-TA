@@ -6,6 +6,138 @@ export interface CreatePeriodeDTO {
   tanggal_akhir: Date | string;
 }
 
+// Interface pendukung untuk Approval
+export interface ApprovalDTO {
+  approver_id: number;
+  catatan?: string;
+}
+
+// 1. SUBMIT APPROVAL: 'Pengisian Absensi' atau 'Ditolak' -> 'Menunggu Approval'
+export const submitApprovalPeriode = async (id: number) => {
+  const periode = await getPeriodeById(id);
+
+  if (periode.status !== "Pengisian Absensi" && periode.status !== "Ditolak") {
+    throw new Error(
+      `Status periode saat ini '${periode.status}'. Hanya periode berstatus 'Pengisian Absensi' atau 'Ditolak' yang bisa diajukan.`,
+    );
+  }
+
+  return await updatePeriode(id, { status: "Menunggu Approval" });
+};
+
+// 2. APPROVE PERIODE: 'Menunggu Approval' -> 'Disetujui' + Transaction Log
+export const approvePeriode = async (id: number, data: ApprovalDTO) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Lock baris periode untuk menghindari race condition
+    const checkQuery = `
+      SELECT status FROM tb_periode 
+      WHERE id_periode = $1 AND deleted_at IS NULL 
+      FOR UPDATE;
+    `;
+    const checkRes = await client.query(checkQuery, [id]);
+    const currentStatus = checkRes.rows[0]?.status;
+
+    if (!currentStatus) {
+      throw new Error(`Periode dengan ID ${id} tidak ditemukan.`);
+    }
+
+    if (currentStatus !== "Menunggu Approval") {
+      throw new Error(
+        `Gagal Approve: Status periode saat ini '${currentStatus}', seharusnya 'Menunggu Approval'.`,
+      );
+    }
+
+    // Update Status Periode
+    const updateQuery = `
+      UPDATE tb_periode 
+      SET status = 'Disetujui' 
+      WHERE id_periode = $1 
+      RETURNING *;
+    `;
+    const updatedPeriodeRes = await client.query(updateQuery, [id]);
+
+    // Insert Log ke tb_approval
+    const logQuery = `
+      INSERT INTO tb_approval (id_periode, approver_id, status, catatan)
+      VALUES ($1, $2, 'Approved', $3)
+      RETURNING *;
+    `;
+    await client.query(logQuery, [
+      id,
+      data.approver_id,
+      data.catatan || "Disetujui",
+    ]);
+
+    await client.query("COMMIT");
+    return updatedPeriodeRes.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error di approvePeriode Service:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// 3. REJECT PERIODE: 'Menunggu Approval' -> 'Ditolak' + Transaction Log
+export const rejectPeriode = async (id: number, data: ApprovalDTO) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const checkQuery = `
+      SELECT status FROM tb_periode 
+      WHERE id_periode = $1 AND deleted_at IS NULL 
+      FOR UPDATE;
+    `;
+    const checkRes = await client.query(checkQuery, [id]);
+    const currentStatus = checkRes.rows[0]?.status;
+
+    if (!currentStatus) {
+      throw new Error(`Periode dengan ID ${id} tidak ditemukan.`);
+    }
+
+    if (currentStatus !== "Menunggu Approval") {
+      throw new Error(
+        `Gagal Reject: Status periode saat ini '${currentStatus}', seharusnya 'Menunggu Approval'.`,
+      );
+    }
+
+    // Update Status Periode
+    const updateQuery = `
+      UPDATE tb_periode 
+      SET status = 'Ditolak' 
+      WHERE id_periode = $1 
+      RETURNING *;
+    `;
+    const updatedPeriodeRes = await client.query(updateQuery, [id]);
+
+    // Insert Log ke tb_approval
+    const logQuery = `
+      INSERT INTO tb_approval (id_periode, approver_id, status, catatan)
+      VALUES ($1, $2, 'Rejected', $3)
+      RETURNING *;
+    `;
+    await client.query(logQuery, [
+      id,
+      data.approver_id,
+      data.catatan || "Ditolak",
+    ]);
+
+    await client.query("COMMIT");
+    return updatedPeriodeRes.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error di rejectPeriode Service:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 // CREATE: Membuka periode baru memanfaatkan Stored Function DB
 export const createPeriode = async (data: CreatePeriodeDTO) => {
   const client = await pool.connect();
