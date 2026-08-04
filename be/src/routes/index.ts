@@ -17,7 +17,7 @@ import golonganRoutes from "../modules/master-data/golongan/golongan.routes";
 // ==========================================
 import periodeRoutes from "../modules/payroll/periode/periode.routes";
 import konfigurasiRoutes from "../modules/payroll/konfigurasi/konfigurasi.routes";
-import gajiRoutes from "../modules/payroll/gaji/gaji.routes";
+import gajiRoutes from "../modules/payroll/gaji_payroll/gaji.routes";
 
 // Tunjangan
 import tunjanganMasterRoutes from "../modules/payroll/tunjangan/tunjangan-master/tunjangan-master.routes";
