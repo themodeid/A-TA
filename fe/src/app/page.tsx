@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import axios from "axios";
 import { getServerApiUrl } from "@/lib/env";
-
-type Kontak = {
-  id: number;
-  nama: string;
-  umur: number;
-  hobi: string;
-};
+import type { Kontak } from "@/features/kontak/types/kontak.types";
+import { createKontak, getKontakPage } from "@/features/kontak/api/kontak.api";
 
 // Next.js secara otomatis menyediakan searchParams di root props Page
 export default async function HomePage({
@@ -26,8 +20,7 @@ export default async function HomePage({
 
   // ================= FETCH DATA BERDASARKAN PAGE =================
   try {
-    const res = await axios.get(`${API_URL}?page=${currentPage}`);
-    kontak = res.data.data ?? [];
+    kontak = await getKontakPage(API_URL, currentPage);
   } catch (error) {
     errorMessage = "Gagal memuat data kontak.";
   }
@@ -43,7 +36,7 @@ export default async function HomePage({
     if (!nama || !umur) return;
 
     try {
-      await axios.post(apiUrl, { nama, umur, hobi });
+      await createKontak(apiUrl, { nama, umur, hobi });
       revalidatePath("/");
     } catch {
       return;

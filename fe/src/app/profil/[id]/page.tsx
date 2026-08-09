@@ -3,17 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
 import { getPublicApiUrl } from "@/lib/env";
+import type { Kontak } from "@/features/kontak/types/kontak.types";
+import {
+  deleteKontak,
+  getKontakById,
+  updateKontak,
+} from "@/features/kontak/api/kontak.api";
 
 const API_URL = getPublicApiUrl();
-
-type Kontak = {
-  id: number;
-  nama: string;
-  umur: number;
-  hobi: string;
-};
 
 export default function ProfilPage() {
   const params = useParams();
@@ -32,8 +30,8 @@ export default function ProfilPage() {
     async function fetchKontak() {
       if (!id) return;
       try {
-        const res = await axios.get(`${API_URL}/${id}`);
-        if (!ignore) setKontak(res.data.data);
+        const data = await getKontakById(API_URL, id);
+        if (!ignore) setKontak(data);
       } catch (error) {
         setErrorMessage(
           "Backend tidak dapat dihubungi atau data tidak ditemukan",
@@ -50,7 +48,7 @@ export default function ProfilPage() {
   }, [id]);
 
   // ================= UPDATE =================
-  async function updateKontak(e: React.FormEvent<HTMLFormElement>) {
+  async function handleUpdateKontak(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!kontak || !id) return;
 
@@ -60,7 +58,7 @@ export default function ProfilPage() {
     const formData = new FormData(e.currentTarget);
 
     try {
-      await axios.put(`${API_URL}/${id}`, {
+      await updateKontak(API_URL, id, {
         nama: formData.get("nama"),
         umur: Number(formData.get("umur")),
         hobi: formData.get("hobi"),
@@ -75,7 +73,7 @@ export default function ProfilPage() {
   }
 
   // ================= DELETE =================
-  async function deleteKontak() {
+  async function handleDeleteKontak() {
     if (!confirm("Yakin ingin menghapus kontak ini?")) return;
     if (!id) return;
 
@@ -83,7 +81,7 @@ export default function ProfilPage() {
     setErrorMessage(null);
 
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await deleteKontak(API_URL, id);
       router.push("/");
     } catch (error) {
       setErrorMessage("Gagal menghapus kontak");
@@ -116,7 +114,10 @@ export default function ProfilPage() {
         )}
 
         {/* ================= FORM ================= */}
-        <form onSubmit={updateKontak} className="flex flex-col gap-3 mb-6">
+        <form
+          onSubmit={handleUpdateKontak}
+          className="flex flex-col gap-3 mb-6"
+        >
           <input
             name="nama"
             defaultValue={kontak?.nama ?? ""}
@@ -153,7 +154,7 @@ export default function ProfilPage() {
 
         {/* ================= DELETE ================= */}
         <button
-          onClick={deleteKontak}
+          onClick={handleDeleteKontak}
           disabled={!kontak || saving}
           className="w-full py-3 rounded-xl mb-4 bg-gradient-to-r from-red-700 to-red-900 text-red-100 text-sm font-medium disabled:opacity-40"
         >
