@@ -1,0 +1,102 @@
+"use client";
+
+import Link from "next/link";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { DashboardAlert } from "@/types";
+import { Button } from "@/components/ui/Button";
+
+interface QuickActionsProps {
+  alerts: DashboardAlert[];
+  onBukaPeriode?: () => void;
+}
+
+export function QuickActionsPanel({ alerts, onBukaPeriode }: QuickActionsProps) {
+  const { user } = useAuth();
+  const role = user?.role;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Aksi Cepat
+        </h3>
+        <div className="space-y-2">
+          {(role === "Staf Gaji" || role === "Admin") && (
+            <>
+              <Link href="/transaksi/potongan">
+                <Button variant="outline" className="w-full justify-start">
+                  Input Potongan Bulk
+                </Button>
+              </Link>
+              <Link href="/rekap-gaji">
+                <Button variant="outline" className="w-full justify-start">
+                  Proses Rekap Gaji
+                </Button>
+              </Link>
+            </>
+          )}
+          {role === "Approver" && (
+            <Link href="/approval">
+              <Button variant="primary" className="w-full justify-start">
+                Review & Approve Periode
+              </Button>
+            </Link>
+          )}
+          {(role === "Admin" || role === "Staf Gaji") && (
+            <>
+              <Link href="/transaksi/absensi">
+                <Button variant="outline" className="w-full justify-start">
+                  Lanjut ke Absensi
+                </Button>
+              </Link>
+              {onBukaPeriode && (
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  onClick={onBukaPeriode}
+                >
+                  Buka Periode Baru
+                </Button>
+              )}
+            </>
+          )}
+          {role === "Petugas Absensi" && (
+            <Link href="/transaksi/absensi">
+              <Button variant="primary" className="w-full justify-start">
+                Input Absensi
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Peringatan Sistem
+        </h3>
+        {alerts.length === 0 ? (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            Tidak ada peringatan aktif.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {alerts.map((alert, i) => (
+              <li
+                key={i}
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  alert.type === "warning"
+                    ? "bg-amber-50 text-amber-800"
+                    : alert.type === "error"
+                      ? "bg-red-50 text-red-800"
+                      : "bg-blue-50 text-blue-800"
+                }`}
+              >
+                {alert.message}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
