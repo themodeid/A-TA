@@ -13,7 +13,12 @@ export const app = express();
 // ======================================================
 // 🛠️ MIDDLEWARES
 // ======================================================
-app.use(cors({ origin: ENV.CORS_ORIGIN, credentials: true }));
+app.use(
+  cors({
+    origin: ENV.CORS_ORIGIN.split(",").map((o) => o.trim()),
+    credentials: true,
+  }),
+);
 app.use(morgan("dev"));
 
 app.use(

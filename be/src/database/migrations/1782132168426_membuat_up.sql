@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS tb_pengguna (
 
 -- 1. Tabel Master Formula Tunjangan (Ganti Hardcode CHECK)
 CREATE TABLE IF NOT EXISTS tb_formula_tunjangan (
-    id_formula_tunjangan SERIAL PRIMARY KEY, -- ID Angka tetap ada
-    kode_formula VARCHAR(30) UNIQUE NOT NULL, -- Tetap harus UNIQUE untuk di-refer Backend
+    id_formula_tunjangan SERIAL PRIMARY KEY,
+    kode_formula VARCHAR(30) UNIQUE NOT NULL,
     nama_formula VARCHAR(100) NOT NULL,
     keterangan TEXT
 );
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS tb_tunjangan (
 
 -- 3. Master Potongan
 CREATE TABLE IF NOT EXISTS tb_formula_potongan (
-    id_formula_potongan SERIAL PRIMARY KEY, -- ID Angka tetap ada
+    id_formula_potongan SERIAL PRIMARY KEY,
     kode_formula VARCHAR(30) UNIQUE NOT NULL, 
     nama_formula VARCHAR(100) NOT NULL,
     keterangan TEXT
