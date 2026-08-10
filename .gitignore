@@ -49,3 +49,11 @@ Thumbs.db
 
 # Docker overrides (safe to ignore)
 docker-compose.override.yml
+
+# catatan (rancangan dan percobaaan)
+catatan/
+
+# backup
+be/src/config/env.ts
+be/src/database/migrations/1782132168426_membuat_up.sql
+fe/next.config.ts
