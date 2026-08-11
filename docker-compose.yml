@@ -49,32 +49,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # redis:
-      #   condition: service_healthy
     env_file:
       - .env
     environment:
       PORT: ${BACKEND_PORT}
       DATABASE_URL: ${DATABASE_URL_DOCKER}
-      # REDIS_URL: ${REDIS_URL_DOCKER}
-      CORS_ORIGIN: http://${FRONTEND_PUBLIC_HOST}:${FRONTEND_PORT}
     volumes:
       - ./be:/app
       - /app/node_modules
     command: npm run dev
-    # command: npm run build && npm start
-    healthcheck:
-      test:
-        - "CMD"
-        - "wget"
-        - "--no-verbose"
-        - "--tries=1"
-        - "--spider"
-        - "http://127.0.0.1:${BACKEND_PORT}/api/health"
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
 
   # frontend:
   #   build:

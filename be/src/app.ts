@@ -13,12 +13,28 @@ export const app = express();
 // ======================================================
 // 🛠️ MIDDLEWARES
 // ======================================================
+
+// 1. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
+const allowedOrigins = ENV.CORS_ORIGIN
+  ? ENV.CORS_ORIGIN.split(",").map((o) => o.trim())
+  : ["http://localhost:3000", "http://localhost:3041"];
+
 app.use(
   cors({
-    origin: ENV.CORS_ORIGIN.split(",").map((o) => o.trim()),
+    origin: (origin, callback) => {
+      // Izinkan request tanpa origin (seperti Postman/Mobile App) atau jika origin terdaftar
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Blocked by CORS: ${origin} is not allowed`));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   }),
 );
+
 app.use(morgan("dev"));
 
 app.use(
@@ -28,6 +44,7 @@ app.use(express.json({ limit: ENV.JSON_BODY_LIMIT || "5mb" }));
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+// Syntax Error Handler (JSON Invalid)
 app.use(
   (
     err: any,
@@ -46,19 +63,22 @@ app.use(
   },
 );
 
+// Healthcheck
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    message: "Server is healthy 2",
+    message: "Server is healthy",
     timestamp: new Date().toISOString(),
   });
 });
+
 // ======================================================
 // 🛣️ ROUTES & HANDLERS
 // ======================================================
 
 app.use("/api", routes);
 
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     status: "error",
@@ -67,7 +87,7 @@ app.use((req, res) => {
   });
 });
 
-// Centralized error handler (Wajib di paling bawah setelah 404)
+// Centralized error handler (Must be last)
 app.use(errorHandler);
 
 // ======================================================
@@ -78,16 +98,16 @@ async function startServer(): Promise<void> {
   console.log("🔄 Starting server...");
 
   try {
-    // ================= TEST DB CONNECTION
+    // TEST DB CONNECTION
     await pool.query("SELECT 1");
     console.log("✅ Database connected successfully");
 
-    // ================= RUN MIGRATIONS
+    // RUN MIGRATIONS
     console.log("🔄 Running database migrations...");
     await runMigrations();
     console.log("✅ Migrations completed successfully");
 
-    // ================= START HTTP SERVER
+    // START HTTP SERVER
     app.listen(ENV.PORT, () => {
       console.log("===================================");
       console.log("🚀 Server is up and running");
