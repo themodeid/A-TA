@@ -15,7 +15,10 @@ export async function updatePegawai(
   id: number,
   data: Partial<Pegawai>,
 ): Promise<Pegawai> {
-  const res = await api.put<ApiResponse<Pegawai>>(`/master/pegawai/${id}`, data);
+  const res = await api.put<ApiResponse<Pegawai>>(
+    `/master/pegawai/${id}`,
+    data,
+  );
   return res.data.data;
 }
 

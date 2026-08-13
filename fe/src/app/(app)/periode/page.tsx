@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { usePeriode } from "@/hooks/usePeriodeContext";
-import { createPeriode, submitApproval } from "@/features/periode/api/periode.api";
+import {
+  createPeriode,
+  submitApproval,
+} from "@/features/periode/api/periode.api";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +38,7 @@ export default function PeriodePage() {
     setLoading(true);
     setMessage("");
     try {
+      console.log("payload yang mau dikirim:", form);
       await createPeriode(form);
       await refreshPeriodeList();
       setModalOpen(false);
@@ -56,7 +60,9 @@ export default function PeriodePage() {
       await refreshPeriodeList();
       setMessage("Periode berhasil diajukan untuk approval.");
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : "Gagal mengajukan approval.");
+      setMessage(
+        err instanceof Error ? err.message : "Gagal mengajukan approval.",
+      );
     } finally {
       setLoading(false);
     }
@@ -146,17 +152,13 @@ export default function PeriodePage() {
             label="Bulan Gaji"
             placeholder="Agustus 2026"
             value={form.bulan_gaji}
-            onChange={(e) =>
-              setForm({ ...form, bulan_gaji: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, bulan_gaji: e.target.value })}
           />
           <Input
             label="Tanggal Awal"
             type="date"
             value={form.tanggal_awal}
-            onChange={(e) =>
-              setForm({ ...form, tanggal_awal: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, tanggal_awal: e.target.value })}
           />
           <Input
             label="Tanggal Akhir"
