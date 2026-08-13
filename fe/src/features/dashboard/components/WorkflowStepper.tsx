@@ -13,7 +13,6 @@ function getStepIndex(status: PeriodeStatus): number {
     case "Ditolak":
       return 0;
     case "Menunggu Approval":
-      return 2;
     case "Disetujui":
       return 2;
     case "Diproses Gaji":
@@ -33,7 +32,7 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
   const currentIndex = currentStatus ? getStepIndex(currentStatus) : 0;
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between py-2">
       {STEPS.map((step, idx) => {
         const isComplete = idx < currentIndex;
         const isActive =
@@ -44,45 +43,48 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
           <div key={step.key} className="flex flex-1 items-center">
             <div className="flex flex-col items-center">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold ${
+                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all ${
                   isComplete
-                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    ? "border-emerald-500 bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
                     : isActive
-                      ? "border-indigo-500 bg-indigo-500 text-white"
+                      ? "border-indigo-500 bg-indigo-600 text-white ring-4 ring-indigo-500/20 shadow-md shadow-indigo-500/30"
                       : isLocked
-                        ? "border-slate-700 bg-slate-800 text-slate-500"
-                        : "border-slate-700 bg-slate-900 text-slate-300"
+                        ? "border-slate-800 bg-slate-900/80 text-slate-600"
+                        : "border-slate-700 bg-slate-900 text-slate-400"
                 }`}
               >
                 {isComplete ? "✓" : idx + 1}
               </div>
+
               <p
-                className={`mt-2 text-center text-xs font-medium ${
-                  isActive ? "text-indigo-400" : "text-slate-400"
+                className={`mt-2.5 text-center text-xs font-medium ${
+                  isActive
+                    ? "text-indigo-400 font-semibold"
+                    : isComplete
+                      ? "text-slate-300"
+                      : "text-slate-500"
                 }`}
               >
                 {step.label}
               </p>
-              {isActive && currentStatus && (
-                <span className="mt-1 text-[10px] text-indigo-400">
-                  (Sedang Aktif)
-                </span>
-              )}
-              {isComplete && (
-                <span className="mt-1 text-[10px] text-emerald-400">
-                  (Selesai)
-                </span>
-              )}
-              {isLocked && (
-                <span className="mt-1 text-[10px] text-slate-500">
-                  (Locked)
-                </span>
-              )}
+
+              <span className="mt-0.5 text-[10px]">
+                {isActive && currentStatus && (
+                  <span className="text-indigo-400/90 font-medium">
+                    (Sedang Aktif)
+                  </span>
+                )}
+                {isComplete && (
+                  <span className="text-emerald-400/90">(Selesai)</span>
+                )}
+                {isLocked && <span className="text-slate-600">(Locked)</span>}
+              </span>
             </div>
+
             {idx < STEPS.length - 1 && (
               <div
-                className={`mx-2 h-0.5 flex-1 ${
-                  idx < currentIndex ? "bg-emerald-500" : "bg-slate-700"
+                className={`mx-3 h-[2px] flex-1 rounded-full transition-colors ${
+                  idx < currentIndex ? "bg-emerald-500" : "bg-slate-800"
                 }`}
               />
             )}
