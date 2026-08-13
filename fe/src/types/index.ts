@@ -1,8 +1,4 @@
-export type UserRole =
-  | "Admin"
-  | "Petugas Absensi"
-  | "Approver"
-  | "Staf Gaji";
+export type UserRole = "Admin" | "Petugas Absensi" | "Approver" | "Staf Gaji";
 
 export type PeriodeStatus =
   | "Pengisian Absensi"
@@ -110,7 +106,7 @@ export interface MasterTunjangan {
 }
 
 export interface MasterPotongan {
-  id_potongan: number;
+  id_master_potongan: number;
   nama_potongan: string;
   is_active?: boolean;
 }

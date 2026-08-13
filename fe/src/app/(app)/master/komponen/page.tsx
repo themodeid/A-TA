@@ -22,8 +22,12 @@ export default function MasterKomponenPage() {
   const [potongan, setPotongan] = useState<MasterPotongan[]>([]);
 
   useEffect(() => {
-    getTunjanganMaster().then(setTunjangan).catch(() => setTunjangan([]));
-    getPotonganMaster().then(setPotongan).catch(() => setPotongan([]));
+    getTunjanganMaster()
+      .then(setTunjangan)
+      .catch(() => setTunjangan([]));
+    getPotonganMaster()
+      .then(setPotongan)
+      .catch(() => setPotongan([]));
   }, []);
 
   return (
@@ -61,8 +65,8 @@ export default function MasterKomponenPage() {
             </TableHead>
             <TableBody>
               {potongan.map((p) => (
-                <TableRow key={p.id_potongan}>
-                  <TableCell>{p.id_potongan}</TableCell>
+                <TableRow key={p.id_master_potongan}>
+                  <TableCell>{p.id_master_potongan}</TableCell>
                   <TableCell>{p.nama_potongan}</TableCell>
                 </TableRow>
               ))}

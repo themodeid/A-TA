@@ -422,8 +422,8 @@ VALUES
   -- Detail Rian Hidayat
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 'TUNJANGAN', 'Uang Transport WFO', 660000.00, 'TRN_WFO'),
   ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 'TUNJANGAN', 'Honor Lembur (5 Jam)', 125000.00, 'LEMBUR_PER_JAM'),
-  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 'TUNJANGAN', 'Honor Tambahan Bulan Ini', 200000.00, 'HONOR_BULANAN_MANUAL'),
-  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1), 'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 'TUNJANGAN', 'Honor Tambahan Bulan Ini', 200000.00, 'HONOR_BULANAN_MANUAL'),
+  ((SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = (SELECT id_periode FROM tb_periode WHERE bulan_gaji='Juli 2026') AND id_pegawai = (SELECT id_pegawai FROM tb_pegawai WHERE nama_dan_tanggal_lahir LIKE 'Rian Hidayat%' LIMIT 1) LIMIT 1), 'POTONGAN', 'Total Potongan Terhitung', 450000.00, 'POT_LAINNYA');
 
 
 -- ============================================================
