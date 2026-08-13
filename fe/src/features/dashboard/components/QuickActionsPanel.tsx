@@ -10,14 +10,17 @@ interface QuickActionsProps {
   onBukaPeriode?: () => void;
 }
 
-export function QuickActionsPanel({ alerts, onBukaPeriode }: QuickActionsProps) {
+export function QuickActionsPanel({
+  alerts,
+  onBukaPeriode,
+}: QuickActionsProps) {
   const { user } = useAuth();
   const role = user?.role;
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Aksi Cepat
         </h3>
         <div className="space-y-2">
@@ -71,11 +74,11 @@ export function QuickActionsPanel({ alerts, onBukaPeriode }: QuickActionsProps) 
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Peringatan Sistem
         </h3>
         {alerts.length === 0 ? (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <p className="rounded-lg bg-emerald-900/30 px-3 py-2 text-sm text-emerald-400">
             Tidak ada peringatan aktif.
           </p>
         ) : (
@@ -85,10 +88,10 @@ export function QuickActionsPanel({ alerts, onBukaPeriode }: QuickActionsProps) 
                 key={i}
                 className={`rounded-lg px-3 py-2 text-sm ${
                   alert.type === "warning"
-                    ? "bg-amber-50 text-amber-800"
+                    ? "bg-amber-900/30 text-amber-300"
                     : alert.type === "error"
-                      ? "bg-red-50 text-red-800"
-                      : "bg-blue-50 text-blue-800"
+                      ? "bg-red-900/30 text-red-300"
+                      : "bg-blue-900/30 text-blue-300"
                 }`}
               >
                 {alert.message}

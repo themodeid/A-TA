@@ -5,6 +5,9 @@ import { Router } from "express";
 // ==========================================
 import absensiRoutes from "../modules/absensi/absensi.routes";
 
+// dashboard
+import dashboardRoutes from "../modules/dashboard/dashboard.routes";
+
 // ==========================================
 // 2. MODULES: MASTER DATA
 // ==========================================
@@ -35,6 +38,9 @@ const router = Router();
 
 // Core & Absensi
 router.use("/absensi", absensiRoutes);
+
+// dashboard
+router.use("/dashboard", dashboardRoutes);
 
 // Master Data
 router.use("/master/pegawai", pegawaiRoutes);

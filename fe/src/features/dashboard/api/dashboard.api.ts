@@ -1,19 +1,16 @@
 import api from "@/services/api";
+import { ApiResponse, DashboardSummary, KoreksiJam, Pegawai } from "@/types";
 import {
-  ApiResponse,
-  DashboardSummary,
-  KoreksiJam,
-  Pegawai,
-} from "@/types";
-import { getAllPeriode, getPeriodeById } from "@/features/periode/api/periode.api";
+  getAllPeriode,
+  getPeriodeById,
+} from "@/features/periode/api/periode.api";
 
 export async function fetchDashboardSummary(
   idPeriode: number,
 ): Promise<DashboardSummary> {
   try {
     const res = await api.get<ApiResponse<DashboardSummary>>(
-      "/dashboard/summary",
-      { params: { id_periode: idPeriode } },
+      `/dashboard/summary/periode/${idPeriode}`,
     );
     return res.data.data;
   } catch {
@@ -30,9 +27,9 @@ async function buildDashboardSummaryFallback(
       data: { data: [] as Pegawai[] },
     })),
     api
-      .get<ApiResponse<Array<Record<string, number | string>>>>(
-        `/absensi/periode/${idPeriode}`,
-      )
+      .get<
+        ApiResponse<Array<Record<string, number | string>>>
+      >(`/absensi/periode/${idPeriode}`)
       .catch(() => ({ data: { data: [] } })),
   ]);
 
@@ -46,22 +43,33 @@ async function buildDashboardSummaryFallback(
     const wfo = Number(row.total_hadir_ops_wfo ?? 0);
     const wfh = Number(row.total_hadir_ops_wfh ?? 0);
     totalHadir += wfo + wfh;
-    totalDays += wfo + wfh + Number(row.total_izin ?? 0) + Number(row.total_sakit ?? 0) + Number(row.total_alpha ?? 0);
+    totalDays +=
+      wfo +
+      wfh +
+      Number(row.total_izin ?? 0) +
+      Number(row.total_sakit ?? 0) +
+      Number(row.total_alpha ?? 0);
   });
 
   const persentase =
     totalDays > 0 ? Math.round((totalHadir / totalDays) * 1000) / 10 : 0;
 
-  let estimasi = pegawai.reduce((s, p) => s + Number(p.gaji_pokok_dasar ?? 0), 0);
+  let estimasi = pegawai.reduce(
+    (s, p) => s + Number(p.gaji_pokok_dasar ?? 0),
+    0,
+  );
 
   if (periodeList?.status === "Selesai") {
     try {
       const rekapRes = await api.get<
-        ApiResponse<Array<{ netto_clean: number; total_potongan_clean: number }>>
+        ApiResponse<
+          Array<{ netto_clean: number; total_potongan_clean: number }>
+        >
       >(`/payroll/gaji/periode/${idPeriode}`);
       const rekap = rekapRes.data.data ?? [];
       estimasi = rekap.reduce(
-        (s, r) => s + Number(r.netto_clean ?? 0) + Number(r.total_potongan_clean ?? 0),
+        (s, r) =>
+          s + Number(r.netto_clean ?? 0) + Number(r.total_potongan_clean ?? 0),
         0,
       );
     } catch {

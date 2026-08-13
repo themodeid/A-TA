@@ -36,7 +36,8 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
     <div className="flex items-center justify-between">
       {STEPS.map((step, idx) => {
         const isComplete = idx < currentIndex;
-        const isActive = idx === currentIndex || (currentIndex === 4 && idx === 3);
+        const isActive =
+          idx === currentIndex || (currentIndex === 4 && idx === 3);
         const isLocked = idx > currentIndex && currentIndex < 4;
 
         return (
@@ -47,33 +48,33 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
                   isComplete
                     ? "border-emerald-500 bg-emerald-500 text-white"
                     : isActive
-                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      ? "border-indigo-500 bg-indigo-500 text-white"
                       : isLocked
-                        ? "border-slate-200 bg-slate-100 text-slate-400"
-                        : "border-slate-300 bg-white text-slate-600"
+                        ? "border-slate-700 bg-slate-800 text-slate-500"
+                        : "border-slate-700 bg-slate-900 text-slate-300"
                 }`}
               >
                 {isComplete ? "✓" : idx + 1}
               </div>
               <p
                 className={`mt-2 text-center text-xs font-medium ${
-                  isActive ? "text-indigo-600" : "text-slate-500"
+                  isActive ? "text-indigo-400" : "text-slate-400"
                 }`}
               >
                 {step.label}
               </p>
               {isActive && currentStatus && (
-                <span className="mt-1 text-[10px] text-indigo-500">
+                <span className="mt-1 text-[10px] text-indigo-400">
                   (Sedang Aktif)
                 </span>
               )}
               {isComplete && (
-                <span className="mt-1 text-[10px] text-emerald-500">
+                <span className="mt-1 text-[10px] text-emerald-400">
                   (Selesai)
                 </span>
               )}
               {isLocked && (
-                <span className="mt-1 text-[10px] text-slate-400">
+                <span className="mt-1 text-[10px] text-slate-500">
                   (Locked)
                 </span>
               )}
@@ -81,7 +82,7 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
             {idx < STEPS.length - 1 && (
               <div
                 className={`mx-2 h-0.5 flex-1 ${
-                  idx < currentIndex ? "bg-emerald-400" : "bg-slate-200"
+                  idx < currentIndex ? "bg-emerald-500" : "bg-slate-700"
                 }`}
               />
             )}

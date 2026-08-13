@@ -38,21 +38,21 @@ export default function DashboardPage() {
 
   if (loading && !data) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      <div className="flex h-64 items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-h-screen space-y-6 bg-slate-950 p-6">
       {/* Zona 1: Header & Periode Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm shadow-black/20">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">
+          <h1 className="text-2xl font-bold text-slate-100">
             Dashboard Penggajian
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             Sistem Informasi Payroll & Rekapitulasi
           </p>
         </div>
@@ -96,11 +96,11 @@ export default function DashboardPage() {
           <WorkflowStepper currentStatus={data?.periode.status} />
 
           <div className="mt-8">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">
+            <h3 className="mb-3 text-sm font-semibold text-slate-300">
               Koreksi Jam Terakhir
             </h3>
             {(data?.recent_koreksi_jam?.length ?? 0) === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Belum ada data koreksi jam.
               </p>
             ) : (
