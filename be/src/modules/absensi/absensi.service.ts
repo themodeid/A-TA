@@ -5,23 +5,24 @@ export const getAbsensiByPeriode = async (idPeriode: number) => {
   const query = `
     SELECT
       asum.id_absensi_summary,
-      asum.id_pegawai,
-      p.nama_dan_tanggal_lahir, 
+      p.id_pegawai,
+      p.nama_dan_tanggal_lahir,
       j.nama_jabatan,
       g.nama_golongan,
-      asum.id_periode,
+      prd.id_periode,
       prd.bulan_gaji,
-      asum.total_hadir_ops_wfo,
-      asum.total_hadir_ops_wfh,
-      asum.total_izin,
-      asum.total_sakit,
-      asum.total_alpha
-    FROM tb_absensi_summary asum
-    LEFT JOIN tb_pegawai p ON asum.id_pegawai = p.id_pegawai
+      COALESCE(asum.total_hadir_ops_wfo, 0) AS total_hadir_ops_wfo,
+      COALESCE(asum.total_hadir_ops_wfh, 0) AS total_hadir_ops_wfh,
+      COALESCE(asum.total_izin, 0) AS total_izin,
+      COALESCE(asum.total_sakit, 0) AS total_sakit,
+      COALESCE(asum.total_alpha, 0) AS total_alpha
+    FROM tb_pegawai p
+    JOIN tb_periode prd ON prd.id_periode = $1
     LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
     LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
-    LEFT JOIN tb_periode prd ON asum.id_periode = prd.id_periode -- JOIN ke tabel periode
-    WHERE asum.id_periode = $1 AND p.deleted_at IS NULL
+    LEFT JOIN tb_absensi_summary asum 
+      ON asum.id_pegawai = p.id_pegawai AND asum.id_periode = prd.id_periode
+    WHERE p.deleted_at IS NULL
     ORDER BY p.nama_dan_tanggal_lahir ASC;
   `;
 
@@ -42,6 +43,12 @@ export const getAllPeriodeTersedia = async () => {
 
   const result = await pool.query(query);
   return result.rows;
+};
+
+export const getPeriodeById = async (idPeriode: number) => {
+  const query = `SELECT id_periode, bulan_gaji, status FROM tb_periode WHERE id_periode = $1;`;
+  const result = await pool.query(query, [idPeriode]);
+  return result.rows[0] || null;
 };
 
 // 3. Ambil Detail Rekap Absensi (Pembersihan kolom gaib id_upload & Penyesuaian nama)

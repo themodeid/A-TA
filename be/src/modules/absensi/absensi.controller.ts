@@ -35,17 +35,22 @@ export const getAbsensiByPeriode = async (
       );
     }
 
-    // Panggil service untuk ambil list semua pegawai di periode ini
-    const result = await absensiService.getAbsensiByPeriode(Number(idPeriode));
+    const periodeExists = await absensiService.getPeriodeById(
+      Number(idPeriode),
+    );
+    if (!periodeExists) {
+      return next(
+        new AppError(`Periode ID ${idPeriode} tidak ditemukan.`, 404),
+      );
+    }
 
-    // Ambil info nama periode dari data pertama sebagai identitas di message response
-    const sampleData = result[0];
-    const bulanGaji = sampleData?.bulan_gaji || "Periode Terkait";
+    const result = await absensiService.getAbsensiByPeriode(Number(idPeriode));
+    const bulanGaji = periodeExists.bulan_gaji;
 
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: `Berhasil mengambil ${result.length} data absensi untuk periode ${bulanGaji}.`,
+      message: `Berhasil memuat form absensi (${result.length} pegawai) untuk periode ${bulanGaji}.`,
       data: result,
     });
   } catch (error: any) {
