@@ -80,7 +80,6 @@ export const getAbsensiById = async (
   }
 };
 
-// 1a. Controller untuk Bulk Create Absensi
 export const createAbsensiBulk = async (
   req: Request,
   res: Response,
@@ -99,13 +98,13 @@ export const createAbsensiBulk = async (
       );
     }
 
-    // 1. Jalankan proses bulk insert
+    // 1. Jalankan proses bulk insert & validasi di service layer
     const result = await absensiService.createAbsensiBulk(
       Number(idPeriode),
       dataAbsenList,
     );
 
-    // 2. Ambil properti yang BENAR-BENAR dikembalikan oleh query SQL (bulan_tahun / nama_periode)
+    // 2. Ambil properti pendukung untuk format response
     const sampleData = result[0];
     const namaPeriode = sampleData?.nama_periode || `Periode ID ${idPeriode}`;
     const bulanTahun = sampleData?.bulan_tahun || namaPeriode;
@@ -126,7 +125,6 @@ export const createAbsensiBulk = async (
   }
 };
 
-// 1b. Controller untuk Single Create Absensi
 export const createAbsensiSingle = async (
   req: Request,
   res: Response,

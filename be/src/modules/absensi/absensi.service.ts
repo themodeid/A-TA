@@ -79,8 +79,6 @@ export const getAbsensiById = async (id: number) => {
   return result.rows[0] || null;
 };
 
-// 1a. Bulk Create Absensi (Untuk inisialisasi awal periode/upload data massal)
-// 1a. Bulk Create Absensi (Fix ON CONFLICT & Join tb_periode)
 export const createAbsensiBulk = async (
   idPeriode: number,
   dataAbsenList: any[],
@@ -94,6 +92,37 @@ export const createAbsensiBulk = async (
   try {
     await client.query("BEGIN");
 
+    // 2. Ambil jumlah hari maksimal periode ini
+    const periodeResult = await client.query(
+      `SELECT (tanggal_selesai - tanggal_mulai + 1) AS jumlah_hari 
+       FROM tb_periode WHERE id_periode = $1`,
+      [idPeriode],
+    );
+    const jumlahHariPeriode = periodeResult.rows[0]?.jumlah_hari;
+
+    if (!jumlahHariPeriode) {
+      throw new Error(
+        `Periode ID ${idPeriode} tidak ditemukan atau tanggal periode belum diset.`,
+      );
+    }
+
+    // 3. Validasi tiap pegawai: total tidak boleh melebihi jumlah hari periode
+    for (const data of validDataList) {
+      const total =
+        Number(data.total_hadir_ops_wfo || 0) +
+        Number(data.total_hadir_ops_wfh || 0) +
+        Number(data.total_izin || 0) +
+        Number(data.total_sakit || 0) +
+        Number(data.total_alpha || 0);
+
+      if (total > jumlahHariPeriode) {
+        throw new Error(
+          `Pegawai ID ${data.id_pegawai}: total hari (${total}) melebihi jumlah hari periode (${jumlahHariPeriode}).`,
+        );
+      }
+    }
+
+    // 4. Exec Upsert Bulk jika ada data valid
     if (validDataList.length > 0) {
       const values: any[] = [];
       const valuePlaceholders = validDataList
@@ -114,7 +143,6 @@ export const createAbsensiBulk = async (
         })
         .join(", ");
 
-      // UPSERT (ON CONFLICT UPDATE): Agar jika data rekap sudah ada, nilainya diperbarui & RETURNING tetap mengembalikan data!
       const insertQuery = `
         INSERT INTO tb_absensi_summary (
           id_periode, id_pegawai, total_hadir_ops_wfo, 
@@ -132,7 +160,7 @@ export const createAbsensiBulk = async (
       await client.query(insertQuery, values);
     }
 
-    // 2. Ambil data gabungan terbaru beserta info periode (Gunakan bulan_gaji & id_periode)
+    // 5. Ambil data gabungan terbaru beserta info periode
     const selectQuery = `
       SELECT 
         asum.*,
