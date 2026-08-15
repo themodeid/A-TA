@@ -188,3 +188,59 @@ export const saveBulk = async (
     client.release();
   }
 };
+
+// ==========================================
+// 4. LOGIKA HAPUS TUNJANGAN BY PERIODE
+// ==========================================
+// ==========================================
+// 4. LOGIKA HAPUS TUNJANGAN BY PERIODE
+// ==========================================
+export const deleteByPeriode = async (id_periode: number) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Validasi: Cek dulu apakah periode valid atau tidak terkuci (opsional tapi aman)
+    const pCheck = await client.query(
+      "SELECT status FROM tb_periode WHERE id_periode = $1",
+      [id_periode],
+    );
+
+    if (pCheck.rows.length === 0) {
+      throw new Error("Periode tidak ditemukan!");
+    }
+
+    if (
+      pCheck.rows[0].status === "Dikunci" ||
+      pCheck.rows[0].status === "Selesai"
+    ) {
+      throw new Error(
+        "Gagal. Periode ini sudah dikunci dan tidak bisa dihapus!",
+      );
+    }
+
+    // A. Hapus detail tunjangan bulanan terlebih dahulu (Child)
+    await client.query(
+      "DELETE FROM tb_tunjangan_bulanan_detail WHERE id_periode = $1",
+      [id_periode],
+    );
+
+    // B. Hapus header tunjangan bulanan (Parent)
+    const resultHeader = await client.query(
+      "DELETE FROM tb_tunjangan_bulanan WHERE id_periode = $1",
+      [id_periode],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      message: `Berhasil menghapus seluruh data tunjangan untuk periode ini!`,
+      deleted_count: resultHeader.rowCount,
+    };
+  } catch (error: any) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};

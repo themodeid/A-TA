@@ -18,14 +18,9 @@ export const getByPeriode = async (req: Request, res: Response) => {
   }
 };
 
-export const initializePeriode = async (req: Request, res: Response) => {
+export const initialize = async (req: Request, res: Response) => {
   try {
     const { id_periode } = req.body;
-    if (!id_periode) {
-      return res
-        .status(400)
-        .json({ status: "fail", message: "id_periode wajib diisi!" });
-    }
 
     const result = await tunjanganService.initialize(Number(id_periode));
     return res.status(200).json({ status: "success", ...result });
@@ -34,7 +29,7 @@ export const initializePeriode = async (req: Request, res: Response) => {
   }
 };
 
-export const saveBulkData = async (req: Request, res: Response) => {
+export const saveBulk = async (req: Request, res: Response) => {
   try {
     const { id_periode, data_input } = req.body;
 
@@ -53,5 +48,39 @@ export const saveBulkData = async (req: Request, res: Response) => {
     return res.status(200).json({ status: "success", ...result });
   } catch (error: any) {
     return res.status(500).json({ status: "error", message: error.message });
+  }
+};
+
+export const deleteByPeriode = async (req: Request, res: Response) => {
+  try {
+    const { id_periode } = req.params;
+
+    if (isNaN(Number(id_periode))) {
+      return res.status(400).json({
+        status: "error",
+        message: "ID Periode tidak valid! Harus berupa angka.",
+      });
+    }
+
+    const result = await tunjanganService.deleteByPeriode(Number(id_periode));
+
+    return res.status(200).json({
+      status: "success",
+      message: result.message,
+      data: {
+        total_deleted: result.deleted_count,
+      },
+    });
+  } catch (error: any) {
+    const statusCode =
+      error.message.includes("tidak ditemukan") ||
+      error.message.includes("dikunci")
+        ? 400
+        : 500;
+
+    return res.status(statusCode).json({
+      status: "error",
+      message: error.message || "Terjadi kesalahan internal pada server.",
+    });
   }
 };
