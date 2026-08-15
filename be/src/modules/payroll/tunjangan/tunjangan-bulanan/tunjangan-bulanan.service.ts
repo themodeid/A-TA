@@ -60,6 +60,7 @@ export const initialize = async (id_periode: number) => {
   try {
     await client.query("BEGIN");
 
+    // 1. Cek Validasi Periode
     const pCheck = await client.query(
       "SELECT status FROM tb_periode WHERE id_periode = $1",
       [id_periode],
@@ -71,17 +72,55 @@ export const initialize = async (id_periode: number) => {
       );
     }
 
-    const initQuery = `
+    // 2. Insert Header (tb_tunjangan_bulanan)
+    const initHeaderQuery = `
       INSERT INTO tb_tunjangan_bulanan (id_periode, id_pegawai, total_jam_lebih, honor_bulan, total_tunjangan_terhitung)
       SELECT $1, id_pegawai, 0.00, 0.00, 0.00
       FROM tb_pegawai
       WHERE deleted_at IS NULL
       ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
     `;
-    await client.query(initQuery, [id_periode]);
+    await client.query(initHeaderQuery, [id_periode]);
+
+    // 3. Insert Detail Otomatis (tb_tunjangan_bulanan_detail)
+    // Ambil semua tunjangan master yang aktif (deleted_at IS NULL)
+    const initDetailQuery = `
+      INSERT INTO tb_tunjangan_bulanan_detail (id_periode, id_pegawai, id_tunjangan, nilai_terhitung)
+      SELECT 
+        $1 AS id_periode,
+        p.id_pegawai,
+        t.id_tunjangan,
+        -- Jika tunjangan berhubungan dengan Jabatan (misal kode_kondisi = 'JABATAN'), pakai nominal dari tb_jabatan
+        -- Jika tidak, gunakan kolom 'nilai' dari tb_tunjangan
+        CASE 
+          WHEN t.kode_kondisi = 'JABATAN' THEN COALESCE(j.tunjangan_jabatan_struktural, 0.00)
+          ELSE t.nilai
+        END AS nilai_terhitung
+      FROM tb_pegawai p
+      LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+      CROSS JOIN tb_tunjangan t
+      WHERE p.deleted_at IS NULL 
+        AND t.deleted_at IS NULL
+      ON CONFLICT (id_periode, id_pegawai, id_tunjangan) DO NOTHING;
+    `;
+    await client.query(initDetailQuery, [id_periode]);
+
+    // 4. Update total_tunjangan_terhitung di Header (Sum dari Detail + Honor Bulan)
+    const updateTotalQuery = `
+      UPDATE tb_tunjangan_bulanan tb
+      SET total_tunjangan_terhitung = (
+        SELECT COALESCE(SUM(nilai_terhitung), 0.00)
+        FROM tb_tunjangan_bulanan_detail tbd
+        WHERE tbd.id_periode = tb.id_periode AND tbd.id_pegawai = tb.id_pegawai
+      ) + COALESCE(tb.honor_bulan, 0.00)
+      WHERE tb.id_periode = $1;
+    `;
+    await client.query(updateTotalQuery, [id_periode]);
 
     await client.query("COMMIT");
-    return { message: "Inisialisasi wadah tunjangan bulanan berhasil!" };
+    return {
+      message: "Inisialisasi tunjangan bulanan beserta detail berhasil!",
+    };
   } catch (error: any) {
     await client.query("ROLLBACK");
     throw error;

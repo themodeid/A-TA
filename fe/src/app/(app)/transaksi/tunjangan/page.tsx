@@ -11,7 +11,6 @@ import { TunjanganBulanan } from "@/types";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { isPeriodeLocked } from "@/lib/permissions";
 import { formatRupiah } from "@/lib/format";
@@ -29,12 +28,7 @@ export default function TunjanganPage() {
   const [rows, setRows] = useState<TunjanganBulanan[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [koreksiModal, setKoreksiModal] = useState<{
-    idx: number;
-    oldJam: number;
-    newJam: number;
-  } | null>(null);
-  const [keterangan, setKeterangan] = useState("");
+
   const locked = selectedPeriode
     ? isPeriodeLocked(selectedPeriode.status)
     : false;
@@ -51,35 +45,12 @@ export default function TunjanganPage() {
   useEffect(load, [selectedPeriodeId]);
 
   const handleJamChange = (idx: number, newJam: number) => {
-    const oldJam = rows[idx].total_jam_lebih;
-    if (oldJam !== newJam && !locked) {
-      setKoreksiModal({ idx, oldJam, newJam });
-    } else {
-      setRows((prev) =>
-        prev.map((r, i) =>
-          i === idx ? { ...r, total_jam_lebih: newJam } : r,
-        ),
-      );
-    }
-  };
-
-  const confirmKoreksi = () => {
-    if (!koreksiModal || !keterangan.trim()) return;
     setRows((prev) =>
-      prev.map((r, i) =>
-        i === koreksiModal.idx
-          ? { ...r, total_jam_lebih: koreksiModal.newJam }
-          : r,
-      ),
+      prev.map((r, i) => (i === idx ? { ...r, total_jam_lebih: newJam } : r)),
     );
-    setKoreksiModal(null);
-    setKeterangan("");
   };
 
-  const totalHonor = rows.reduce(
-    (s, r) => s + Number(r.honor_bulan ?? 0),
-    0,
-  );
+  const totalHonor = rows.reduce((s, r) => s + Number(r.honor_bulan ?? 0), 0);
 
   const handleSave = async () => {
     if (!selectedPeriodeId) return;
@@ -178,36 +149,6 @@ export default function TunjanganPage() {
           </Table>
         )}
       </Card>
-
-      <Modal
-        isOpen={!!koreksiModal}
-        onClose={() => setKoreksiModal(null)}
-        title="Audit Log Koreksi Jam"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setKoreksiModal(null)}>
-              Batal
-            </Button>
-            <Button onClick={confirmKoreksi} disabled={!keterangan.trim()}>
-              Simpan Koreksi
-            </Button>
-          </>
-        }
-      >
-        <p className="mb-4 text-sm text-slate-600">
-          Mengubah jam lembur dari {koreksiModal?.oldJam} menjadi{" "}
-          {koreksiModal?.newJam}. Wajib isi keterangan dan bukti.
-        </p>
-        <Input
-          label="Keterangan"
-          value={keterangan}
-          onChange={(e) => setKeterangan(e.target.value)}
-          placeholder="Alasan koreksi jam lembur"
-        />
-        <div className="mt-4">
-          <Input label="Bukti Dokumen" type="file" accept=".pdf,.jpg,.png" />
-        </div>
-      </Modal>
     </PageContainer>
   );
 }

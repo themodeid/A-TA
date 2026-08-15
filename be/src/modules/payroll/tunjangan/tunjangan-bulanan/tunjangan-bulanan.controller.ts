@@ -20,8 +20,18 @@ export const getByPeriode = async (req: Request, res: Response) => {
 
 export const initialize = async (req: Request, res: Response) => {
   try {
-    const { id_periode } = req.body;
+    // 1. Ambil id_periode secara aman (support req.body maupun req.params)
+    const id_periode = req.body?.id_periode || req.params?.id_periode;
 
+    // 2. Validasi sebelum dikirim ke service
+    if (!id_periode || isNaN(Number(id_periode))) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Parameter 'id_periode' wajib diisi dan harus berupa angka!",
+      });
+    }
+
+    // 3. Eksekusi service
     const result = await tunjanganService.initialize(Number(id_periode));
     return res.status(200).json({ status: "success", ...result });
   } catch (error: any) {
