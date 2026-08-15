@@ -94,7 +94,7 @@ export const createAbsensiBulk = async (
 
     // 2. Ambil jumlah hari maksimal periode ini
     const periodeResult = await client.query(
-      `SELECT (tanggal_selesai - tanggal_mulai + 1) AS jumlah_hari 
+      `SELECT (tanggal_akhir - tanggal_awal + 1) AS jumlah_hari 
        FROM tb_periode WHERE id_periode = $1`,
       [idPeriode],
     );

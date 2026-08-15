@@ -73,7 +73,6 @@ CREATE TABLE IF NOT EXISTS tb_golongan (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 6. Periode Gaji & Function
 CREATE TABLE IF NOT EXISTS tb_periode (
     id_periode SERIAL PRIMARY KEY,
     bulan_gaji VARCHAR(20) NOT NULL UNIQUE, 
