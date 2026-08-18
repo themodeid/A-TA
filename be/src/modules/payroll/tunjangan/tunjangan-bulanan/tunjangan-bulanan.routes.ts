@@ -3,15 +3,22 @@ import * as tunjanganController from "./tunjangan-bulanan.controller";
 
 const router = Router();
 
-// GET data grid per periode
+// GET: Ambil daftar tunjangan bulanan per periode
 router.get("/periode/:id_periode", tunjanganController.getByPeriode);
 
-// Menggunakan URL param /initialize/:id_periode
+// POST: Inisialisasi tunjangan bulanan untuk periode baru (support body atau route param)
+router.post("/initialize", tunjanganController.initialize);
 router.post("/initialize/:id_periode", tunjanganController.initialize);
-// POST save bulk (header + detail)
+router.post("/init", tunjanganController.initialize);
+
+// POST: Rekalkulasi tunjangan bulanan
+router.post("/calculate", tunjanganController.calculate);
+router.post("/calculate/:id_periode", tunjanganController.calculate);
+
+// POST: Simpan massal tunjangan bulanan (jam lembur, honor, detail)
 router.post("/bulk-save", tunjanganController.saveBulk);
 
-// DELETE
+// DELETE: Hapus data tunjangan bulanan per periode
 router.delete("/periode/:id_periode", tunjanganController.deleteByPeriode);
 
 export default router;
