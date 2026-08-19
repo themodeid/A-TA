@@ -19,7 +19,6 @@ import golonganRoutes from "../modules/master-data/golongan/golongan.routes";
 // 3. MODULES: PAYROLL
 // ==========================================
 import periodeRoutes from "../modules/payroll/periode/periode.routes";
-import konfigurasiRoutes from "../modules/payroll/konfigurasi/konfigurasi.routes";
 import gajiRoutes from "../modules/payroll/gaji_payroll/gaji.routes";
 
 // Tunjangan
@@ -49,7 +48,6 @@ router.use("/master/golongan", golonganRoutes);
 
 // Payroll System
 router.use("/payroll/periode", periodeRoutes);
-router.use("/payroll/konfigurasi", konfigurasiRoutes);
 router.use("/payroll/gaji", gajiRoutes);
 
 // Payroll: Tunjangan
