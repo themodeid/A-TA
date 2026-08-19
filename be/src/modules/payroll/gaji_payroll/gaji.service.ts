@@ -22,7 +22,7 @@ export const executePayrollProcess = async (periodeId: number) => {
       );
     }
 
-    // 2. Clean Up Data Rekap Lama (Untuk mendukung fitur Re-run / Kalkulasi Ulang)
+    // 2. Clean Up Data Rekap Lama (Mendukung Re-run / Hitung Ulang)
     await client.query(
       `DELETE FROM tb_rekap_gaji_detail 
        WHERE id_rekap IN (SELECT id_rekap FROM tb_rekap_gaji WHERE id_periode = $1);`,
@@ -51,26 +51,16 @@ export const executePayrollProcess = async (periodeId: number) => {
         COALESCE(g.nama_golongan, '-') AS pangkat_golongan_snapshot,
         COALESCE(p.gaji_pokok_dasar, 0) AS gaji_pokok_snapshot,
         
-        -- Total Bruto = Gaji Pokok + Tunjangan Struk + Honor + Sum Detail Tunjangan Var
+        -- Total Bruto = Gaji Pokok + Tunjangan Struk + Honor + Total Tunjangan Var
         (
           COALESCE(p.gaji_pokok_dasar, 0) + 
           COALESCE(j.tunjangan_jabatan_struktural, 0) + 
           COALESCE(tb.honor_bulan, 0) +
-          COALESCE((
-            SELECT SUM(tbd.nilai_terhitung) 
-            FROM tb_tunjangan_bulanan_detail tbd
-            JOIN tb_tunjangan_bulanan tb_head ON tbd.id_tunjangan_bulanan = tb_head.id_tunjangan_bulanan
-            WHERE tb_head.id_periode = $1 AND tb_head.id_pegawai = p.id_pegawai
-          ), 0)
+          COALESCE(t_var.total_tunj_var, 0)
         ) AS total_penghasilan_bruto,
 
         -- Total Potongan
-        COALESCE((
-          SELECT SUM(pbd.nilai_potongan) 
-          FROM tb_potongan_bulanan_detail pbd
-          JOIN tb_potongan_bulanan pb_head ON pbd.id_potongan_bulanan = pb_head.id_potongan_bulanan
-          WHERE pb_head.id_periode = $1 AND pb_head.id_pegawai = p.id_pegawai
-        ), 0) AS total_potongan,
+        COALESCE(p_var.total_pot, 0) AS total_potongan,
 
         -- Total Penerimaan Clean (Bruto - Potongan)
         (
@@ -78,25 +68,31 @@ export const executePayrollProcess = async (periodeId: number) => {
             COALESCE(p.gaji_pokok_dasar, 0) + 
             COALESCE(j.tunjangan_jabatan_struktural, 0) + 
             COALESCE(tb.honor_bulan, 0) +
-            COALESCE((
-              SELECT SUM(tbd.nilai_terhitung) 
-              FROM tb_tunjangan_bulanan_detail tbd
-              JOIN tb_tunjangan_bulanan tb_head ON tbd.id_tunjangan_bulanan = tb_head.id_tunjangan_bulanan
-              WHERE tb_head.id_periode = $1 AND tb_head.id_pegawai = p.id_pegawai
-            ), 0)
-          ) - 
-          COALESCE((
-            SELECT SUM(pbd.nilai_potongan) 
-            FROM tb_potongan_bulanan_detail pbd
-            JOIN tb_potongan_bulanan pb_head ON pbd.id_potongan_bulanan = pb_head.id_potongan_bulanan
-            WHERE pb_head.id_periode = $1 AND pb_head.id_pegawai = p.id_pegawai
-          ), 0)
+            COALESCE(t_var.total_tunj_var, 0)
+          ) - COALESCE(p_var.total_pot, 0)
         ) AS total_penerimaan_clean
 
       FROM tb_pegawai p
       LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
       LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
       LEFT JOIN tb_tunjangan_bulanan tb ON tb.id_periode = $1 AND tb.id_pegawai = p.id_pegawai
+      
+      -- Agregat Tunjangan Variabel per Pegawai
+      LEFT JOIN (
+        SELECT id_pegawai, SUM(nilai_terhitung) AS total_tunj_var
+        FROM tb_tunjangan_bulanan_detail
+        WHERE id_periode = $1
+        GROUP BY id_pegawai
+      ) t_var ON t_var.id_pegawai = p.id_pegawai
+
+      -- Agregat Potongan per Pegawai
+      LEFT JOIN (
+        SELECT id_pegawai, SUM(nilai_potongan) AS total_pot
+        FROM tb_potongan_bulanan_detail
+        WHERE id_periode = $1
+        GROUP BY id_pegawai
+      ) p_var ON p_var.id_pegawai = p.id_pegawai
+
       WHERE p.deleted_at IS NULL;
     `;
     await client.query(insertHeaderQuery, [periodeId]);
@@ -119,7 +115,7 @@ export const executePayrollProcess = async (periodeId: number) => {
       [periodeId],
     );
 
-    // 5. Bulk Insert Detail Snapshot Honor Bulan (Jika Ada)
+    // 5. Bulk Insert Detail Snapshot Honor Bulan
     await client.query(
       `
       INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
@@ -139,42 +135,40 @@ export const executePayrollProcess = async (periodeId: number) => {
     // 6. Bulk Insert Detail Snapshot Tunjangan Variabel
     await client.query(
       `
-      INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
-      SELECT 
-        rg.id_rekap,
-        'TUNJANGAN',
-        t.nama_tunjangan,
-        td.nilai_terhitung,
-        COALESCE(t.jenis_perhitungan, 'UMUM')
-      FROM tb_tunjangan_bulanan_detail td
-      JOIN tb_tunjangan_bulanan tb ON td.id_tunjangan_bulanan = tb.id_tunjangan_bulanan
-      JOIN tb_rekap_gaji rg ON tb.id_periode = rg.id_periode AND tb.id_pegawai = rg.id_pegawai
-      JOIN tb_tunjangan t ON td.id_tunjangan = t.id_tunjangan
-      WHERE tb.id_periode = $1;
-    `,
+  INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+  SELECT 
+    rg.id_rekap,
+    'TUNJANGAN',
+    t.nama_tunjangan,
+    tbd.nilai_terhitung,
+    LEFT(COALESCE(t.formula_type, t.kode_kondisi, 'UMUM'), 20) -- Dipotong maksimal 20 karakter
+  FROM tb_tunjangan_bulanan_detail tbd
+  JOIN tb_rekap_gaji rg ON tbd.id_periode = rg.id_periode AND tbd.id_pegawai = rg.id_pegawai
+  JOIN tb_tunjangan t ON tbd.id_tunjangan = t.id_tunjangan
+  WHERE tbd.id_periode = $1;
+`,
       [periodeId],
     );
 
     // 7. Bulk Insert Detail Snapshot Potongan
     await client.query(
       `
-      INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
-      SELECT 
-        rg.id_rekap,
-        'POTONGAN',
-        m.nama_potongan,
-        pd.nilai_potongan,
-        m.kode_potongan
-      FROM tb_potongan_bulanan_detail pd
-      JOIN tb_potongan_bulanan pb ON pd.id_potongan_bulanan = pb.id_potongan_bulanan
-      JOIN tb_rekap_gaji rg ON pb.id_periode = rg.id_periode AND pb.id_pegawai = rg.id_pegawai
-      JOIN tb_master_potongan m ON pd.id_master_potongan = m.id_master_potongan
-      WHERE pb.id_periode = $1;
-    `,
+  INSERT INTO tb_rekap_gaji_detail (id_rekap, jenis_komponen, nama_komponen_snapshot, nilai_snapshot, kode_kondisi_snapshot)
+  SELECT 
+    rg.id_rekap,
+    'POTONGAN',
+    m.nama_potongan,
+    pbd.nilai_potongan,
+    LEFT(COALESCE(m.formula_type, m.kode_potongan, 'UMUM'), 20) -- Dipotong maksimal 20 karakter
+  FROM tb_potongan_bulanan_detail pbd
+  JOIN tb_rekap_gaji rg ON pbd.id_periode = rg.id_periode AND pbd.id_pegawai = rg.id_pegawai
+  JOIN tb_master_potongan m ON pbd.id_master_potongan = m.id_master_potongan
+  WHERE pbd.id_periode = $1;
+`,
       [periodeId],
     );
 
-    // 8. Update Status Periode 'Selesai'
+    // 8. Update Status Periode ke 'Selesai'
     const updatedPeriodeRes = await client.query(
       `UPDATE tb_periode SET status = 'Selesai' WHERE id_periode = $1 RETURNING *;`,
       [periodeId],
