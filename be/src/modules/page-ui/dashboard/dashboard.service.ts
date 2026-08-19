@@ -1,7 +1,7 @@
 // PERHATIAN: sesuaikan path import pool di bawah ini dengan lokasi
 // konfigurasi database kamu yang sebenarnya (misal "../../config/database"
 // atau "../../shared/db/pool"). Aku asumsikan named export `pool` dari `pg`.
-import { pool } from "../../config/database";
+import { pool } from "../../../config/database";
 
 // ==========================================
 // TYPES

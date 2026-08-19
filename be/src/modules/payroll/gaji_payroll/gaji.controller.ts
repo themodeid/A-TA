@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from "express";
-import { pool } from "../../../config/database";
 import * as gajiService from "./gaji.service";
+
+// Helper konversi ID aman untuk string | string[] | undefined
+const parseId = (value: string | string[] | undefined): number | null => {
+  if (!value) return null;
+  const str = Array.isArray(value) ? value[0] : value;
+  const parsed = parseInt(str, 10);
+  return isNaN(parsed) ? null : parsed;
+};
 
 // 1. Trigger Proses Payroll & Snapshot
 export const processPayroll = async (
@@ -9,11 +16,12 @@ export const processPayroll = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const periodeId = parseInt(req.params.id_periode as string, 10);
-    if (isNaN(periodeId)) {
+    const periodeId = parseId(req.params.id_periode);
+    if (!periodeId) {
       res.status(400).json({
-        status: "fail",
+        success: false,
         message: "ID Periode harus berupa angka yang valid.",
+        data: null,
       });
       return;
     }
@@ -21,44 +29,38 @@ export const processPayroll = async (
     const result = await gajiService.executePayrollProcess(periodeId);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Proses kalkulasi gaji berhasil dieksekusi dan di-snapshot.",
       data: result,
     });
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 };
 
-// 2. Ambil Semua Rekap Gaji per Periode (Tabel Summary Admin)
+// 2. Ambil Semua Rekap Gaji per Periode
 export const getRekapByPeriode = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const rawId = req.params.id_periode as string;
-    const periodeId = parseInt(rawId, 10);
-
-    if (isNaN(periodeId)) {
+    const periodeId = parseId(req.params.id_periode);
+    if (!periodeId) {
       res.status(400).json({
-        status: "fail",
+        success: false,
         message: "ID Periode harus berupa angka yang valid.",
+        data: null,
       });
       return;
     }
 
-    const query = `
-      SELECT r.*, p.nama_dan_tanggal_lahir 
-      FROM tb_rekap_gaji r
-      JOIN tb_pegawai p ON r.id_pegawai = p.id_pegawai
-      WHERE r.id_periode = $1;
-    `;
-    const result = await pool.query(query, [periodeId]);
+    const rekapData = await gajiService.getRekapByPeriode(periodeId);
 
     res.status(200).json({
-      status: "success",
-      data: result.rows,
+      success: true,
+      message: "Berhasil mengambil rekap gaji per periode.",
+      data: rekapData,
     });
   } catch (error) {
     next(error);
@@ -72,44 +74,30 @@ export const getDetailRekap = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const rawId = req.params.id_rekap as string;
-    const idRekap = parseInt(rawId, 10);
-
-    if (isNaN(idRekap)) {
+    const idRekap = parseId(req.params.id_rekap);
+    if (!idRekap) {
       res.status(400).json({
-        status: "fail",
+        success: false,
         message: "ID Rekap harus berupa angka yang valid.",
+        data: null,
       });
       return;
     }
 
-    const rekapQuery = `
-      SELECT r.*, p.nama_dan_tanggal_lahir 
-      FROM tb_rekap_gaji r
-      JOIN tb_pegawai p ON r.id_pegawai = p.id_pegawai
-      WHERE r.id_rekap = $1;
-    `;
-    const rekapRes = await pool.query(rekapQuery, [idRekap]);
-
-    if (rekapRes.rows.length === 0) {
+    const detailGaji = await gajiService.getDetailRekap(idRekap);
+    if (!detailGaji) {
       res.status(404).json({
-        status: "fail",
+        success: false,
         message: "Data rekap gaji tidak ditemukan.",
+        data: null,
       });
       return;
     }
-
-    const detailQuery = `
-      SELECT * FROM tb_rekap_gaji_detail WHERE id_rekap = $1;
-    `;
-    const detailRes = await pool.query(detailQuery, [idRekap]);
 
     res.status(200).json({
-      status: "success",
-      data: {
-        ...rekapRes.rows[0],
-        details: detailRes.rows,
-      },
+      success: true,
+      message: "Berhasil mengambil detail slip gaji.",
+      data: detailGaji,
     });
   } catch (error) {
     next(error);
@@ -123,50 +111,50 @@ export const getSlipGajiPegawai = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { id_periode, id_pegawai } = req.params;
+    const idPeriode = parseId(req.params.id_periode);
+    const idPegawai = parseId(req.params.id_pegawai);
 
-    const rekapQuery = `
-      SELECT r.*, p.nama_dan_tanggal_lahir 
-      FROM tb_rekap_gaji r
-      JOIN tb_pegawai p ON r.id_pegawai = p.id_pegawai
-      WHERE r.id_periode = $1 AND r.id_pegawai = $2;
-    `;
-    const rekapRes = await pool.query(rekapQuery, [id_periode, id_pegawai]);
-
-    if (rekapRes.rows.length === 0) {
-      res.status(404).json({
-        status: "fail",
-        message: "Slip gaji untuk pegawai dan periode tersebut belum tersedia.",
+    if (!idPeriode || !idPegawai) {
+      res.status(400).json({
+        success: false,
+        message: "ID Periode dan ID Pegawai harus berupa angka yang valid.",
+        data: null,
       });
       return;
     }
 
-    const idRekap = rekapRes.rows[0].id_rekap;
-    const detailQuery = `
-      SELECT * FROM tb_rekap_gaji_detail WHERE id_rekap = $1;
-    `;
-    const detailRes = await pool.query(detailQuery, [idRekap]);
+    const slipData = await gajiService.getSlipByPeriodeAndPegawai(
+      idPeriode,
+      idPegawai,
+    );
+
+    if (!slipData) {
+      res.status(404).json({
+        success: false,
+        message: "Slip gaji untuk pegawai dan periode tersebut belum tersedia.",
+        data: null,
+      });
+      return;
+    }
 
     res.status(200).json({
-      status: "success",
-      data: {
-        ...rekapRes.rows[0],
-        details: detailRes.rows,
-      },
+      success: true,
+      message: "Berhasil mengambil slip gaji pegawai.",
+      data: slipData,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// 5. Placeholder untuk Download PDF (Opsional)
+// 5. Placeholder untuk Download PDF
 export const downloadSlipPdf = async (
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction,
 ): Promise<void> => {
   res.status(501).json({
-    status: "error",
+    success: false,
     message: "Fitur download PDF belum diimplementasikan.",
+    data: null,
   });
 };
