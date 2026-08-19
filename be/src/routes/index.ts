@@ -3,10 +3,10 @@ import { Router } from "express";
 // ==========================================
 // 1. MODULES: CORE & ABSENSI
 // ==========================================
-import absensiRoutes from "../modules/absensi/absensi.routes";
+import absensiRoutes from "../modules/payroll/absensi/absensi.routes";
 
 // dashboard
-import dashboardRoutes from "../modules/dashboard/dashboard.routes";
+import dashboardRoutes from "../modules/page-ui/dashboard/dashboard.routes";
 
 // ==========================================
 // 2. MODULES: MASTER DATA

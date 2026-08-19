@@ -1,4 +1,4 @@
-import { pool } from "../../config/database";
+import { pool } from "../../../config/database";
 
 // 2. Mengambil summary absensi pegawai terpilih (Menyesuaikan kolom nama_dan_tanggal_lahir)
 export const getAbsensiByPeriode = async (idPeriode: number) => {
