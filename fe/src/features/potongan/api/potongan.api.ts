@@ -24,9 +24,13 @@ export async function savePotonganBulk(
     potongan_pelkes?: number;
     potongan_lainnya?: number;
   }>,
-): Promise<void> {
-  await api.post("/payroll/potongan-bulanan/bulk-save", {
-    id_periode: idPeriode,
-    data_input: dataInput,
-  });
+): Promise<string> {
+  const res = await api.post<ApiResponse<null>>(
+    "/payroll/potongan-bulanan/bulk-save",
+    {
+      id_periode: idPeriode,
+      data_input: dataInput,
+    },
+  );
+  return res.data.message ?? "Data potongan berhasil disimpan!";
 }

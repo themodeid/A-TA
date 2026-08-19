@@ -8,8 +8,21 @@ export interface PotonganDetailInput {
 
 export interface PotonganPegawaiInput {
   id_pegawai: number;
-  details: PotonganDetailInput[];
+  details?: PotonganDetailInput[];
+  potongan_angsuran?: number;
+  potongan_dana_wajib?: number;
+  potongan_s_pskd?: number;
+  potongan_pelkes?: number;
+  potongan_lainnya?: number;
 }
+
+const FLAT_POTONGAN_FIELDS = [
+  { field: "potongan_angsuran" as const, kode: "POT_ANGSURAN" },
+  { field: "potongan_dana_wajib" as const, kode: "POT_DANA_WAJIB" },
+  { field: "potongan_s_pskd" as const, kode: "POT_S_PSKD" },
+  { field: "potongan_pelkes" as const, kode: "POT_PELKES" },
+  { field: "potongan_lainnya" as const, kode: "POT_LAINNYA" },
+];
 
 // ==========================================
 // 1. GET ALL BY PERIODE (Untuk Grid UI)
@@ -22,17 +35,11 @@ export const getAllByPeriode = async (id_periode: number) => {
       pb.id_pegawai,
       p.nama_dan_tanggal_lahir,
       pb.total_potongan_terhitung,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id_potongan_detail', pbd.id_potongan_detail,
-            'id_master_potongan', pbd.id_master_potongan,
-            'nama_potongan', mp.nama_potongan,
-            'kode_potongan', mp.kode_potongan,
-            'nilai_potongan', pbd.nilai_potongan
-          )
-        ) FILTER (WHERE pbd.id_potongan_detail IS NOT NULL), '[]'
-      ) AS details
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_ANGSURAN' THEN pbd.nilai_potongan END), 0)::float AS potongan_angsuran,
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_DANA_WAJIB' THEN pbd.nilai_potongan END), 0)::float AS potongan_dana_wajib,
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_S_PSKD' THEN pbd.nilai_potongan END), 0)::float AS potongan_s_pskd,
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_PELKES' THEN pbd.nilai_potongan END), 0)::float AS potongan_pelkes,
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_LAINNYA' THEN pbd.nilai_potongan END), 0)::float AS potongan_lainnya
     FROM tb_potongan_bulanan pb
     JOIN tb_pegawai p ON pb.id_pegawai = p.id_pegawai
     LEFT JOIN tb_potongan_bulanan_detail pbd 
@@ -40,7 +47,7 @@ export const getAllByPeriode = async (id_periode: number) => {
     LEFT JOIN tb_master_potongan mp 
       ON pbd.id_master_potongan = mp.id_master_potongan
     WHERE pb.id_periode = $1
-    GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir
+    GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir, pb.total_potongan_terhitung
     ORDER BY p.nama_dan_tanggal_lahir ASC;
   `;
 
@@ -96,6 +103,26 @@ export const saveBulk = async (
   try {
     await client.query("BEGIN");
 
+    const pCheck = await client.query(
+      "SELECT status FROM tb_periode WHERE id_periode = $1 AND deleted_at IS NULL",
+      [id_periode],
+    );
+    if (pCheck.rows.length === 0) {
+      throw new Error("Periode tidak ditemukan!");
+    }
+    if (["Dikunci", "Selesai", "Diproses Gaji"].includes(pCheck.rows[0].status)) {
+      throw new Error("Gagal. Periode ini sudah dikunci atau selesai diproses!");
+    }
+
+    const masterResult = await client.query(
+      `SELECT id_master_potongan, kode_potongan
+       FROM tb_master_potongan
+       WHERE deleted_at IS NULL`,
+    );
+    const kodeToId = new Map<string, number>(
+      masterResult.rows.map((row) => [row.kode_potongan, row.id_master_potongan]),
+    );
+
     // 1. Ratakan (Flatten) data array dari Javascript untuk dikirim sekaligus ke SQL
     const arrPeriode: number[] = [];
     const arrPegawai: number[] = [];
@@ -110,6 +137,17 @@ export const saveBulk = async (
           arrMasterPot.push(detail.id_master_potongan);
           arrNilaiPot.push(parseFloat(detail.nilai_potongan.toString()) || 0);
         }
+        continue;
+      }
+
+      for (const { field, kode } of FLAT_POTONGAN_FIELDS) {
+        const idMaster = kodeToId.get(kode);
+        if (idMaster === undefined) continue;
+
+        arrPeriode.push(id_periode);
+        arrPegawai.push(item.id_pegawai);
+        arrMasterPot.push(idMaster);
+        arrNilaiPot.push(parseFloat((item[field] ?? 0).toString()) || 0);
       }
     }
 
