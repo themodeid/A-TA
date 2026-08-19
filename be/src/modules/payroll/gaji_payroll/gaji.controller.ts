@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as gajiService from "./gaji.service";
 
-// Helper internal dengan tipe yang sudah disesuaikan untuk req.params / req.query
+// Helper konversi ID aman untuk string | string[] | undefined
 const parseId = (value: string | string[] | undefined): number | null => {
   if (!value) return null;
   const str = Array.isArray(value) ? value[0] : value;
@@ -38,7 +38,7 @@ export const processPayroll = async (
   }
 };
 
-// 2. Ambil Semua Rekap Gaji per Periode (Tabel Summary Admin)
+// 2. Ambil Semua Rekap Gaji per Periode
 export const getRekapByPeriode = async (
   req: Request,
   res: Response,
@@ -127,6 +127,7 @@ export const getSlipGajiPegawai = async (
       idPeriode,
       idPegawai,
     );
+
     if (!slipData) {
       res.status(404).json({
         success: false,
