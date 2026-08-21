@@ -34,67 +34,64 @@ export const executePayrollProcess = async (periodeId: number) => {
 
     // 3. Bulk Insert Header Snapshot (tb_rekap_gaji)
     const insertHeaderQuery = `
-      INSERT INTO tb_rekap_gaji (
-        id_periode, 
-        id_pegawai, 
-        jabatan_snapshot, 
-        pangkat_golongan_snapshot, 
-        gaji_pokok_snapshot, 
-        total_penghasilan_bruto, 
-        total_potongan, 
-        total_penerimaan_clean
-      )
-      SELECT 
-        $1 AS id_periode,
-        p.id_pegawai,
-        COALESCE(j.nama_jabatan, '-') AS jabatan_snapshot,
-        COALESCE(g.nama_golongan, '-') AS pangkat_golongan_snapshot,
-        COALESCE(p.gaji_pokok_dasar, 0) AS gaji_pokok_snapshot,
-        
-        -- Total Bruto = Gaji Pokok + Tunjangan Struk + Honor + Total Tunjangan Var
-        (
-          COALESCE(p.gaji_pokok_dasar, 0) + 
-          COALESCE(j.tunjangan_jabatan_struktural, 0) + 
-          COALESCE(tb.honor_bulan, 0) +
-          COALESCE(t_var.total_tunj_var, 0)
-        ) AS total_penghasilan_bruto,
+  INSERT INTO tb_rekap_gaji (
+    id_periode, 
+    id_pegawai, 
+    jabatan_snapshot, 
+    pangkat_golongan_snapshot, 
+    gaji_pokok_snapshot, 
+    total_penghasilan_bruto, 
+    total_potongan, 
+    total_penerimaan_clean
+  )
+  SELECT 
+    $1 AS id_periode,
+    p.id_pegawai,
+    COALESCE(j.nama_jabatan, '-') AS jabatan_snapshot,
+    COALESCE(g.nama_golongan, '-') AS pangkat_golongan_snapshot,
+    COALESCE(p.gaji_pokok_dasar, 0) AS gaji_pokok_snapshot,
+    
+    -- Total Bruto = Gaji Pokok + Total Seluruh Tunjangan (Struktural, Honor, & Detail Variabel)
+    (
+      COALESCE(p.gaji_pokok_dasar, 0) + 
+      COALESCE(j.tunjangan_jabatan_struktural, 0) + 
+      COALESCE(tb.honor_bulan, 0) +
+      COALESCE(t_var.total_tunj_var, 0)
+    ) AS total_penghasilan_bruto,
 
-        -- Total Potongan
-        COALESCE(p_var.total_pot, 0) AS total_potongan,
+    COALESCE(p_var.total_pot, 0) AS total_potongan,
 
-        -- Total Penerimaan Clean (Bruto - Potongan)
-        (
-          (
-            COALESCE(p.gaji_pokok_dasar, 0) + 
-            COALESCE(j.tunjangan_jabatan_struktural, 0) + 
-            COALESCE(tb.honor_bulan, 0) +
-            COALESCE(t_var.total_tunj_var, 0)
-          ) - COALESCE(p_var.total_pot, 0)
-        ) AS total_penerimaan_clean
+    (
+      (
+        COALESCE(p.gaji_pokok_dasar, 0) + 
+        COALESCE(j.tunjangan_jabatan_struktural, 0) + 
+        COALESCE(tb.honor_bulan, 0) +
+        COALESCE(t_var.total_tunj_var, 0)
+      ) - COALESCE(p_var.total_pot, 0)
+    ) AS total_penerimaan_clean
 
-      FROM tb_pegawai p
-      LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
-      LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
-      LEFT JOIN tb_tunjangan_bulanan tb ON tb.id_periode = $1 AND tb.id_pegawai = p.id_pegawai
-      
-      -- Agregat Tunjangan Variabel per Pegawai
-      LEFT JOIN (
-        SELECT id_pegawai, SUM(nilai_terhitung) AS total_tunj_var
-        FROM tb_tunjangan_bulanan_detail
-        WHERE id_periode = $1
-        GROUP BY id_pegawai
-      ) t_var ON t_var.id_pegawai = p.id_pegawai
+  FROM tb_pegawai p
+  LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
+  LEFT JOIN tb_golongan g ON p.id_golongan = g.id_golongan
+  LEFT JOIN tb_tunjangan_bulanan tb ON tb.id_periode = $1 AND tb.id_pegawai = p.id_pegawai
+  
+  -- Agregat Tunjangan Variabel (Menggunakan nilai_terhitung yang sudah dikalkulasi Rupiah)
+  LEFT JOIN (
+    SELECT id_pegawai, SUM(nilai_terhitung) AS total_tunj_var
+    FROM tb_tunjangan_bulanan_detail
+    WHERE id_periode = $1
+    GROUP BY id_pegawai
+  ) t_var ON t_var.id_pegawai = p.id_pegawai
 
-      -- Agregat Potongan per Pegawai
-      LEFT JOIN (
-        SELECT id_pegawai, SUM(nilai_potongan) AS total_pot
-        FROM tb_potongan_bulanan_detail
-        WHERE id_periode = $1
-        GROUP BY id_pegawai
-      ) p_var ON p_var.id_pegawai = p.id_pegawai
+  LEFT JOIN (
+    SELECT id_pegawai, SUM(nilai_potongan) AS total_pot
+    FROM tb_potongan_bulanan_detail
+    WHERE id_periode = $1
+    GROUP BY id_pegawai
+  ) p_var ON p_var.id_pegawai = p.id_pegawai
 
-      WHERE p.deleted_at IS NULL;
-    `;
+  WHERE p.deleted_at IS NULL;
+`;
     await client.query(insertHeaderQuery, [periodeId]);
 
     // 4. Bulk Insert Detail Snapshot Tunjangan Struktural
@@ -140,13 +137,13 @@ export const executePayrollProcess = async (periodeId: number) => {
     rg.id_rekap,
     'TUNJANGAN',
     t.nama_tunjangan,
-    tbd.nilai_terhitung,
-    LEFT(COALESCE(t.formula_type, t.kode_kondisi, 'UMUM'), 20) -- Dipotong maksimal 20 karakter
+    CAST(tbd.nilai_terhitung AS VARCHAR), -- Simpan hasil kalkulasi Rupiah (misal: 500000.00), bukan rate persen
+    LEFT(COALESCE(t.formula_type, t.kode_kondisi, 'UMUM'), 20)
   FROM tb_tunjangan_bulanan_detail tbd
   JOIN tb_rekap_gaji rg ON tbd.id_periode = rg.id_periode AND tbd.id_pegawai = rg.id_pegawai
   JOIN tb_tunjangan t ON tbd.id_tunjangan = t.id_tunjangan
   WHERE tbd.id_periode = $1;
-`,
+  `,
       [periodeId],
     );
 
