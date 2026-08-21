@@ -47,17 +47,17 @@ export function Modal({
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClasses[size]} rounded-xl bg-white shadow-xl`}
+        className={`relative w-full ${sizeClasses[size]} rounded-xl bg-slate-900 shadow-xl border border-slate-800`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <h3 className="text-lg font-semibold text-white">{title}</h3>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Tutup">
             ✕
           </Button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-6 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <div className="flex justify-end gap-2 border-t border-slate-800 px-6 py-4">
             {footer}
           </div>
         )}

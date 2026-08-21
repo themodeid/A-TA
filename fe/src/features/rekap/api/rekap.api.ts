@@ -10,13 +10,13 @@ export async function getRekapByPeriode(idPeriode: number): Promise<RekapGaji[]>
 
 export async function getSlipById(idRekap: number): Promise<SlipGaji> {
   const res = await api.get<ApiResponse<SlipGaji>>(
-    `/payroll/gaji/${idRekap}`,
+    `/payroll/gaji/rekap/${idRekap}`,
   );
   return res.data.data;
 }
 
 export async function processPayroll(idPeriode: number): Promise<void> {
-  await api.post(`/payroll/gaji/process/${idPeriode}`);
+  await api.post(`/payroll/gaji/process/periode/${idPeriode}`);
 }
 
 export function exportRekapCsv(rekap: RekapGaji[], filename: string): void {

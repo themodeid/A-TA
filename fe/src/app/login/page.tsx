@@ -69,7 +69,7 @@ export default function LoginPage() {
               required
             />
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              <p className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400">
                 {error}
               </p>
             )}
@@ -78,8 +78,8 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 border-t border-slate-100 pt-4">
-            <p className="mb-2 text-xs font-medium text-slate-500">
+          <div className="mt-6 border-t border-slate-800 pt-4">
+            <p className="mb-2 text-xs font-medium text-slate-400">
               Demo akun (klik untuk isi otomatis):
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -88,11 +88,11 @@ export default function LoginPage() {
                   key={u.username}
                   type="button"
                   onClick={() => fillDemo(u.username, u.password)}
-                  className="rounded-lg border border-slate-200 px-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                  className="rounded-lg border border-slate-700 px-2 py-1.5 text-left text-xs text-white hover:bg-slate-800"
                 >
                   <span className="font-medium">{u.role}</span>
                   <br />
-                  <span className="text-slate-500">{u.username}</span>
+                  <span className="text-slate-400">{u.username}</span>
                 </button>
               ))}
             </div>
