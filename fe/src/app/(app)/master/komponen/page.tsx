@@ -8,6 +8,7 @@ import {
 import { MasterPotongan, MasterTunjangan } from "@/types";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card } from "@/components/ui/Card";
+import { formatRupiah } from "@/lib/format";
 import {
   Table,
   TableHead,
@@ -30,6 +31,12 @@ export default function MasterKomponenPage() {
       .catch(() => setPotongan([]));
   }, []);
 
+  const renderBesaran = (nilai?: number, jenis?: string) => {
+    if (!nilai && nilai !== 0) return "—";
+    if (jenis === "PERSEN") return `${nilai}%`;
+    return formatRupiah(nilai);
+  };
+
   return (
     <PageContainer
       title="Master Komponen"
@@ -41,6 +48,7 @@ export default function MasterKomponenPage() {
             <TableHead>
               <TableHeaderCell>ID</TableHeaderCell>
               <TableHeaderCell>Nama Tunjangan</TableHeaderCell>
+              <TableHeaderCell>Besaran / Jenis</TableHeaderCell>
               <TableHeaderCell>Formula</TableHeaderCell>
             </TableHead>
             <TableBody>
@@ -48,8 +56,18 @@ export default function MasterKomponenPage() {
                 <TableRow key={t.id_tunjangan}>
                   <TableCell>{t.id_tunjangan}</TableCell>
                   <TableCell>{t.nama_tunjangan}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-slate-200">
+                        {renderBesaran(t.nilai, t.jenis_tunjangan)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {t.sifat_tunjangan}
+                      </span>
+                    </div>
+                  </TableCell>
                   <TableCell className="max-w-xs truncate">
-                    {t.formula ?? "—"}
+                    {t.formula_type ?? "—"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -62,12 +80,27 @@ export default function MasterKomponenPage() {
             <TableHead>
               <TableHeaderCell>ID</TableHeaderCell>
               <TableHeaderCell>Nama Potongan</TableHeaderCell>
+              <TableHeaderCell>Besaran / Jenis</TableHeaderCell>
+              <TableHeaderCell>Formula</TableHeaderCell>
             </TableHead>
             <TableBody>
               {potongan.map((p) => (
                 <TableRow key={p.id_master_potongan}>
                   <TableCell>{p.id_master_potongan}</TableCell>
                   <TableCell>{p.nama_potongan}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-slate-200">
+                        {renderBesaran(p.nilai, p.jenis_potongan)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {p.sifat_potongan}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {p.formula_type ?? "—"}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

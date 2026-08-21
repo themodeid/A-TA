@@ -6,6 +6,11 @@ export async function getAllPegawai(): Promise<Pegawai[]> {
   return res.data.data ?? [];
 }
 
+export async function getPegawaiById(id: number): Promise<Pegawai> {
+  const res = await api.get<ApiResponse<Pegawai>>(`/master/pegawai/${id}`);
+  return res.data.data;
+}
+
 export async function createPegawai(data: Partial<Pegawai>): Promise<Pegawai> {
   const res = await api.post<ApiResponse<Pegawai>>("/master/pegawai", data);
   return res.data.data;
