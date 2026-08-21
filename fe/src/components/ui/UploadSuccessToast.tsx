@@ -19,7 +19,7 @@ export function UploadSuccessToast({
       aria-live="polite"
       className="fixed right-4 top-4 z-50 upload-success-enter"
     >
-      <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-white px-4 py-3 shadow-lg shadow-green-100/80">
+      <div className="flex items-center gap-3 rounded-xl border border-green-800 bg-slate-900 px-4 py-3 shadow-lg">
         <div className="upload-success-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500">
           <svg
             className="h-5 w-5 text-white upload-success-check"
@@ -36,14 +36,14 @@ export function UploadSuccessToast({
           </svg>
         </div>
         <div className="min-w-[200px]">
-          <p className="text-sm font-semibold text-green-800">Berhasil!</p>
-          <p className="text-sm text-green-700">{message}</p>
+          <p className="text-sm font-semibold text-green-400">Berhasil!</p>
+          <p className="text-sm text-green-300">{message}</p>
         </div>
         {onDismiss && (
           <button
             type="button"
             onClick={onDismiss}
-            className="ml-2 rounded p-1 text-green-600 hover:bg-green-50"
+            className="ml-2 rounded p-1 text-green-500 hover:bg-slate-800"
             aria-label="Tutup notifikasi"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

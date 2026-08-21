@@ -35,8 +35,8 @@ export function Sidebar() {
   );
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-slate-900 text-white">
-      <div className="border-b border-slate-700 px-6 py-5">
+    <aside className="flex h-screen w-64 flex-col border-r border-slate-800 bg-slate-900 text-white">
+      <div className="border-b border-slate-800 px-6 py-5">
         <h1 className="text-lg font-bold tracking-tight">SIP Payroll</h1>
         <p className="text-xs text-slate-400">Sistem Informasi Penggajian</p>
       </div>
@@ -62,7 +62,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-slate-700 p-4">
+      <div className="border-t border-slate-800 p-4">
         <div className="mb-3 rounded-lg bg-slate-800 px-3 py-2">
           <p className="text-sm font-medium">{user?.nama}</p>
           <p className="text-xs text-slate-400">{user?.role}</p>
