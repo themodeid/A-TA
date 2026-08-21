@@ -44,3 +44,22 @@ export async function getPotonganMaster(): Promise<MasterPotongan[]> {
   );
   return res.data.data ?? [];
 }
+export async function createTunjanganMaster(
+  data: Partial<MasterTunjangan>,
+): Promise<MasterTunjangan> {
+  const res = await api.post<ApiResponse<MasterTunjangan>>(
+    "/payroll/tunjangan-master",
+    data,
+  );
+  return res.data.data;
+}
+
+export async function createPotonganMaster(
+  data: Partial<MasterPotongan>,
+): Promise<MasterPotongan> {
+  const res = await api.post<ApiResponse<MasterPotongan>>(
+    "/payroll/potongan-master",
+    data,
+  );
+  return res.data.data;
+}
