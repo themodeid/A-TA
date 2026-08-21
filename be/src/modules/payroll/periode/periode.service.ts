@@ -11,6 +11,137 @@ export interface ApprovalDTO {
   catatan?: string;
 }
 
+export interface PeriodeReadiness {
+  isReady: boolean;
+  totalPegawai: number;
+  absensi: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  tunjangan: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  potongan: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  reasons: string[];
+}
+
+export const checkPeriodeReadiness = async (
+  idPeriode: number,
+): Promise<PeriodeReadiness> => {
+  const client = await pool.connect();
+  try {
+    // 1. Ambil semua pegawai aktif
+    const pegawaiRes = await client.query(
+      `SELECT id_pegawai, nama_dan_tanggal_lahir FROM tb_pegawai WHERE deleted_at IS NULL ORDER BY id_pegawai ASC;`,
+    );
+    const pegawaiList = pegawaiRes.rows;
+    const totalPegawai = pegawaiList.length;
+
+    // 2. Ambil absensi terisi untuk periode ini
+    const absensiRes = await client.query(
+      `SELECT id_pegawai FROM tb_absensi_summary WHERE id_periode = $1;`,
+      [idPeriode],
+    );
+    const absensiIds = new Set(absensiRes.rows.map((r: any) => r.id_pegawai));
+    const missingAbsensi = pegawaiList
+      .filter((p: any) => !absensiIds.has(p.id_pegawai))
+      .map((p: any) => ({
+        id_pegawai: p.id_pegawai,
+        nama: p.nama_dan_tanggal_lahir,
+      }));
+
+    // 3. Ambil tunjangan terisi untuk periode ini
+    const tunjanganRes = await client.query(
+      `SELECT id_pegawai FROM tb_tunjangan_bulanan WHERE id_periode = $1;`,
+      [idPeriode],
+    );
+    const tunjanganIds = new Set(
+      tunjanganRes.rows.map((r: any) => r.id_pegawai),
+    );
+    const missingTunjangan = pegawaiList
+      .filter((p: any) => !tunjanganIds.has(p.id_pegawai))
+      .map((p: any) => ({
+        id_pegawai: p.id_pegawai,
+        nama: p.nama_dan_tanggal_lahir,
+      }));
+
+    // 4. Ambil potongan terisi untuk periode ini
+    const potonganRes = await client.query(
+      `SELECT id_pegawai FROM tb_potongan_bulanan WHERE id_periode = $1;`,
+      [idPeriode],
+    );
+    const potonganIds = new Set(potonganRes.rows.map((r: any) => r.id_pegawai));
+    const missingPotongan = pegawaiList
+      .filter((p: any) => !potonganIds.has(p.id_pegawai))
+      .map((p: any) => ({
+        id_pegawai: p.id_pegawai,
+        nama: p.nama_dan_tanggal_lahir,
+      }));
+
+    const reasons: string[] = [];
+    if (totalPegawai === 0) {
+      reasons.push("Belum ada data pegawai aktif di master pegawai.");
+    }
+    if (missingAbsensi.length > 0) {
+      reasons.push(
+        `Data Absensi belum lengkap (${missingAbsensi.length} dari ${totalPegawai} pegawai belum ada data absensi).`,
+      );
+    }
+    if (missingTunjangan.length > 0) {
+      reasons.push(
+        `Data Tunjangan Bulanan belum diinisialisasi/diisi untuk ${missingTunjangan.length} dari ${totalPegawai} pegawai.`,
+      );
+    }
+    if (missingPotongan.length > 0) {
+      reasons.push(
+        `Data Potongan Bulanan belum diinisialisasi/diisi untuk ${missingPotongan.length} dari ${totalPegawai} pegawai.`,
+      );
+    }
+
+    const isReady =
+      totalPegawai > 0 &&
+      missingAbsensi.length === 0 &&
+      missingTunjangan.length === 0 &&
+      missingPotongan.length === 0;
+
+    return {
+      isReady,
+      totalPegawai,
+      absensi: {
+        filledCount: absensiIds.size,
+        totalCount: totalPegawai,
+        isComplete: totalPegawai > 0 && missingAbsensi.length === 0,
+        missingPegawai: missingAbsensi,
+      },
+      tunjangan: {
+        filledCount: tunjanganIds.size,
+        totalCount: totalPegawai,
+        isComplete: totalPegawai > 0 && missingTunjangan.length === 0,
+        missingPegawai: missingTunjangan,
+      },
+      potongan: {
+        filledCount: potonganIds.size,
+        totalCount: totalPegawai,
+        isComplete: totalPegawai > 0 && missingPotongan.length === 0,
+        missingPegawai: missingPotongan,
+      },
+      reasons,
+    };
+  } finally {
+    client.release();
+  }
+};
+
 // 1. SUBMIT APPROVAL: 'Pengisian Absensi' atau 'Ditolak' -> 'Menunggu Approval'
 export const submitApprovalPeriode = async (id: number) => {
   const periode = await getPeriodeById(id);
@@ -18,6 +149,14 @@ export const submitApprovalPeriode = async (id: number) => {
   if (periode.status !== "Pengisian Absensi" && periode.status !== "Ditolak") {
     throw new Error(
       `Status periode saat ini '${periode.status}'. Hanya periode berstatus 'Pengisian Absensi' atau 'Ditolak' yang bisa diajukan.`,
+    );
+  }
+
+  // Cek validasi kelengkapan data absensi, tunjangan, dan potongan
+  const readiness = await checkPeriodeReadiness(id);
+  if (!readiness.isReady) {
+    throw new Error(
+      `Pengajuan Approval Ditolak: ${readiness.reasons.join(" ")}`,
     );
   }
 

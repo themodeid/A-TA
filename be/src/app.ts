@@ -17,17 +17,26 @@ export const app = express();
 // 1. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
 const allowedOrigins = ENV.CORS_ORIGIN
   ? ENV.CORS_ORIGIN.split(",").map((o) => o.trim())
-  : ["http://localhost:3000", "http://localhost:3041"];
+  : ["http://localhost:3000", "http://localhost:3041", "http://127.0.0.1:3000", "http://127.0.0.1:3041"];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Izinkan request tanpa origin (seperti Postman/Mobile App) atau jika origin terdaftar
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Blocked by CORS: ${origin} is not allowed`));
+      // Izinkan request tanpa origin (seperti SSR/Postman/Mobile)
+      if (!origin) return callback(null, true);
+
+      // Izinkan jika terdaftar
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // Izinkan localhost dan 127.0.0.1 pada mode development
+      if (
+        ENV.NODE_ENV === "development" &&
+        (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))
+      ) {
+        return callback(null, true);
       }
+
+      callback(new Error(`Blocked by CORS: ${origin} is not allowed`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

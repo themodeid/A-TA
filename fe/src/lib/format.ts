@@ -23,3 +23,19 @@ export function parseNamaTanggalLahir(namaDanTgl: string): {
   }
   return { nama: namaDanTgl, tanggalLahir: "-" };
 }
+
+export function formatDate(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return "-";
+  try {
+    const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+    if (isNaN(date.getTime())) return String(dateStr);
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return String(dateStr);
+  }
+}
+

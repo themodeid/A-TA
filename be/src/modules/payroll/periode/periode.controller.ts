@@ -2,6 +2,37 @@ import { Request, Response, NextFunction } from "express";
 import * as periodeService from "./periode.service";
 
 /**
+ * GET /api/periode/:id/readiness
+ * Cek kelengkapan data absensi, tunjangan, dan potongan sebelum diajukan approval
+ */
+export const getReadiness = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const readiness = await periodeService.checkPeriodeReadiness(parsedId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Berhasil memeriksa kesiapan data periode.",
+      data: readiness,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/periode/:id/submit-approval
  * Mengajukan periode dari 'Pengisian Absensi'/'Ditolak' -> 'Menunggu Approval'
  */

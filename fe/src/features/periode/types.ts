@@ -14,3 +14,28 @@ export interface Periode {
   status: PeriodeStatus;
   created_at?: string;
 }
+
+export interface PeriodeReadiness {
+  isReady: boolean;
+  totalPegawai: number;
+  absensi: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  tunjangan: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  potongan: {
+    filledCount: number;
+    totalCount: number;
+    isComplete: boolean;
+    missingPegawai: { id_pegawai: number; nama: string }[];
+  };
+  reasons: string[];
+}
+

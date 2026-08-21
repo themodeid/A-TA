@@ -1,5 +1,5 @@
 import api from "@/services/api";
-import { ApiResponse, Periode } from "@/types";
+import { ApiResponse, Periode, PeriodeReadiness } from "@/types";
 
 export async function getAllPeriode(): Promise<Periode[]> {
   const res = await api.get<ApiResponse<Periode[]>>("/payroll/periode");
@@ -17,6 +17,15 @@ export async function createPeriode(payload: {
   tanggal_akhir: string;
 }): Promise<Periode> {
   const res = await api.post<ApiResponse<Periode>>("/payroll/periode", payload);
+  return res.data.data;
+}
+
+export async function getPeriodeReadiness(
+  id: number,
+): Promise<PeriodeReadiness> {
+  const res = await api.get<ApiResponse<PeriodeReadiness>>(
+    `/payroll/periode/${id}/readiness`,
+  );
   return res.data.data;
 }
 

@@ -5,12 +5,12 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/master/pegawai": ["Admin"],
   "/master/komponen": ["Admin"],
   "/periode": ["Admin", "Staf Gaji"],
-  "/transaksi/absensi": ["Petugas Absensi", "Staf Gaji"],
-  "/transaksi/tunjangan": ["Staf Gaji"],
-  "/transaksi/potongan": ["Staf Gaji"],
-  "/approval": ["Approver"],
-  "/rekap-gaji": ["Staf Gaji", "Admin"],
-  "/audit/koreksi-jam": ["Staf Gaji", "Admin"],
+  "/transaksi/absensi": ["Admin", "Petugas Absensi", "Staf Gaji"],
+  "/transaksi/tunjangan": ["Admin", "Staf Gaji"],
+  "/transaksi/potongan": ["Admin", "Staf Gaji"],
+  "/approval": ["Admin", "Approver"],
+  "/rekap-gaji": ["Admin", "Staf Gaji"],
+  "/audit/koreksi-jam": ["Admin", "Staf Gaji"],
 };
 
 export function canAccessRoute(role: UserRole, path: string): boolean {
