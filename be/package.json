@@ -4,9 +4,9 @@
   "main": "app.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --poll --interval 10000 --transpile-only src/app.ts",
-    "db:migrate": "ts-node src/database/cli.ts up",
-    "db:rollback": "ts-node src/database/cli.ts down",
-    "db:make": "ts-node src/database/cli.ts make"
+    "db:migrate": "ts-node --transpile-only src/database/cli.ts up",
+    "db:rollback": "ts-node --transpile-only src/database/cli.ts down",
+    "db:make": "ts-node --transpile-only src/database/cli.ts make"
   },
   "keywords": [],
   "author": "",
@@ -30,9 +30,17 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/morgan": "^1.9.9",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.0.10",
+    "@types/pg": "^8.11.11",
     "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

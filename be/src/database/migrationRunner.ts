@@ -23,10 +23,10 @@ const ensureMigrationsTable = async () => {
 
 // mengambil data migration yang sudah pernah dijalankan
 const getAppliedMigrations = async (): Promise<string[]> => {
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<{ name: string }>(
     "SELECT name FROM migrations ORDER BY id ASC",
   );
-  return rows.map((row) => row.name);
+  return rows.map((row: { name: string }) => row.name);
 };
 
 // menjalankan migration yang belum dijalankan
