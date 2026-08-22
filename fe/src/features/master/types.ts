@@ -1,8 +1,23 @@
+export interface Jabatan {
+  id_jabatan: number;
+  nama_jabatan: string;
+  tunjangan_jabatan_struktural: number;
+}
+
+export interface Golongan {
+  id_golongan: number;
+  nama_golongan: string;
+  gaji_pokok_standar: number;
+}
+
 export interface Pegawai {
   id_pegawai: number;
   nama_dan_tanggal_lahir: string;
+  id_jabatan?: number;
   nama_jabatan?: string;
+  id_golongan?: number;
   nama_golongan?: string;
+  pangkat_golongan?: string;
   status_perkawinan: string;
   jumlah_anak?: number;
   gaji_pokok_dasar: number;

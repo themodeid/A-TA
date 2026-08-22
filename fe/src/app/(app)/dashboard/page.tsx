@@ -23,12 +23,21 @@ import { Badge } from "@/components/ui/Badge";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { selectedPeriodeId, setSelectedPeriodeId } = usePeriode();
+  const {
+    selectedPeriodeId,
+    setSelectedPeriodeId,
+    periodeList,
+    isLoading: periodeLoading,
+  } = usePeriode();
   const [data, setData] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!selectedPeriodeId) return;
+    if (!selectedPeriodeId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetchDashboardSummary(selectedPeriodeId)
       .then(setData)
@@ -36,7 +45,7 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [selectedPeriodeId]);
 
-  if (loading && !data) {
+  if (periodeLoading || (loading && !data)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-3">
@@ -44,6 +53,51 @@ export default function DashboardPage() {
           <p className="text-xs font-medium tracking-wide text-slate-400">
             Memuat Dashboard...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedPeriodeId || !data) {
+    return (
+      <div className="min-h-screen space-y-6 bg-slate-950 p-6 text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-md shadow-lg shadow-black/40">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-100">
+              Dashboard Penggajian
+            </h1>
+            <p className="text-xs font-normal text-slate-400">
+              Sistem Informasi Payroll & Rekapitulasi Presensi
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <PeriodeSelector
+              selectedId={selectedPeriodeId}
+              onChange={setSelectedPeriodeId}
+            />
+          </div>
+        </header>
+
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center">
+          <span className="text-4xl mb-3">📅</span>
+          <h3 className="text-base font-semibold text-slate-200">
+            {periodeList.length === 0
+              ? "Belum Ada Periode Penggajian"
+              : "Pilih Periode Penggajian"}
+          </h3>
+          <p className="mt-1 max-w-sm text-xs text-slate-400">
+            {periodeList.length === 0
+              ? "Sistem belum memiliki periode penggajian. Silakan buat periode baru terlebih dahulu untuk mulai mengelola data payroll."
+              : "Silakan pilih salah satu periode yang tersedia di pojok kanan atas."}
+          </p>
+          {periodeList.length === 0 && (
+            <button
+              onClick={() => router.push("/periode")}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-colors"
+            >
+              + Buka Menu Periode
+            </button>
+          )}
         </div>
       </div>
     );

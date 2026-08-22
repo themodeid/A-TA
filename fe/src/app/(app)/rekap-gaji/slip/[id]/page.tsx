@@ -17,7 +17,10 @@ export default function SlipPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || isNaN(id)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     getSlipById(id)
       .then((data) => {
