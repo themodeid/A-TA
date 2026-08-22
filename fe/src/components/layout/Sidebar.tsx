@@ -16,6 +16,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "📊", roles: ["Admin", "Petugas Absensi", "Approver", "Staf Gaji"] },
   { href: "/master/pegawai", label: "Master Pegawai", icon: "👥", roles: ["Admin"] },
+  { href: "/master/jabatan", label: "Master Jabatan", icon: "💼", roles: ["Admin"] },
+  { href: "/master/golongan", label: "Master Golongan", icon: "🎖️", roles: ["Admin"] },
   { href: "/master/komponen", label: "Master Komponen", icon: "⚙️", roles: ["Admin"] },
   { href: "/periode", label: "Periode Gaji", icon: "📅", roles: ["Admin", "Staf Gaji"] },
   { href: "/transaksi/absensi", label: "Absensi", icon: "✅", roles: ["Admin", "Petugas Absensi", "Staf Gaji"] },

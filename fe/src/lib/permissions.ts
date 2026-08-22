@@ -3,6 +3,8 @@ import { PeriodeStatus, UserRole } from "@/types";
 export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/dashboard": ["Admin", "Petugas Absensi", "Approver", "Staf Gaji"],
   "/master/pegawai": ["Admin"],
+  "/master/jabatan": ["Admin"],
+  "/master/golongan": ["Admin"],
   "/master/komponen": ["Admin"],
   "/periode": ["Admin", "Staf Gaji"],
   "/transaksi/absensi": ["Admin", "Petugas Absensi", "Staf Gaji"],
