@@ -187,6 +187,28 @@ export const approvePeriode = async (id: number, data: ApprovalDTO) => {
       );
     }
 
+    // Validasi: Pastikan absensi seluruh pegawai aktif sudah terisi lengkap
+    const pegawaiCountRes = await client.query(
+      `SELECT COUNT(*)::int AS total FROM tb_pegawai WHERE deleted_at IS NULL;`,
+    );
+    const totalPegawai = pegawaiCountRes.rows[0]?.total || 0;
+
+    const absensiCountRes = await client.query(
+      `SELECT COUNT(DISTINCT id_pegawai)::int AS total FROM tb_absensi_summary WHERE id_periode = $1;`,
+      [id],
+    );
+    const totalAbsensi = absensiCountRes.rows[0]?.total || 0;
+
+    if (totalPegawai === 0) {
+      throw new Error("Gagal Approve: Belum ada data pegawai aktif.");
+    }
+
+    if (totalAbsensi < totalPegawai) {
+      throw new Error(
+        `Gagal Approve: Absensi belum terisi lengkap untuk semua pegawai (${totalAbsensi} dari ${totalPegawai} pegawai yang memiliki rekap absensi). Harap lengkapi absensi terlebih dahulu.`,
+      );
+    }
+
     // Update Status Periode
     const updateQuery = `
       UPDATE tb_periode 
