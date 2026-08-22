@@ -47,7 +47,6 @@ router.use("/master/jabatan", jabatanRoutes);
 router.use("/master/golongan", golonganRoutes);
 
 // Payroll System
-router.use("/payroll/periode", periodeRoutes);
 router.use("/payroll/gaji", gajiRoutes);
 
 // Payroll: Tunjangan

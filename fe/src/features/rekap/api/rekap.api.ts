@@ -8,6 +8,11 @@ export async function getRekapByPeriode(idPeriode: number): Promise<RekapGaji[]>
   return res.data.data ?? [];
 }
 
+export async function getAllRekap(): Promise<RekapGaji[]> {
+  const res = await api.get<ApiResponse<RekapGaji[]>>(`/payroll/gaji/rekap`);
+  return res.data.data ?? [];
+}
+
 export async function getSlipById(idRekap: number): Promise<SlipGaji> {
   const res = await api.get<ApiResponse<SlipGaji>>(
     `/payroll/gaji/rekap/${idRekap}`,
