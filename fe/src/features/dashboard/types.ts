@@ -1,5 +1,5 @@
 import { Periode } from "../periode/types";
-import { KoreksiJam } from "../absensi/types";
+import { KoreksiJam } from "../koreksi-jam/types";
 
 export interface DashboardAlert {
   type: "warning" | "info" | "error";

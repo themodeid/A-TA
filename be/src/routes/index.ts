@@ -29,6 +29,9 @@ import tunjanganBulananRoutes from "../modules/payroll/tunjangan/tunjangan-bulan
 import potonganMasterRoutes from "../modules/payroll/potongan/potongan_master/master-potongan.routes";
 import potonganBulananRoutes from "../modules/payroll/potongan/potongan_bulanan/potongan-bulanan.routes";
 
+// Koreksi Jam / Audit Lembur
+import koreksiJamRoutes from "../modules/payroll/koreksi-jam/koreksi-jam.routes";
+
 const router = Router();
 
 // ------------------------------------------
@@ -56,5 +59,8 @@ router.use("/payroll/tunjangan-bulanan", tunjanganBulananRoutes);
 // Payroll: Potongan
 router.use("/payroll/potongan-master", potonganMasterRoutes);
 router.use("/payroll/potongan-bulanan", potonganBulananRoutes);
+
+// Payroll: Koreksi Jam Lembur
+router.use("/payroll/koreksi-jam", koreksiJamRoutes);
 
 export default router;

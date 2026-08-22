@@ -6,6 +6,7 @@ export * from "@/features/tunjangan/types";
 export * from "@/features/potongan/types";
 export * from "@/features/rekap/types";
 export * from "@/features/dashboard/types";
+export * from "@/features/koreksi-jam/types";
 
 export interface ApiResponse<T> {
   status: string;

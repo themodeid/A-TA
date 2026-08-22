@@ -10,13 +10,3 @@ export interface AbsensiSummary {
   total_sakit: number;
   total_alpha: number;
 }
-
-export interface KoreksiJam {
-  id_koreksi: number;
-  id_pegawai: number;
-  nama_pegawai?: string;
-  jam_koreksi: number;
-  jenis_koreksi: "ADD" | "SUBTRACT";
-  keterangan: string;
-  created_at?: string;
-}
