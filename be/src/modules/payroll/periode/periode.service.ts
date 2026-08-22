@@ -441,14 +441,26 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
   return await getPeriodeById(newPeriodeId!);
 };
 
-// READ: Mengambil semua periode yang aktif
+// READ: Mengambil semua data periode
 export const getAllPeriode = async () => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT * FROM tb_periode 
-      WHERE deleted_at IS NULL 
-      ORDER BY tanggal_awal DESC;
+      SELECT 
+        p.*,
+        app.catatan AS catatan_approval,
+        app.status AS status_approval_log,
+        app.created_at AS tanggal_approval_log
+      FROM tb_periode p
+      LEFT JOIN LATERAL (
+        SELECT status, catatan, created_at
+        FROM tb_approval
+        WHERE id_periode = p.id_periode
+        ORDER BY id_approval DESC
+        LIMIT 1
+      ) app ON TRUE
+      WHERE p.deleted_at IS NULL 
+      ORDER BY p.tanggal_awal DESC;
     `;
     const result = await client.query(query);
     return result.rows;
@@ -462,8 +474,20 @@ export const getPeriodeById = async (id: number) => {
   const client = await pool.connect();
   try {
     const query = `
-      SELECT * FROM tb_periode 
-      WHERE id_periode = $1 AND deleted_at IS NULL;
+      SELECT 
+        p.*,
+        app.catatan AS catatan_approval,
+        app.status AS status_approval_log,
+        app.created_at AS tanggal_approval_log
+      FROM tb_periode p
+      LEFT JOIN LATERAL (
+        SELECT status, catatan, created_at
+        FROM tb_approval
+        WHERE id_periode = p.id_periode
+        ORDER BY id_approval DESC
+        LIMIT 1
+      ) app ON TRUE
+      WHERE p.id_periode = $1 AND p.deleted_at IS NULL;
     `;
     const result = await client.query(query, [id]);
     const periode = result.rows[0];

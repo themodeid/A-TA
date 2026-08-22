@@ -431,7 +431,42 @@ export default function PeriodePage() {
               </div>
 
               {/* Status Action Banner */}
-              {isEditable && (
+              {selectedPeriode.status === "Ditolak" && (
+                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/90 to-slate-900 border-2 border-rose-600/80 flex flex-col gap-3 shadow-lg shadow-rose-950/50">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">❌</span>
+                      <div>
+                        <h4 className="font-bold text-rose-200 text-sm mb-0.5">
+                          Pengajuan Approval Ditolak oleh Kepala Sekolah
+                        </h4>
+                        <p className="text-xs text-rose-300/80">
+                          Kepala Sekolah mengembalikan periode ini ke staf gaji untuk dilakukan perbaikan data.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleOpenVerification}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white whitespace-nowrap shadow-md text-xs"
+                    >
+                      🔍 Periksa & Ajukan Ulang ➔
+                    </Button>
+                  </div>
+
+                  {selectedPeriode.catatan_approval && (
+                    <div className="p-3 bg-slate-950/80 border border-rose-800/60 rounded-lg text-xs">
+                      <span className="font-semibold text-rose-300 block mb-1">
+                        💬 Catatan & Alasan Penolakan dari Kepala Sekolah (Pak Thomas):
+                      </span>
+                      <p className="text-slate-100 font-medium bg-rose-950/40 p-2 rounded border border-rose-900/60">
+                        "{selectedPeriode.catatan_approval}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedPeriode.status === "Pengisian Absensi" && (
                 <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/80 to-slate-900 border border-indigo-700/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
                     <h4 className="font-semibold text-slate-100 text-sm mb-1">

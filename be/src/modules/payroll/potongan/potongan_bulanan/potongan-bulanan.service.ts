@@ -39,7 +39,18 @@ export const getAllByPeriode = async (id_periode: number) => {
       COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_DANA_WAJIB' THEN pbd.nilai_potongan END), 0)::float AS potongan_dana_wajib,
       COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_S_PSKD' THEN pbd.nilai_potongan END), 0)::float AS potongan_s_pskd,
       COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_PELKES' THEN pbd.nilai_potongan END), 0)::float AS potongan_pelkes,
-      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_LAINNYA' THEN pbd.nilai_potongan END), 0)::float AS potongan_lainnya
+      COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_LAINNYA' THEN pbd.nilai_potongan END), 0)::float AS potongan_lainnya,
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id_potongan_detail', pbd.id_potongan_detail,
+            'id_master_potongan', pbd.id_master_potongan,
+            'nama_potongan', mp.nama_potongan,
+            'kode_potongan', mp.kode_potongan,
+            'nilai_potongan', pbd.nilai_potongan
+          )
+        ) FILTER (WHERE pbd.id_potongan_detail IS NOT NULL), '[]'
+      ) AS details
     FROM tb_potongan_bulanan pb
     JOIN tb_pegawai p ON pb.id_pegawai = p.id_pegawai
     LEFT JOIN tb_potongan_bulanan_detail pbd 
@@ -170,16 +181,14 @@ export const saveBulk = async (
     // 3. QUERY BATCH 2: Auto Recalculate & Sync ke Header langsung dari Postgres!
     // Memastikan total_potongan_terhitung selalu presisi 100% dari data detail
     const syncHeaderQuery = `
-      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
-      SELECT 
-        pbd.id_periode,
-        pbd.id_pegawai,
-        COALESCE(SUM(pbd.nilai_potongan), 0) as total_potongan
-      FROM tb_potongan_bulanan_detail pbd
-      WHERE pbd.id_periode = $1
-      GROUP BY pbd.id_periode, pbd.id_pegawai
-      ON CONFLICT (id_periode, id_pegawai)
-      DO UPDATE SET total_potongan_terhitung = EXCLUDED.total_potongan_terhitung;
+      UPDATE tb_potongan_bulanan pb
+      SET total_potongan_terhitung = COALESCE(
+        (SELECT SUM(pbd.nilai_potongan) 
+         FROM tb_potongan_bulanan_detail pbd 
+         WHERE pbd.id_periode = pb.id_periode AND pbd.id_pegawai = pb.id_pegawai), 
+        0
+      )
+      WHERE pb.id_periode = $1;
     `;
     await client.query(syncHeaderQuery, [id_periode]);
 

@@ -25,12 +25,8 @@ ON CONFLICT (kode_kondisi) DO UPDATE SET nilai = EXCLUDED.nilai, formula_type = 
 
 -- Seed Master Potongan
 INSERT INTO tb_master_potongan (nama_potongan, kode_potongan, nilai) VALUES
-('Potongan Angsuran', 'POT_ANGSURAN', 0.00),
-('Potongan Dana Wajib', 'POT_DANA_WAJIB', 50000.00),
-('Potongan S_PSKD', 'POT_S_PSKD', 20000.00),
-('Potongan Pelkes', 'POT_PELKES', 30000.00),
-('Potongan Lainnya', 'POT_LAINNYA', 0.00)
-ON CONFLICT (kode_potongan) DO UPDATE SET nilai = EXCLUDED.nilai;
+('Taken List (Potongan Kas & Pinjaman)', 'POT_TAKEN_LIST', 0.00)
+ON CONFLICT (kode_potongan) DO UPDATE SET nama_potongan = EXCLUDED.nama_potongan, nilai = EXCLUDED.nilai;
 
 -- Seed Master Jabatan
 INSERT INTO tb_jabatan (nama_jabatan, tunjangan_jabatan_struktural) VALUES 
@@ -168,15 +164,8 @@ SELECT
   d.nilai_potongan
 FROM (
   VALUES
-    ('Adam Wahyu Kurniawan%', 'POT_DANA_WAJIB', 50000.00::numeric(12,2)),
-    ('Adam Wahyu Kurniawan%', 'POT_PELKES', 50000.00),
-    ('Drs. Budi Santoso%', 'POT_ANGSURAN', 500000.00),
-    ('Drs. Budi Santoso%', 'POT_DANA_WAJIB', 50000.00),
-    ('Drs. Budi Santoso%', 'POT_S_PSKD', 20000.00),
-    ('Drs. Budi Santoso%', 'POT_PELKES', 30000.00),
-    ('Siti Aminah%', 'POT_DANA_WAJIB', 50000.00),
-    ('Siti Aminah%', 'POT_LAINNYA', 60000.00),
-    ('Rian Hidayat%', 'POT_LAINNYA', 450000.00)
+    ('Drs. Budi Santoso%', 'POT_TAKEN_LIST', 500000.00::numeric(12,2)),
+    ('Rian Hidayat%', 'POT_TAKEN_LIST', 450000.00)
 ) AS d(nama_pattern, kode_potongan, nilai_potongan)
 JOIN tb_pegawai p ON p.nama_dan_tanggal_lahir LIKE d.nama_pattern
 JOIN tb_periode per ON per.bulan_gaji = 'Juli 2026'

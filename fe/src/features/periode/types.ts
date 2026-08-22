@@ -13,6 +13,9 @@ export interface Periode {
   tanggal_akhir: string;
   status: PeriodeStatus;
   created_at?: string;
+  catatan_approval?: string;
+  status_approval_log?: string;
+  tanggal_approval_log?: string;
 }
 
 export interface PeriodeReadiness {
