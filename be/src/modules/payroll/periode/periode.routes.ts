@@ -10,6 +10,7 @@ router.route("/").get(controller.getAllPeriode).post(controller.createPeriode);
 
 // 2. Lifecycle & Approval Actions
 router.get("/:id/readiness", controller.getReadiness);
+router.post("/:id/auto-init", controller.autoInit);
 router.post("/:id/submit-approval", controller.submitApproval);
 router.post("/:id/approve", controller.approve);
 router.post("/:id/reject", controller.reject);

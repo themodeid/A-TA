@@ -15,8 +15,23 @@ export async function createPeriode(payload: {
   bulan_gaji: string;
   tanggal_awal: string;
   tanggal_akhir: string;
+  auto_init?: boolean;
+  copy_potongan_from_periode_id?: number;
 }): Promise<Periode> {
   const res = await api.post<ApiResponse<Periode>>("/payroll/periode", payload);
+  return res.data.data;
+}
+
+export async function autoInitPeriode(
+  id: number,
+  options?: {
+    default_absensi?: boolean;
+    copy_potongan_from_periode_id?: number;
+  },
+): Promise<{ message: string; idPeriode: number }> {
+  const res = await api.post<
+    ApiResponse<{ message: string; idPeriode: number }>
+  >(`/payroll/periode/${id}/auto-init`, options ?? {});
   return res.data.data;
 }
 

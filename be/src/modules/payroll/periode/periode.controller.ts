@@ -144,6 +144,44 @@ export const reject = async (
 };
 
 /**
+ * POST /api/periode/:id/auto-init
+ * Inisialisasi otomatis semua data transaksi (Absensi, Tunjangan, Potongan)
+ */
+export const autoInit = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const parsedId = parseInt(req.params.id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({
+        status: "fail",
+        message: "ID Periode harus berupa angka yang valid.",
+      });
+      return;
+    }
+
+    const { default_absensi, copy_potongan_from_periode_id } = req.body;
+
+    const result = await periodeService.initializeAllPeriodeData(parsedId, {
+      defaultAbsensi: default_absensi !== false,
+      copyPotonganFromPeriodeId: copy_potongan_from_periode_id
+        ? parseInt(copy_potongan_from_periode_id, 10)
+        : undefined,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Berhasil menginisialisasi seluruh data transaksi periode.",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/periode
  * Membuka periode baru
  */
@@ -153,7 +191,13 @@ export const createPeriode = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { bulan_gaji, tanggal_awal, tanggal_akhir } = req.body;
+    const {
+      bulan_gaji,
+      tanggal_awal,
+      tanggal_akhir,
+      auto_init,
+      copy_potongan_from_periode_id,
+    } = req.body;
 
     if (!bulan_gaji || !tanggal_awal || !tanggal_akhir) {
       res.status(400).json({
@@ -168,6 +212,10 @@ export const createPeriode = async (
       bulan_gaji,
       tanggal_awal,
       tanggal_akhir,
+      auto_init: auto_init === true || auto_init === "true",
+      copy_potongan_from_periode_id: copy_potongan_from_periode_id
+        ? parseInt(copy_potongan_from_periode_id, 10)
+        : undefined,
     });
 
     res.status(201).json({

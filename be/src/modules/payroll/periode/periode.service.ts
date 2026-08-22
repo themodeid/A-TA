@@ -1,9 +1,17 @@
 import { pool } from "../../../config/database";
+import { initialize as initTunjangan } from "../tunjangan/tunjangan-bulanan/service/tunjangan-calc.service";
 
 export interface CreatePeriodeDTO {
   bulan_gaji: string;
   tanggal_awal: Date | string;
   tanggal_akhir: Date | string;
+  auto_init?: boolean;
+  copy_potongan_from_periode_id?: number;
+}
+
+export interface AutoInitOptions {
+  defaultAbsensi?: boolean;
+  copyPotonganFromPeriodeId?: number;
 }
 
 // 1. Buang approver_id dari DTO
@@ -289,8 +297,117 @@ export const rejectPeriode = async (id: number, data: ApprovalDTO) => {
   }
 };
 
+// AUTO-INIT: Inisialisasi otomatis semua data transaksi (Absensi, Tunjangan, Potongan)
+export const initializeAllPeriodeData = async (
+  idPeriode: number,
+  options: AutoInitOptions = {},
+) => {
+  const client = await pool.connect();
+  try {
+    // 1. Ambil info periode
+    const periodeRes = await client.query(
+      `SELECT id_periode, tanggal_awal, tanggal_akhir, status FROM tb_periode WHERE id_periode = $1 AND deleted_at IS NULL;`,
+      [idPeriode],
+    );
+    const periode = periodeRes.rows[0];
+    if (!periode) {
+      throw new Error(`Periode dengan ID ${idPeriode} tidak ditemukan.`);
+    }
+
+    // 2. Ambil pegawai aktif
+    const pegawaiRes = await client.query(
+      `SELECT id_pegawai FROM tb_pegawai WHERE deleted_at IS NULL ORDER BY id_pegawai ASC;`,
+    );
+    const pegawaiList = pegawaiRes.rows;
+    if (pegawaiList.length === 0) {
+      return {
+        message: "Tidak ada pegawai aktif untuk diinisialisasi.",
+        totalPegawai: 0,
+      };
+    }
+
+    // 3. Inisialisasi Absensi Default jika diminta (default: true)
+    if (options.defaultAbsensi !== false) {
+      // Hitung hari kerja efektif (Senin-Jumat) antara tanggal_awal dan tanggal_akhir
+      const workDaysRes = await client.query(
+        `SELECT COUNT(*)::int AS working_days 
+         FROM generate_series($1::date, $2::date, '1 day'::interval) d 
+         WHERE EXTRACT(DOW FROM d) NOT IN (0, 6);`,
+        [periode.tanggal_awal, periode.tanggal_akhir],
+      );
+      const defaultWorkingDays = workDaysRes.rows[0]?.working_days || 22;
+
+      // Insert default absensi summary untuk setiap pegawai yang belum ada
+      const absensiQuery = `
+        INSERT INTO tb_absensi_summary (
+          id_periode, id_pegawai, total_hadir_ops_wfo, total_hadir_ops_wfh, total_izin, total_sakit, total_alpha
+        )
+        SELECT $1, id_pegawai, $2, 0, 0, 0, 0
+        FROM tb_pegawai
+        WHERE deleted_at IS NULL
+        ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+      `;
+      await client.query(absensiQuery, [idPeriode, defaultWorkingDays]);
+    }
+
+    // 4. Inisialisasi Potongan
+    // a. Buat header untuk semua pegawai
+    const potHeaderQuery = `
+      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+      SELECT $1, id_pegawai, 0.00
+      FROM tb_pegawai
+      WHERE deleted_at IS NULL
+      ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+    `;
+    await client.query(potHeaderQuery, [idPeriode]);
+
+    // b. Jika ada copyPotonganFromPeriodeId, salin detail potongan dari periode sebelumnya
+    if (options.copyPotonganFromPeriodeId) {
+      const copyPotDetailQuery = `
+        INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+        SELECT $1, pbd.id_pegawai, pbd.id_master_potongan, pbd.nilai_potongan
+        FROM tb_potongan_bulanan_detail pbd
+        JOIN tb_pegawai p ON p.id_pegawai = pbd.id_pegawai
+        WHERE pbd.id_periode = $2 AND p.deleted_at IS NULL
+        ON CONFLICT (id_periode, id_pegawai, id_master_potongan)
+        DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan;
+      `;
+      await client.query(copyPotDetailQuery, [
+        idPeriode,
+        options.copyPotonganFromPeriodeId,
+      ]);
+
+      // Sync header total potongan
+      const syncPotHeaderQuery = `
+        INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+        SELECT 
+          pbd.id_periode,
+          pbd.id_pegawai,
+          COALESCE(SUM(pbd.nilai_potongan), 0)
+        FROM tb_potongan_bulanan_detail pbd
+        WHERE pbd.id_periode = $1
+        GROUP BY pbd.id_periode, pbd.id_pegawai
+        ON CONFLICT (id_periode, id_pegawai)
+        DO UPDATE SET total_potongan_terhitung = EXCLUDED.total_potongan_terhitung;
+      `;
+      await client.query(syncPotHeaderQuery, [idPeriode]);
+    }
+  } finally {
+    client.release();
+  }
+
+  // 5. Inisialisasi Tunjangan (menggunakan initTunjangan yang mengkalkulasi formula master tunjangan & transport WFO dari absensi)
+  await initTunjangan(idPeriode);
+
+  return {
+    message: "Inisialisasi seluruh data periode (Absensi, Tunjangan, Potongan) berhasil.",
+    idPeriode,
+  };
+};
+
 // CREATE: Membuka periode baru memanfaatkan Stored Function DB
 export const createPeriode = async (data: CreatePeriodeDTO) => {
+  let newPeriodeId: number | null = null;
   const client = await pool.connect();
   try {
     const { bulan_gaji, tanggal_awal, tanggal_akhir } = data;
@@ -301,20 +418,27 @@ export const createPeriode = async (data: CreatePeriodeDTO) => {
       [bulan_gaji, tanggal_awal, tanggal_akhir],
     );
 
-    const newPeriodeId = result.rows[0]?.id_periode;
+    newPeriodeId = result.rows[0]?.id_periode;
 
     if (!newPeriodeId) {
       throw new Error("Gagal membuka periode baru melalui Database Function");
     }
-
-    // Ambil data lengkap periode yang baru dibuat untuk dikembalikan ke controller
-    return await getPeriodeById(newPeriodeId);
   } catch (error) {
     console.error("Error di createPeriode Service:", error);
     throw error;
   } finally {
     client.release();
   }
+
+  if (newPeriodeId && data.auto_init) {
+    await initializeAllPeriodeData(newPeriodeId, {
+      defaultAbsensi: true,
+      copyPotonganFromPeriodeId: data.copy_potongan_from_periode_id,
+    });
+  }
+
+  // Ambil data lengkap periode yang baru dibuat untuk dikembalikan ke controller
+  return await getPeriodeById(newPeriodeId!);
 };
 
 // READ: Mengambil semua periode yang aktif
