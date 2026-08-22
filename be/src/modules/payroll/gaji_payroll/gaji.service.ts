@@ -16,9 +16,13 @@ export const executePayrollProcess = async (periodeId: number) => {
     if (!currentStatus) {
       throw new Error(`Periode dengan ID ${periodeId} tidak ditemukan.`);
     }
-    if (currentStatus !== "Disetujui") {
+    if (
+      currentStatus !== "Disetujui" &&
+      currentStatus !== "Selesai" &&
+      currentStatus !== "Diproses Gaji"
+    ) {
       throw new Error(
-        `Gagal Memproses Gaji: Status periode saat ini '${currentStatus}'. Wajib 'Disetujui'.`,
+        `Gagal Memproses Gaji: Status periode saat ini '${currentStatus}'. Hanya periode berstatus 'Disetujui' atau 'Selesai' (Hitung Ulang) yang dapat diproses.`,
       );
     }
 
@@ -137,7 +141,7 @@ export const executePayrollProcess = async (periodeId: number) => {
     rg.id_rekap,
     'TUNJANGAN',
     t.nama_tunjangan,
-    CAST(tbd.nilai_terhitung AS VARCHAR), -- Simpan hasil kalkulasi Rupiah (misal: 500000.00), bukan rate persen
+    COALESCE(tbd.nilai_terhitung, 0),
     LEFT(COALESCE(t.formula_type, t.kode_kondisi, 'UMUM'), 20)
   FROM tb_tunjangan_bulanan_detail tbd
   JOIN tb_rekap_gaji rg ON tbd.id_periode = rg.id_periode AND tbd.id_pegawai = rg.id_pegawai
@@ -183,10 +187,24 @@ export const executePayrollProcess = async (periodeId: number) => {
 
 export const getRekapByPeriode = async (periodeId: number) => {
   const query = `
-    SELECT r.*, p.nama_dan_tanggal_lahir 
+    SELECT 
+      r.*, 
+      p.nama_dan_tanggal_lahir,
+      COALESCE(abs.total_hadir_ops_wfo, 0) AS total_hadir_wfo,
+      COALESCE(abs.total_hadir_ops_wfh, 0) AS total_hadir_wfh,
+      COALESCE(t_wfo.transport_wfo, 0) AS transport_uang_makan,
+      (COALESCE(r.total_penghasilan_bruto, 0) - COALESCE(r.gaji_pokok_snapshot, 0) - COALESCE(t_wfo.transport_wfo, 0)) AS tunjangan_jabatan_dll
     FROM tb_rekap_gaji r
     JOIN tb_pegawai p ON r.id_pegawai = p.id_pegawai
-    WHERE r.id_periode = $1;
+    LEFT JOIN tb_absensi_summary abs ON abs.id_periode = r.id_periode AND abs.id_pegawai = r.id_pegawai
+    LEFT JOIN (
+      SELECT id_rekap, SUM(nilai_snapshot) AS transport_wfo
+      FROM tb_rekap_gaji_detail
+      WHERE kode_kondisi_snapshot = 'HARIAN_HADIR_WFO'
+      GROUP BY id_rekap
+    ) t_wfo ON t_wfo.id_rekap = r.id_rekap
+    WHERE r.id_periode = $1
+    ORDER BY r.id_rekap ASC;
   `;
   const result = await pool.query(query, [periodeId]);
   return result.rows;

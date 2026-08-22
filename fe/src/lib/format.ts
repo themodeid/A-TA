@@ -1,11 +1,13 @@
-export function formatRupiah(value: number | undefined | null): string {
-  if (value == null || isNaN(value)) return "Rp 0";
+export function formatRupiah(value: number | string | undefined | null): string {
+  if (value == null) return "Rp 0";
+  const num = typeof value === "number" ? value : parseFloat(String(value));
+  if (isNaN(num)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(num);
 }
 
 export function formatPercent(value: number | undefined | null): string {

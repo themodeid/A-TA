@@ -33,7 +33,15 @@ export const processPayroll = async (
       message: "Proses kalkulasi gaji berhasil dieksekusi dan di-snapshot.",
       data: result,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message && (error.message.includes("Gagal Memproses Gaji") || error.message.includes("tidak ditemukan"))) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null,
+      });
+      return;
+    }
     next(error);
   }
 };
