@@ -297,6 +297,23 @@ export const rejectPeriode = async (id: number, data: ApprovalDTO) => {
   }
 };
 
+// 4. AMBIL RIWAYAT LOG APPROVAL PERIODE
+export const getApprovalLogsByPeriode = async (id_periode: number) => {
+  const client = await pool.connect();
+  try {
+    const query = `
+      SELECT id_approval, id_periode, status, catatan, created_at
+      FROM tb_approval
+      WHERE id_periode = $1
+      ORDER BY id_approval DESC;
+    `;
+    const result = await client.query(query, [id_periode]);
+    return result.rows;
+  } finally {
+    client.release();
+  }
+};
+
 // AUTO-INIT: Inisialisasi otomatis semua data transaksi (Absensi, Tunjangan, Potongan)
 export const initializeAllPeriodeData = async (
   idPeriode: number,

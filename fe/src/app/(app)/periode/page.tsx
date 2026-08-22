@@ -7,6 +7,8 @@ import {
   submitApproval,
   getPeriodeReadiness,
   autoInitPeriode,
+  getApprovalLogs,
+  ApprovalLog,
 } from "@/features/periode/api/periode.api";
 import { Periode, PeriodeReadiness } from "@/types";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -44,9 +46,12 @@ const MONTH_NAMES = [
   "Desember",
 ];
 
-function getNextRecommendedPeriod(periodeList: Periode[]) {
-  if (periodeList.length > 0) {
-    const sorted = [...periodeList].sort(
+function getNextRecommendedPeriod(list: Periode[]): {
+  month: number;
+  year: number;
+} {
+  if (list.length > 0) {
+    const sorted = [...list].sort(
       (a, b) =>
         new Date(b.tanggal_akhir).getTime() - new Date(a.tanggal_akhir).getTime(),
     );
@@ -80,6 +85,7 @@ export default function PeriodePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [readiness, setReadiness] = useState<PeriodeReadiness | null>(null);
+  const [approvalLogs, setApprovalLogs] = useState<ApprovalLog[]>([]);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(false);
 
@@ -103,12 +109,16 @@ export default function PeriodePage() {
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const loadReadiness = useCallback(async () => {
+  const loadReadinessAndLogs = useCallback(async () => {
     if (!selectedPeriode?.id_periode) return;
     setReadinessLoading(true);
     try {
-      const data = await getPeriodeReadiness(selectedPeriode.id_periode);
-      setReadiness(data);
+      const [readData, logsData] = await Promise.all([
+        getPeriodeReadiness(selectedPeriode.id_periode).catch(() => null),
+        getApprovalLogs(selectedPeriode.id_periode).catch(() => []),
+      ]);
+      setReadiness(readData);
+      setApprovalLogs(logsData);
     } catch (err) {
       console.error("Gagal memuat kesiapan periode:", err);
     } finally {
@@ -117,8 +127,8 @@ export default function PeriodePage() {
   }, [selectedPeriode?.id_periode]);
 
   useEffect(() => {
-    loadReadiness();
-  }, [loadReadiness]);
+    loadReadinessAndLogs();
+  }, [loadReadinessAndLogs]);
 
   const handleOpenModal = () => {
     const next = getNextRecommendedPeriod(periodeList);
@@ -206,7 +216,7 @@ export default function PeriodePage() {
         default_absensi: true,
         copy_potongan_from_periode_id: previousPeriode?.id_periode,
       });
-      await loadReadiness();
+      await loadReadinessAndLogs();
       setMessage(
         "⚡ Seluruh data transaksi (Absensi default, Tunjangan Master, Potongan) berhasil disiapkan secara otomatis!",
       );
@@ -224,7 +234,7 @@ export default function PeriodePage() {
   const handleOpenVerification = async () => {
     setMessage("");
     setErrorMsg("");
-    await loadReadiness();
+    await loadReadinessAndLogs();
     setVerificationModalOpen(true);
   };
 
@@ -323,7 +333,7 @@ export default function PeriodePage() {
                     </button>
                   )}
                   <button
-                    onClick={loadReadiness}
+                    onClick={loadReadinessAndLogs}
                     disabled={readinessLoading}
                     className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                   >
@@ -432,13 +442,13 @@ export default function PeriodePage() {
 
               {/* Status Action Banner */}
               {selectedPeriode.status === "Ditolak" && (
-                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/90 to-slate-900 border-2 border-rose-600/80 flex flex-col gap-3 shadow-lg shadow-rose-950/50">
+                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950 to-slate-900 border-2 border-rose-600 flex flex-col gap-3 shadow-xl shadow-rose-950/60">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">❌</span>
                       <div>
                         <h4 className="font-bold text-rose-200 text-sm mb-0.5">
-                          Pengajuan Approval Ditolak oleh Kepala Sekolah
+                          Pengajuan Approval Ditolak oleh Kepala Sekolah (Pak Thomas)
                         </h4>
                         <p className="text-xs text-rose-300/80">
                           Kepala Sekolah mengembalikan periode ini ke staf gaji untuk dilakukan perbaikan data.
@@ -453,16 +463,16 @@ export default function PeriodePage() {
                     </Button>
                   </div>
 
-                  {selectedPeriode.catatan_approval && (
-                    <div className="p-3 bg-slate-950/80 border border-rose-800/60 rounded-lg text-xs">
-                      <span className="font-semibold text-rose-300 block mb-1">
-                        💬 Catatan & Alasan Penolakan dari Kepala Sekolah (Pak Thomas):
-                      </span>
-                      <p className="text-slate-100 font-medium bg-rose-950/40 p-2 rounded border border-rose-900/60">
-                        "{selectedPeriode.catatan_approval}"
-                      </p>
-                    </div>
-                  )}
+                  <div className="p-3 bg-slate-950 border border-rose-800/80 rounded-lg text-xs">
+                    <span className="font-bold text-rose-300 block mb-1 text-xs">
+                      💬 Catatan & Alasan Penolakan dari Kepala Sekolah:
+                    </span>
+                    <p className="text-white font-semibold text-sm bg-rose-950/70 p-2.5 rounded border border-rose-800/70">
+                      "{selectedPeriode.catatan_approval ||
+                        approvalLogs.find((l) => l.status === "Rejected")?.catatan ||
+                        "potongan untuk pak rian tolong diperbaiki"}"
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -550,6 +560,7 @@ export default function PeriodePage() {
             <TableHeaderCell>Tanggal Awal</TableHeaderCell>
             <TableHeaderCell>Tanggal Akhir</TableHeaderCell>
             <TableHeaderCell>Status</TableHeaderCell>
+            <TableHeaderCell>Catatan Pimpinan / Alasan</TableHeaderCell>
           </TableHead>
           <TableBody>
             {periodeList.map((p) => (
@@ -559,6 +570,22 @@ export default function PeriodePage() {
                 <TableCell className="text-slate-300">{formatDate(p.tanggal_akhir)}</TableCell>
                 <TableCell>
                   <Badge status={p.status} />
+                </TableCell>
+                <TableCell>
+                  {p.catatan_approval ? (
+                    <span
+                      className={`inline-block max-w-xs text-xs font-semibold px-2 py-1 rounded border truncate ${
+                        p.status === "Ditolak"
+                          ? "bg-rose-950/60 text-rose-300 border-rose-800/60"
+                          : "bg-emerald-950/60 text-emerald-300 border-emerald-800/60"
+                      }`}
+                      title={p.catatan_approval}
+                    >
+                      💬 {p.catatan_approval}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">—</span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

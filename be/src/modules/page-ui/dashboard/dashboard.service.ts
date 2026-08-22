@@ -12,6 +12,7 @@ export interface DashboardPeriode {
   status: string;
   tanggal_awal: string;
   tanggal_akhir: string;
+  catatan_approval?: string;
 }
 
 export interface DashboardMetrics {
@@ -46,9 +47,14 @@ export interface DashboardSummary {
 // ==========================================
 async function getPeriode(idPeriode: number): Promise<DashboardPeriode> {
   const { rows } = await pool.query(
-    `SELECT id_periode, bulan_gaji, status, tanggal_awal, tanggal_akhir
-     FROM tb_periode
-     WHERE id_periode = $1 AND deleted_at IS NULL`,
+    `SELECT 
+       p.id_periode, p.bulan_gaji, p.status, p.tanggal_awal, p.tanggal_akhir,
+       app.catatan AS catatan_approval
+     FROM tb_periode p
+     LEFT JOIN LATERAL (
+       SELECT catatan FROM tb_approval WHERE id_periode = p.id_periode ORDER BY id_approval DESC LIMIT 1
+     ) app ON TRUE
+     WHERE p.id_periode = $1 AND p.deleted_at IS NULL`,
     [idPeriode],
   );
 

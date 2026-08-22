@@ -144,6 +144,33 @@ export const reject = async (
 };
 
 /**
+ * GET /api/periode/:id/approval-logs
+ * Mengambil seluruh riwayat log approval & catatan penolakan
+ */
+export const getApprovalLogs = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const parsedId = parseInt(id as string, 10);
+    if (isNaN(parsedId)) {
+      res.status(400).json({ status: "fail", message: "ID Periode tidak valid." });
+      return;
+    }
+
+    const data = await periodeService.getApprovalLogsByPeriode(parsedId);
+    res.status(200).json({
+      status: "success",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/periode/:id/auto-init
  * Inisialisasi otomatis semua data transaksi (Absensi, Tunjangan, Potongan)
  */

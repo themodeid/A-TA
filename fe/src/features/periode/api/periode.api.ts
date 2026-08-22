@@ -72,3 +72,18 @@ export async function rejectPeriode(
   );
   return res.data.data;
 }
+
+export interface ApprovalLog {
+  id_approval: number;
+  id_periode: number;
+  status: string;
+  catatan: string;
+  created_at: string;
+}
+
+export async function getApprovalLogs(idPeriode: number): Promise<ApprovalLog[]> {
+  const res = await api.get<ApiResponse<ApprovalLog[]>>(
+    `/payroll/periode/${idPeriode}/approval-logs`,
+  );
+  return res.data.data ?? [];
+}
