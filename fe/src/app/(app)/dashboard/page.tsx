@@ -70,6 +70,35 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Zona Alert Penolakan Approval jika ada */}
+      {data?.periode?.status === "Ditolak" && (
+        <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950 to-slate-900 border-2 border-rose-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-rose-950/60">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">⚠️</span>
+            <div>
+              <h4 className="font-bold text-rose-200 text-sm">
+                Pengajuan Periode Ini Ditolak oleh Kepala Sekolah (Pak Thomas)
+              </h4>
+              <p className="text-xs text-rose-300/90 mt-0.5">
+                {data?.periode?.catatan_approval ? (
+                  <>
+                    Catatan Revisi: <strong className="text-white italic">"{data.periode.catatan_approval}"</strong>
+                  </>
+                ) : (
+                  "Kepala sekolah meminta perbaikan data sebelum periode ini dapat disetujui."
+                )}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/periode")}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs whitespace-nowrap shadow-md"
+          >
+            Buka Periode & Perbaiki ➔
+          </button>
+        </div>
+      )}
+
       {/* Zona 2: Metric Cards */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

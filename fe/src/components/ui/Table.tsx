@@ -58,12 +58,17 @@ export function TableRow({
 export function TableCell({
   children,
   className = "",
+  colSpan,
 }: {
   children: ReactNode;
   className?: string;
+  colSpan?: number;
 }) {
   return (
-    <td className={`whitespace-nowrap px-4 py-3 text-slate-200 ${className}`}>
+    <td
+      colSpan={colSpan}
+      className={`whitespace-nowrap px-4 py-3 text-slate-200 ${className}`}
+    >
       {children}
     </td>
   );

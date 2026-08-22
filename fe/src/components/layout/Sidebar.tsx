@@ -18,12 +18,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/master/pegawai", label: "Master Pegawai", icon: "👥", roles: ["Admin"] },
   { href: "/master/komponen", label: "Master Komponen", icon: "⚙️", roles: ["Admin"] },
   { href: "/periode", label: "Periode Gaji", icon: "📅", roles: ["Admin", "Staf Gaji"] },
-  { href: "/transaksi/absensi", label: "Absensi", icon: "✅", roles: ["Petugas Absensi", "Staf Gaji"] },
-  { href: "/transaksi/tunjangan", label: "Tunjangan", icon: "💰", roles: ["Staf Gaji"] },
-  { href: "/transaksi/potongan", label: "Potongan", icon: "📉", roles: ["Staf Gaji"] },
-  { href: "/approval", label: "Approval", icon: "✔️", roles: ["Approver"] },
-  { href: "/rekap-gaji", label: "Rekap Gaji", icon: "📋", roles: ["Staf Gaji", "Admin"] },
-  { href: "/audit/koreksi-jam", label: "Audit Koreksi Jam", icon: "🔍", roles: ["Staf Gaji", "Admin"] },
+  { href: "/transaksi/absensi", label: "Absensi", icon: "✅", roles: ["Admin", "Petugas Absensi", "Staf Gaji"] },
+  { href: "/transaksi/tunjangan", label: "Tunjangan", icon: "💰", roles: ["Admin", "Staf Gaji"] },
+  { href: "/transaksi/potongan", label: "Potongan", icon: "📉", roles: ["Admin", "Staf Gaji"] },
+  { href: "/approval", label: "Approval", icon: "✔️", roles: ["Admin", "Approver"] },
+  { href: "/rekap-gaji", label: "Rekap Gaji", icon: "📋", roles: ["Admin", "Staf Gaji"] },
+  { href: "/audit/koreksi-jam", label: "Audit Koreksi Jam", icon: "🔍", roles: ["Admin", "Staf Gaji"] },
 ];
 
 export function Sidebar() {

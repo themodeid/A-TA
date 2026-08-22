@@ -15,8 +15,8 @@ router.get(
 router.get("/rekap/:id_rekap/download-pdf", gajiController.downloadSlipPdf);
 
 // 3. Generic Resource / Parameterized Routes (Ditaruh paling bawah)
+router.get("/rekap", gajiController.getAllRekap);
 router.get("/periode/:id_periode", gajiController.getRekapByPeriode);
-
 router.get("/rekap/:id_rekap", gajiController.getDetailRekap);
 
 export default router;

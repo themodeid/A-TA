@@ -24,6 +24,7 @@ import {
 export default function MasterPegawaiPage() {
   const [pegawai, setPegawai] = useState<Pegawai[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal Detail State
   const [selectedPegawai, setSelectedPegawai] = useState<Pegawai | null>(null);
@@ -32,8 +33,13 @@ export default function MasterPegawaiPage() {
 
   const load = () => {
     setLoading(true);
+    setError(null);
     getAllPegawai()
       .then(setPegawai)
+      .catch((err) => {
+        console.error("Gagal memuat pegawai:", err);
+        setError("Gagal memuat data pegawai. Pastikan server backend sedang berjalan.");
+      })
       .finally(() => setLoading(false));
   };
 
@@ -72,6 +78,13 @@ export default function MasterPegawaiPage() {
       <Card>
         {loading ? (
           <p className="text-slate-500">Memuat...</p>
+        ) : error ? (
+          <div className="p-4 bg-red-950/40 border border-red-800 rounded-lg text-red-300 flex items-center justify-between">
+            <span>{error}</span>
+            <Button size="sm" variant="secondary" onClick={load}>
+              Coba Lagi
+            </Button>
+          </div>
         ) : (
           <Table>
             <TableHead>

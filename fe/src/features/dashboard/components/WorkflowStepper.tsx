@@ -1,20 +1,42 @@
 import { PeriodeStatus } from "@/types";
 
-const STEPS: { key: PeriodeStatus | string; label: string }[] = [
-  { key: "Pengisian Absensi", label: "Absensi & Lembur" },
-  { key: "Input Potongan", label: "Input Potongan" },
-  { key: "Menunggu Approval", label: "Ajukan Approval" },
-  { key: "Diproses Gaji", label: "Hitung & Selesai" },
+const STEPS: { key: string; label: string; description: string }[] = [
+  {
+    key: "PERIODE",
+    label: "1. Periode & Inisialisasi",
+    description: "Buka periode (16 s/d 15)",
+  },
+  {
+    key: "TRANSAKSI",
+    label: "2. Input Data Transaksi",
+    description: "Absensi, Lembur & Potongan",
+  },
+  {
+    key: "APPROVAL",
+    label: "3. Verifikasi & Approval",
+    description: "Pemeriksaan oleh Kepsek",
+  },
+  {
+    key: "REKAP",
+    label: "4. Rekapitulasi Gaji",
+    description: "Hitung final & pembukuan",
+  },
+  {
+    key: "SELESAI",
+    label: "5. Slip Gaji & Selesai",
+    description: "Cetak & distribusi slip",
+  },
 ];
 
-function getStepIndex(status: PeriodeStatus): number {
+function getStepIndex(status?: PeriodeStatus): number {
+  if (!status) return 0;
   switch (status) {
     case "Pengisian Absensi":
     case "Ditolak":
-      return 0;
+      return 1;
     case "Menunggu Approval":
-    case "Disetujui":
       return 2;
+    case "Disetujui":
     case "Diproses Gaji":
       return 3;
     case "Selesai":
@@ -29,68 +51,71 @@ interface WorkflowStepperProps {
 }
 
 export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
-  const currentIndex = currentStatus ? getStepIndex(currentStatus) : 0;
+  const currentIndex = getStepIndex(currentStatus);
 
   return (
-    <div className="flex items-center justify-between py-2">
-      {STEPS.map((step, idx) => {
-        const isComplete = idx < currentIndex;
-        const isActive =
-          idx === currentIndex || (currentIndex === 4 && idx === 3);
-        const isLocked = idx > currentIndex && currentIndex < 4;
+    <div className="py-2">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        {STEPS.map((step, idx) => {
+          const isComplete = idx < currentIndex;
+          const isActive = idx === currentIndex;
+          const isPending = idx > currentIndex;
 
-        return (
-          <div key={step.key} className="flex flex-1 items-center">
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all ${
-                  isComplete
-                    ? "border-emerald-500 bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
-                    : isActive
-                      ? "border-indigo-500 bg-indigo-600 text-white ring-4 ring-indigo-500/20 shadow-md shadow-indigo-500/30"
-                      : isLocked
-                        ? "border-slate-800 bg-slate-900/80 text-slate-600"
-                        : "border-slate-700 bg-slate-900 text-slate-400"
-                }`}
-              >
-                {isComplete ? "✓" : idx + 1}
+          return (
+            <div
+              key={step.key}
+              className={`relative flex flex-col p-3 rounded-xl border transition-all ${
+                isActive
+                  ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-950/50"
+                  : isComplete
+                    ? "bg-slate-900/40 border-emerald-800/60"
+                    : "bg-slate-950/40 border-slate-800/80 opacity-60"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                    isComplete
+                      ? "bg-emerald-500 text-slate-950"
+                      : isActive
+                        ? "bg-indigo-600 text-white ring-2 ring-indigo-400"
+                        : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {isComplete ? "✓" : idx + 1}
+                </span>
+
+                <span className="text-[10px] font-medium">
+                  {isComplete && (
+                    <span className="text-emerald-400 font-semibold">Selesai</span>
+                  )}
+                  {isActive && (
+                    <span className="text-indigo-400 font-semibold animate-pulse">
+                      ● Aktif
+                    </span>
+                  )}
+                  {isPending && <span className="text-slate-500">Menunggu</span>}
+                </span>
               </div>
 
-              <p
-                className={`mt-2.5 text-center text-xs font-medium ${
+              <h4
+                className={`text-xs font-bold ${
                   isActive
-                    ? "text-indigo-400 font-semibold"
+                    ? "text-indigo-200"
                     : isComplete
-                      ? "text-slate-300"
-                      : "text-slate-500"
+                      ? "text-slate-200"
+                      : "text-slate-400"
                 }`}
               >
                 {step.label}
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">
+                {step.description}
               </p>
-
-              <span className="mt-0.5 text-[10px]">
-                {isActive && currentStatus && (
-                  <span className="text-indigo-400/90 font-medium">
-                    (Sedang Aktif)
-                  </span>
-                )}
-                {isComplete && (
-                  <span className="text-emerald-400/90">(Selesai)</span>
-                )}
-                {isLocked && <span className="text-slate-600">(Locked)</span>}
-              </span>
             </div>
-
-            {idx < STEPS.length - 1 && (
-              <div
-                className={`mx-3 h-[2px] flex-1 rounded-full transition-colors ${
-                  idx < currentIndex ? "bg-emerald-500" : "bg-slate-800"
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

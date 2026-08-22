@@ -46,7 +46,10 @@ export const initialize = async (id_periode: number) => {
             END
           WHEN t.kode_kondisi = 'JABATAN' THEN 
             COALESCE(j.tunjangan_jabatan_struktural, 0.00)
-          ELSE t.nilai
+          ELSE CASE 
+            WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
+            ELSE t.nilai
+          END
         END AS nilai_terhitung
       FROM tb_pegawai p
       LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
@@ -180,7 +183,10 @@ export const calculate = async (id_periode: number) => {
           END
         WHEN t.kode_kondisi = 'JABATAN' THEN 
           COALESCE(j.tunjangan_jabatan_struktural, 0.00)
-        ELSE t.nilai
+        ELSE CASE 
+          WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
+          ELSE t.nilai
+        END
       END
       FROM tb_tunjangan t
       JOIN tb_pegawai p ON p.deleted_at IS NULL
