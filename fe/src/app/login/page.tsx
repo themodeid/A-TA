@@ -27,12 +27,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setSubmitting(true);
-    const ok = await login(username, password);
+    const res = await login(username, password);
     setSubmitting(false);
-    if (ok) {
+    if (res.success) {
       router.push("/dashboard");
     } else {
-      setError("Username atau password salah.");
+      setError(res.message || "Username atau password salah.");
     }
   };
 
@@ -42,16 +42,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950/40 to-slate-950 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center text-white">
-          <h1 className="text-3xl font-bold">SIP Payroll</h1>
-          <p className="mt-2 text-slate-300">
-            Sistem Informasi Payroll & Rekapitulasi
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 ring-1 ring-indigo-500/30 mb-3">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">SIP Payroll</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Sistem Informasi Payroll & Rekapitulasi Terpadu
           </p>
         </div>
 
-        <Card className="shadow-2xl">
+        <Card className="shadow-2xl border-slate-800/80 bg-slate-900/90 backdrop-blur">
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Username"
@@ -59,6 +64,7 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Masukkan username"
               required
+              autoFocus
             />
             <Input
               label="Password"
@@ -69,18 +75,30 @@ export default function LoginPage() {
               required
             />
             {error && (
-              <p className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400">
+              <div className="rounded-lg border border-red-800/50 bg-red-950/40 p-3 text-sm text-red-300">
                 {error}
-              </p>
+              </div>
             )}
             <Button type="submit" className="w-full" isLoading={submitting}>
-              Masuk
+              Masuk ke Sistem
             </Button>
           </form>
 
+          <div className="mt-4 text-center">
+            <p className="text-sm text-slate-400">
+              Belum memiliki akun?{" "}
+              <Link
+                href="/register"
+                className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
+              >
+                Daftar Akun Baru
+              </Link>
+            </p>
+          </div>
+
           <div className="mt-6 border-t border-slate-800 pt-4">
             <p className="mb-2 text-xs font-medium text-slate-400">
-              Demo akun (klik untuk isi otomatis):
+              Akun Demo Bawaan (Klik untuk coba):
             </p>
             <div className="grid grid-cols-2 gap-2">
               {DEMO_USERS.map((u) => (
@@ -88,19 +106,19 @@ export default function LoginPage() {
                   key={u.username}
                   type="button"
                   onClick={() => fillDemo(u.username, u.password)}
-                  className="rounded-lg border border-slate-700 px-2 py-1.5 text-left text-xs text-white hover:bg-slate-800"
+                  className="rounded-lg border border-slate-700/80 bg-slate-800/50 px-2.5 py-2 text-left text-xs text-white transition hover:bg-indigo-900/30 hover:border-indigo-600/50"
                 >
-                  <span className="font-medium">{u.role}</span>
+                  <span className="font-semibold text-indigo-300">{u.role}</span>
                   <br />
-                  <span className="text-slate-400">{u.username}</span>
+                  <span className="text-slate-400 font-mono text-[11px]">{u.username}</span>
                 </button>
               ))}
             </div>
           </div>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Auth JWT akan terhubung saat endpoint backend siap.
+        <p className="mt-6 text-center text-xs text-slate-500">
+          Dilengkapi proteksi JWT Token, Bcrypt Hash, Rate Limiting & Helmet Headers
         </p>
       </div>
     </div>

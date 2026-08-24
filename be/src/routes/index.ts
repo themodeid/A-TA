@@ -1,6 +1,11 @@
 import { Router } from "express";
 
 // ==========================================
+// 0. AUTHENTICATION & SECURITY
+// ==========================================
+import authRoutes from "../modules/auth/auth.routes";
+
+// ==========================================
 // 1. MODULES: CORE & ABSENSI
 // ==========================================
 import absensiRoutes from "../modules/payroll/absensi/absensi.routes";
@@ -37,6 +42,9 @@ const router = Router();
 // ------------------------------------------
 // ROUTE REGISTRATION
 // ------------------------------------------
+
+// Auth & Security
+router.use("/auth", authRoutes);
 
 // Core & Absensi
 router.use("/absensi", absensiRoutes);

@@ -1,5 +1,8 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import path from "path";
 import { pool } from "./config/database";
@@ -11,10 +14,35 @@ import { ENV } from "./config/env";
 export const app = express();
 
 // ======================================================
-// 🛠️ MIDDLEWARES
+// 🛠️ MIDDLEWARES KEAMANAN & UTILITAS
 // ======================================================
 
-// 1. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
+// 0. Disable X-Powered-By header & Gunakan Helmet untuk HTTP Security Headers
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
+// 1. Cookie Parser
+app.use(cookieParser());
+
+// 2. Global Rate Limiter untuk mencegah DoS / Spam request
+const globalApiLimiter = rateLimit({
+  windowMs: ENV.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
+  max: ENV.RATE_LIMIT_MAX || 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: "fail",
+    message: "Terlalu banyak permintaan ke server dari IP ini, silakan coba beberapa saat lagi.",
+    statusCode: 429,
+  },
+});
+app.use("/api", globalApiLimiter);
+
+// 3. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
 const allowedOrigins = ENV.CORS_ORIGIN
   ? ENV.CORS_ORIGIN.split(",").map((o) => o.trim())
   : ["http://localhost:3000", "http://localhost:3041", "http://127.0.0.1:3000", "http://127.0.0.1:3041"];

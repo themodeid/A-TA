@@ -66,8 +66,8 @@ export function Sidebar() {
 
       <div className="border-t border-slate-800 p-4">
         <div className="mb-3 rounded-lg bg-slate-800 px-3 py-2">
-          <p className="text-sm font-medium">{user?.nama}</p>
-          <p className="text-xs text-slate-400">{user?.role}</p>
+          <p className="text-sm font-medium">{user?.nama || user?.username}</p>
+          <p className="text-xs text-indigo-400 font-medium">{user?.role}</p>
         </div>
         <button
           onClick={logout}
