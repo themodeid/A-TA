@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import * as gajiService from "./gaji.service";
+import * as gajiService from "./service";
 
 // Helper konversi ID aman untuk string | string[] | undefined
 const parseId = (value: string | string[] | undefined): number | null => {
