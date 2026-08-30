@@ -38,17 +38,17 @@ export function isPeriodeLocked(status: PeriodeStatus): boolean {
 export function getStatusBadgeColor(status: PeriodeStatus): string {
   switch (status) {
     case "Pengisian Absensi":
-      return "bg-amber-900/30 text-amber-400 border-amber-800";
+      return "bg-amber-950/40 text-amber-300 border-amber-800/60";
     case "Menunggu Approval":
-      return "bg-orange-900/30 text-orange-400 border-orange-800";
+      return "bg-orange-950/40 text-orange-300 border-orange-800/60";
     case "Disetujui":
     case "Diproses Gaji":
-      return "bg-blue-900/30 text-blue-400 border-blue-800";
+      return "bg-blue-950/40 text-blue-300 border-blue-800/60";
     case "Selesai":
-      return "bg-emerald-900/30 text-emerald-400 border-emerald-800";
+      return "bg-emerald-950/40 text-emerald-300 border-emerald-800/60";
     case "Ditolak":
-      return "bg-red-900/30 text-red-400 border-red-800";
+      return "bg-red-950/40 text-red-300 border-red-800/60";
     default:
-      return "bg-slate-800 text-slate-300 border-slate-700";
+      return "bg-zinc-800 text-zinc-300 border-zinc-700";
   }
 }

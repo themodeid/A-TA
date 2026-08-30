@@ -43,21 +43,21 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClasses[size]} rounded-xl bg-slate-900 shadow-xl border border-slate-800`}
+        className={`relative w-full ${sizeClasses[size]} rounded-xl bg-zinc-900 shadow-xl border border-zinc-800`}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
+          <h3 className="text-base font-semibold text-zinc-100">{title}</h3>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Tutup">
             ✕
           </Button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-6 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-slate-800 px-6 py-4">
+          <div className="flex justify-end gap-2 border-t border-zinc-800 px-6 py-4">
             {footer}
           </div>
         )}

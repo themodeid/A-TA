@@ -24,7 +24,6 @@ if [ -n "$DATABASE_URL" ]; then
   done
 
   echo "✅ PostgreSQL ready"
-  npm run db:migrate
 fi
 
 exec "$@"

@@ -10,7 +10,7 @@ const router = Router();
 // Rate limiter ketat untuk endpoint autentikasi guna mencegah brute-force & credential stuffing
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 30, // Maksimal 30 percobaan per IP dalam 15 menit
+  max: 10, // Maksimal 10 percobaan per IP dalam 15 menit
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -25,6 +25,9 @@ router.post("/register", authLimiter, validateBody(registerSchema), AuthControll
 
 // Route Login
 router.post("/login", authLimiter, validateBody(loginSchema), AuthController.login);
+
+// Route Logout
+router.post("/logout", AuthController.logout);
 
 // Route Profil Pengguna Saat Ini (Protected)
 router.get("/me", authenticateToken, AuthController.getMe);

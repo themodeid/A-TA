@@ -36,7 +36,8 @@ const globalApiLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     status: "fail",
-    message: "Terlalu banyak permintaan ke server dari IP ini, silakan coba beberapa saat lagi.",
+    message:
+      "Terlalu banyak permintaan ke server dari IP ini, silakan coba beberapa saat lagi.",
     statusCode: 429,
   },
 });
@@ -45,7 +46,12 @@ app.use("/api", globalApiLimiter);
 // 3. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
 const allowedOrigins = ENV.CORS_ORIGIN
   ? ENV.CORS_ORIGIN.split(",").map((o) => o.trim())
-  : ["http://localhost:3000", "http://localhost:3041", "http://127.0.0.1:3000", "http://127.0.0.1:3041"];
+  : [
+      "http://localhost:3000",
+      "http://localhost:3041",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3041",
+    ];
 
 app.use(
   cors({
@@ -59,7 +65,8 @@ app.use(
       // Izinkan localhost dan 127.0.0.1 pada mode development
       if (
         ENV.NODE_ENV === "development" &&
-        (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))
+        (origin.startsWith("http://localhost:") ||
+          origin.startsWith("http://127.0.0.1:"))
       ) {
         return callback(null, true);
       }
@@ -145,7 +152,7 @@ async function startServer(): Promise<void> {
     console.log("✅ Migrations completed successfully");
 
     // START HTTP SERVER
-    app.listen(ENV.PORT, () => {
+    app.listen(ENV.PORT, "0.0.0.0", () => {
       console.log("===================================");
       console.log("🚀 Server is up and running");
       console.log(`🌐 Base URL : http://localhost:${ENV.PORT}/api`);

@@ -37,13 +37,23 @@ export function Sidebar() {
   );
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-800 bg-slate-900 text-white">
-      <div className="border-b border-slate-800 px-6 py-5">
-        <h1 className="text-lg font-bold tracking-tight">SIP Payroll</h1>
-        <p className="text-xs text-slate-400">Sistem Informasi Penggajian</p>
+    <aside className="flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-900 text-zinc-100 shrink-0">
+      <div className="border-b border-zinc-800 px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700 font-bold text-zinc-100 text-sm">
+            SIP
+          </div>
+          <div>
+            <h1 className="text-sm font-semibold tracking-tight text-zinc-100">SIP Payroll</h1>
+            <p className="text-[11px] text-zinc-400">Sistem Penggajian</p>
+          </div>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+          Menu Utama
+        </p>
         {visibleItems.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
@@ -51,29 +61,29 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                 active
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 font-semibold"
+                  : "text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200"
               }`}
             >
-              <span>{item.icon}</span>
+              <span className="text-sm opacity-80">{item.icon}</span>
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-slate-800 p-4">
-        <div className="mb-3 rounded-lg bg-slate-800 px-3 py-2">
-          <p className="text-sm font-medium">{user?.nama || user?.username}</p>
-          <p className="text-xs text-indigo-400 font-medium">{user?.role}</p>
+      <div className="border-t border-zinc-800 p-4">
+        <div className="mb-3 rounded-lg bg-zinc-850 border border-zinc-800 px-3 py-2">
+          <p className="text-xs font-medium text-zinc-200 truncate">{user?.nama || user?.username}</p>
+          <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{user?.role}</p>
         </div>
         <button
           onClick={logout}
-          className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-red-950/40 hover:text-red-300 border border-zinc-800 hover:border-red-900/50"
         >
-          Keluar
+          <span>🚪</span> Keluar
         </button>
       </div>
     </aside>

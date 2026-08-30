@@ -23,14 +23,19 @@ export const authenticateToken = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new AppError("Akses ditolak: Token otentikasi tidak ditemukan.", 401);
+    let token: string | undefined;
+
+    // 1. Cek dari HttpOnly Cookie
+    if (req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    }
+    // 2. Fallback ke Header Authorization: Bearer <token>
+    else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
     }
 
-    const token = authHeader.split(" ")[1];
     if (!token) {
-      throw new AppError("Akses ditolak: Format token tidak valid.", 401);
+      throw new AppError("Akses ditolak: Token otentikasi tidak ditemukan.", 401);
     }
 
     let decoded: any;

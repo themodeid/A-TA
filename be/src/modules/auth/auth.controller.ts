@@ -25,10 +25,39 @@ export class AuthController {
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await AuthService.login(req.body);
+
+      // Set secure HttpOnly cookie
+      res.cookie("auth_token", result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
       res.status(200).json({
         status: "success",
         message: "Login berhasil.",
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Handler untuk logout pengguna.
+   */
+  static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      res.clearCookie("auth_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
+      });
+
+      res.status(200).json({
+        status: "success",
+        message: "Logout berhasil.",
       });
     } catch (error) {
       next(error);

@@ -7,8 +7,8 @@ interface TableProps {
 
 export function Table({ children, className = "" }: TableProps) {
   return (
-    <div className={`overflow-x-auto rounded-lg border border-slate-700 ${className}`}>
-      <table className="min-w-full divide-y divide-slate-700 text-sm">
+    <div className={`overflow-x-auto rounded-lg border border-zinc-800 ${className}`}>
+      <table className="min-w-full divide-y divide-zinc-800 text-sm">
         {children}
       </table>
     </div>
@@ -17,7 +17,7 @@ export function Table({ children, className = "" }: TableProps) {
 
 export function TableHead({ children }: { children: ReactNode }) {
   return (
-    <thead className="bg-slate-800">
+    <thead className="bg-zinc-850">
       <tr>{children}</tr>
     </thead>
   );
@@ -32,7 +32,7 @@ export function TableHeaderCell({
 }) {
   return (
     <th
-      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-300 ${className}`}
+      className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-400 ${className}`}
     >
       {children}
     </th>
@@ -40,7 +40,7 @@ export function TableHeaderCell({
 }
 
 export function TableBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y divide-slate-700 bg-slate-900">{children}</tbody>;
+  return <tbody className="divide-y divide-zinc-800/80 bg-zinc-900">{children}</tbody>;
 }
 
 export function TableRow({
@@ -51,7 +51,7 @@ export function TableRow({
   className?: string;
 }) {
   return (
-    <tr className={`hover:bg-slate-800/80 ${className}`}>{children}</tr>
+    <tr className={`hover:bg-zinc-800/50 transition-colors ${className}`}>{children}</tr>
   );
 }
 
@@ -67,7 +67,7 @@ export function TableCell({
   return (
     <td
       colSpan={colSpan}
-      className={`whitespace-nowrap px-4 py-3 text-slate-200 ${className}`}
+      className={`whitespace-nowrap px-4 py-3 text-zinc-200 text-xs ${className}`}
     >
       {children}
     </td>

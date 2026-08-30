@@ -1,6 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
-type Variant = "primary" | "secondary" | "danger" | "ghost" | "outline";
+type Variant = "primary" | "secondary" | "danger" | "ghost" | "outline" | "success";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,19 +11,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500",
+    "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus:ring-zinc-400 font-semibold shadow-sm",
   secondary:
-    "bg-slate-800 text-slate-100 hover:bg-slate-700 focus:ring-slate-600",
-  danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-  ghost: "bg-transparent text-slate-300 hover:bg-slate-800",
+    "bg-zinc-800 text-zinc-200 hover:bg-zinc-700/80 focus:ring-zinc-600 border border-zinc-700/80",
+  danger: "bg-red-600/90 text-white hover:bg-red-600 focus:ring-red-500 shadow-sm",
+  success: "bg-emerald-600/90 text-white hover:bg-emerald-600 focus:ring-emerald-500 shadow-sm",
+  ghost: "bg-transparent text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
   outline:
-    "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800",
+    "border border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100",
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-sm",
-  lg: "px-6 py-3 text-base",
+  sm: "px-3 py-1.5 text-xs font-medium",
+  md: "px-4 py-2 text-sm font-medium",
+  lg: "px-6 py-3 text-base font-medium",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -42,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       disabled={disabled || isLoading}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >
       {isLoading && (
