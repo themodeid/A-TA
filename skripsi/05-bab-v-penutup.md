@@ -1,0 +1,12 @@
+# BAB V SIMPULAN DAN SARAN
+
+## A. Simpulan
+Berdasarkan hasil analisis, perancangan, implementasi, serta pengujian Sistem Informasi Penggajian Guru dan Karyawan Berbasis Web dengan Notifikasi In-App pada SMK PSKD 3 Jakarta, dapat ditarik simpulan sebagai berikut:
+1. Penulis berhasil menganalisis dan merancang sistem informasi penggajian yang secara komprehensif mengintegrasikan data absensi harian, komponen tunjangan, dan struktur gaji pokok dalam satu platform *database* terpadu (PostgreSQL). Sistem ini secara efektif menggantikan metode lama yang terpecah ke dalam lima *sheet* Excel, sehingga menekan risiko *human error* dan redudansi pencatatan.
+2. Implementasi fitur notifikasi *in-app* dan *scheduler* otomatis berjalan dengan baik dalam menjembatani koordinasi antar peran pengguna. Alur pengajuan dari staf dan rekapitulasi dapat dipantau langsung oleh Kepala Sekolah secara *real-time*, sehingga secara signifikan mempercepat birokrasi persetujuan (*approval*) pembayaran gaji tanpa hambatan komunikasi manual.
+3. Hasil pengujian fungsionalitas dan keandalan sistem menggunakan kombinasi metode *Black Box Testing* dan *White Box Testing* (*Automated Unit Testing* berbasis Jest) membuktikan bahwa seluruh 20 skenario fungsional antarmuka serta 15 skenario komputasi logika bisnis penggajian (tunjangan keluarga, honor jam lebih, transport WFO, dan potongan kasbon) terverifikasi lulus 100% (*all passed*). Pengujian ini menjamin bahwa sistem beroperasi secara akurat, bebas dari cacat logika matematis (*zero logical bug*), dan sangat layak untuk diterapkan pada operasional SMK PSKD 3 Jakarta.
+
+## B. Saran
+Kami memiliki harapan besar agar implementasi aplikasi penggajian ini mampu memperkuat transformasi tata kelola administrasi di lingkungan SMK PSKD 3 Jakarta. Namun, kami menyadari sistem ini belum terintegrasi secara *real-time* berbasis API (*Application Programming Interface*) dengan mesin *fingerprint* biometrik serta belum terhubung langsung ke layanan *payment gateway* perbankan untuk fungsi pencairan otomatis (transfer). 
+
+Oleh karena itu, kami menyarankan bagi instansi dan pihak peneliti selanjutnya agar dapat melakukan pengembangan riset dengan menambahkan modul perhitungan otomatis Pajak Penghasilan (PPh Pasal 21) bagi pegawai tetap dan tidak tetap. Selain itu, kami juga sangat merekomendasikan pembangunan versi *mobile app* berbasis Android dan iOS, guna memperluas jangkauan portabilitas pengguna dalam mengakses rincian slip gaji bulanan mereka kapan pun dengan lebih efisien.

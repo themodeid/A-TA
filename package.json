@@ -1,8 +1,11 @@
 {
-  "name": "a-reading-1",
+  "name": "a-ta-pskd-payroll",
   "private": true,
   "scripts": {
     "env:init": "node scripts/init-env.js",
+    "test": "npm --prefix be test",
+    "build": "npm --prefix be run build && npm --prefix fe run build",
+    "verify": "verify-local.bat",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
