@@ -68,3 +68,12 @@ Dokumentasi visual format 5 lembar kerja (*sheet*) Microsoft Excel yang digunaka
   <li><strong>Sheet `RECAP`</strong>: Rekapitulasi penghitungan kotor, potongan pinjaman, potongan koperasi, dan total gaji bersih.</li>
   <li><strong>Sheet `DAFTAR PERMINTAAN PEMBAYARAN`</strong>: Lembar pengajuan penarikan dana ke bendahara sekolah.</li>
 </ol>
+
+### Lampiran 6: Petunjuk Operasional Sistem (Buku Panduan Pengguna / User Manual)
+<p style="text-align: justify; text-indent: 1.25cm;">
+Buku petunjuk operasional sistem (Standard Operating Procedure / SOP) berbasis peran (Role-Based Access Control) yang merinci langkah kerja Petugas Absensi (Bpk. Rendy), Staf Penggajian (Ibu Maria), Approver / Kepala Sekolah (Bpk. Thomas), dan Administrator Sistem dalam pengoperasian aplikasi A-TA secara menyeluruh. Dokumen lengkap tersimpan pada berkas <code>BUKU_PANDUAN_PENGGUNA.md</code> pada direktori utama sistem informasi.
+</p>
+<div style="border: 1px dashed #94a3b8; padding: 25px; text-align: center; margin: 15px 0; background-color: #f8fafc; font-style: italic;">
+  [Buku Panduan Pengguna A-TA: Matriks Hak Akses, Siklus 7 Tahap Penggajian, Prosedur Input Grid Absensi, Approval Kepala Sekolah, & Troubleshooting Sistem]
+</div>
+
