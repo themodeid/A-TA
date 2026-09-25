@@ -17,7 +17,7 @@ export function PeriodeSelector({
   const selected = periodeList.find((p) => p.id_periode === selectedId);
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-800/80 bg-slate-950/60 px-3.5 py-2 backdrop-blur-md">
+    <div className="flex items-center gap-2.5">
       <div className="w-48 sm:w-56">
         <Select
           value={selectedId ?? ""}
@@ -27,12 +27,12 @@ export function PeriodeSelector({
             value: p.id_periode,
             label: p.bulan_gaji,
           }))}
-          className="h-9 border-slate-700/80 bg-slate-900/90 text-xs text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="!py-1.5 !text-xs !bg-zinc-900 border-zinc-800 focus:border-zinc-500"
         />
       </div>
       {selected && <Badge status={selected.status} />}
       {isLoading && (
-        <span className="animate-pulse text-xs text-slate-500">Memuat...</span>
+        <span className="text-xs text-zinc-500">Memuat...</span>
       )}
     </div>
   );

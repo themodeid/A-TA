@@ -249,24 +249,24 @@ export default function AuditKoreksiJamPage() {
           <p className="mt-1 text-xs text-slate-500">Koreksi lembur positif</p>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm backdrop-blur-md">
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 shadow-none">
           <p className="text-xs font-medium uppercase tracking-wider text-rose-400">
             Total Jam Dikurang (-)
           </p>
-          <p className="mt-1 text-2xl font-bold text-rose-400">
+          <p className="mt-1 text-2xl font-bold font-mono tabular-nums text-rose-400">
             -{stats.totalSubtract.toFixed(1)} Jam
           </p>
-          <p className="mt-1 text-xs text-slate-500">Koreksi lembur negatif</p>
+          <p className="mt-1 text-xs text-zinc-500">Koreksi lembur negatif</p>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm backdrop-blur-md">
-          <p className="text-xs font-medium uppercase tracking-wider text-indigo-400">
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 shadow-none">
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">
             Net Jam Efektif
           </p>
-          <p className="mt-1 text-2xl font-bold text-indigo-300">
+          <p className="mt-1 text-2xl font-bold font-mono tabular-nums text-zinc-100">
             {stats.netHours >= 0 ? `+${stats.netHours.toFixed(1)}` : stats.netHours.toFixed(1)} Jam
           </p>
-          <p className="mt-1 text-xs text-slate-500">Akumulasi bersih lembur</p>
+          <p className="mt-1 text-xs text-zinc-500">Akumulasi bersih lembur</p>
         </div>
       </div>
 
@@ -302,10 +302,10 @@ export default function AuditKoreksiJamPage() {
         }
       >
         {/* Filter Toolbar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="font-medium text-slate-400">Periode Saat Ini:</span>
-            <span className="rounded-md border border-indigo-500/30 bg-indigo-950/40 px-2.5 py-0.5 font-medium text-indigo-300">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+          <div className="flex items-center gap-2 text-xs text-zinc-300">
+            <span className="font-medium text-zinc-400">Periode Saat Ini:</span>
+            <span className="rounded-md border border-zinc-800 bg-zinc-850 px-2.5 py-0.5 font-medium text-zinc-200">
               {selectedPeriode?.bulan_gaji || "Belum dipilih"}
             </span>
             {selectedPeriode && (
@@ -314,9 +314,9 @@ export default function AuditKoreksiJamPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-400">Filter Pegawai:</label>
+            <label className="text-xs text-zinc-400">Filter Pegawai:</label>
             <select
-              className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+              className="rounded-lg border border-zinc-700 bg-zinc-850 px-2.5 py-1 text-xs text-zinc-200 focus:border-zinc-500 focus:outline-none"
               value={selectedPegawaiFilter}
               onChange={(e) => setSelectedPegawaiFilter(e.target.value)}
             >
@@ -334,7 +334,7 @@ export default function AuditKoreksiJamPage() {
         </div>
 
         {/* Audit Notice */}
-        <div className="mb-4 rounded-lg border border-indigo-900/40 bg-indigo-950/20 p-3 text-xs text-indigo-300">
+        <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400">
           Setiap penambahan atau penghapusan log koreksi jam akan dicatat dalam audit trail dan secara otomatis menyinkronkan <strong>total_jam_lebih</strong> serta <strong>honor_bulan</strong> pada modul Tunjangan & Slip Gaji.
         </div>
 
@@ -358,7 +358,7 @@ export default function AuditKoreksiJamPage() {
                 <TableRow>
                   <TableCell colSpan={10} className="py-8 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
                       <span>Memuat log koreksi jam...</span>
                     </div>
                   </TableCell>
@@ -395,16 +395,16 @@ export default function AuditKoreksiJamPage() {
                       </TableCell>
                       <TableCell className="text-center font-mono text-xs font-bold">
                         {item.jenis_koreksi === "ADD" ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-emerald-400 border border-emerald-800/40">
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-emerald-400 border border-emerald-500/20">
                             +{parseFloat(String(item.jam_koreksi)).toFixed(1)} Jam
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded bg-rose-950/60 px-2 py-0.5 text-rose-400 border border-rose-800/40">
+                          <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 px-2 py-0.5 text-rose-400 border border-rose-500/20">
                             -{parseFloat(String(item.jam_koreksi)).toFixed(1)} Jam
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center font-mono text-xs font-bold text-indigo-300">
+                      <TableCell className="text-center font-mono text-xs font-medium tabular-nums text-zinc-200">
                         {parseFloat(String(item.jam_akhir)).toFixed(1)}
                       </TableCell>
                       <TableCell className="max-w-xs text-xs text-slate-300">
@@ -477,11 +477,11 @@ export default function AuditKoreksiJamPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-medium text-zinc-300">
               Pilih Pegawai <span className="text-rose-400">*</span>
             </label>
             <select
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-850 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
               value={formPegawaiId}
               onChange={(e) => setFormPegawaiId(e.target.value)}
               required
@@ -500,11 +500,11 @@ export default function AuditKoreksiJamPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-slate-300">
+              <label className="block text-xs font-medium text-zinc-300">
                 Jenis Penyesuaian <span className="text-rose-400">*</span>
               </label>
               <select
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-850 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
                 value={formJenisKoreksi}
                 onChange={(e) =>
                   setFormJenisKoreksi(e.target.value as "ADD" | "SUBTRACT")
@@ -516,7 +516,7 @@ export default function AuditKoreksiJamPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300">
+              <label className="block text-xs font-medium text-zinc-300">
                 Jumlah Jam <span className="text-rose-400">*</span>
               </label>
               <input
@@ -527,13 +527,13 @@ export default function AuditKoreksiJamPage() {
                 placeholder="Contoh: 2.0"
                 value={formJamKoreksi}
                 onChange={(e) => setFormJamKoreksi(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-850 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-medium text-zinc-300">
               Keterangan / Alasan Koreksi <span className="text-rose-400">*</span>
             </label>
             <textarea
@@ -542,12 +542,12 @@ export default function AuditKoreksiJamPage() {
               placeholder="Contoh: Lembur persiapan Ujian Sekolah, dinas luar, atau rapat dewan guru."
               value={formKeterangan}
               onChange={(e) => setFormKeterangan(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-850 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-medium text-zinc-300">
               Referensi / Bukti Dokumen (Opsional)
             </label>
             <input
@@ -555,11 +555,11 @@ export default function AuditKoreksiJamPage() {
               placeholder="Contoh: Surat Tugas No. 042/ST/PSKD3/2026"
               value={formBuktiDokumen}
               onChange={(e) => setFormBuktiDokumen(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-850 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-850">
             <Button
               type="button"
               variant="secondary"
@@ -590,13 +590,13 @@ export default function AuditKoreksiJamPage() {
         title="Konfirmasi Hapus Log Koreksi Jam"
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-zinc-300">
             Apakah Anda yakin ingin menghapus log koreksi jam untuk{" "}
-            <strong className="text-slate-100">
+            <strong className="text-zinc-100">
               {selectedKoreksiToDelete?.nama_pegawai}
             </strong>{" "}
             sebesar{" "}
-            <strong className="text-indigo-400">
+            <strong className="text-zinc-100 font-mono">
               {selectedKoreksiToDelete?.jenis_koreksi === "ADD" ? "+" : "-"}
               {selectedKoreksiToDelete?.jam_koreksi} Jam
             </strong>

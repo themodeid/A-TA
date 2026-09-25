@@ -48,6 +48,7 @@ A-TA/
 │   ├── skripsi-lengkap.docx # Dokumen Word Resmi Format UNINDRA (4-4-3-3)
 │   ├── skripsi-lengkap.html # Web Preview Standar Cetak A4
 │   └── *.md                 # Source Naskah Bab I s.d. Bab V
+├── BUKU_PANDUAN_PENGGUNA.md # Buku Panduan Operasional SOP & Hak Akses Per Role
 ├── docker-compose.yml       # Orkes Kontainer Produksi
 ├── verify-local.bat         # 1-Click Script Verifikasi CI Lokal
 ├── start-local.bat          # 1-Click Script Menjalankan Environment Dev
@@ -55,6 +56,19 @@ A-TA/
 ```
 
 ---
+
+## 📘 Buku Panduan Pengguna & SOP Sistem (Role-Based Guidebook)
+Sistem dilengkapi dengan panduan operasional komprehensif bagi seluruh pengguna di sekolah:
+- **Dokumen Resmi**: [`BUKU_PANDUAN_PENGGUNA.md`](BUKU_PANDUAN_PENGGUNA.md)
+- **Cakupan Panduan**:
+  1. **Petugas Absensi (Bpk. Rendy)**: Prosedur input form grid absensi (*bulk-save*), rumus otomatis jam lebih guru, dan validasi kehadiran.
+  2. **Staf Penggajian (Ibu Maria)**: Pengelolaan periode, penyesuaian tunjangan & potongan, audit koreksi jam, kalkulasi rekapitulasi gaji, dan pengajuan approval.
+  3. **Approver / Kepala Sekolah (Bpk. Thomas)**: Tinjauan ringkasan anggaran belanja gaji, audit rincian per departemen, persetujuan (*Approve*), atau penolakan dengan catatan revisi (*Reject*).
+  4. **Administrator Sistem**: Pengelolaan master data pegawai, jabatan, golongan PP 85/1997, komponen tarif, dan hak akses pengguna.
+  5. **Guru & Karyawan**: Prosedur transparansi pengecekan dan pengunduhan slip gaji digital resmi format PDF.
+
+---
+
 
 ## 🚀 Panduan Memulai Cepat
 

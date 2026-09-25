@@ -37,21 +37,21 @@ export function Sidebar() {
   );
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-zinc-800 bg-zinc-900 text-zinc-100 shrink-0">
-      <div className="border-b border-zinc-800 px-6 py-5">
+    <aside className="flex h-screen w-64 flex-col border-r border-zinc-800/80 bg-zinc-950 text-zinc-100 shrink-0 print:hidden">
+      <div className="border-b border-zinc-800/80 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700 font-bold text-zinc-100 text-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-850 border border-zinc-750 font-semibold text-zinc-100 text-xs tracking-tight">
             SIP
           </div>
           <div>
-            <h1 className="text-sm font-semibold tracking-tight text-zinc-100">SIP Payroll</h1>
-            <p className="text-[11px] text-zinc-400">Sistem Penggajian</p>
+            <h1 className="text-xs font-semibold tracking-tight text-zinc-100">SIP Payroll</h1>
+            <p className="text-[10px] text-zinc-500">SMK PSKD 3 Jakarta</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+        <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-zinc-500 mb-2">
           Menu Utama
         </p>
         {visibleItems.map((item) => {
@@ -61,27 +61,27 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                 active
-                  ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 font-semibold"
-                  : "text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200"
+                  ? "bg-zinc-900 text-zinc-100 border border-zinc-800 font-medium"
+                  : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
               }`}
             >
-              <span className="text-sm opacity-80">{item.icon}</span>
+              <span className="text-sm opacity-70">{item.icon}</span>
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-zinc-800 p-4">
-        <div className="mb-3 rounded-lg bg-zinc-850 border border-zinc-800 px-3 py-2">
+      <div className="border-t border-zinc-800/80 p-3">
+        <div className="mb-2 rounded-lg bg-zinc-900/80 border border-zinc-800/80 px-3 py-2">
           <p className="text-xs font-medium text-zinc-200 truncate">{user?.nama || user?.username}</p>
-          <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{user?.role}</p>
+          <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">{user?.role}</p>
         </div>
         <button
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-red-950/40 hover:text-red-300 border border-zinc-800 hover:border-red-900/50"
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-rose-500/10 hover:text-rose-400 border border-zinc-800 hover:border-rose-500/20"
         >
           <span>🚪</span> Keluar
         </button>

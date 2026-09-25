@@ -64,52 +64,52 @@ export function WorkflowStepper({ currentStatus }: WorkflowStepperProps) {
           return (
             <div
               key={step.key}
-              className={`relative flex flex-col p-3 rounded-xl border transition-all ${
+              className={`relative flex flex-col p-3 rounded-xl border transition-colors ${
                 isActive
-                  ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-950/50"
+                  ? "bg-zinc-850/80 border-zinc-600 shadow-none"
                   : isComplete
-                    ? "bg-slate-900/40 border-emerald-800/60"
-                    : "bg-slate-950/40 border-slate-800/80 opacity-60"
+                    ? "bg-zinc-900/50 border-zinc-800"
+                    : "bg-zinc-950/40 border-zinc-800/50 opacity-60"
               }`}
             >
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-2">
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-md text-[11px] font-semibold ${
                     isComplete
-                      ? "bg-emerald-500 text-slate-950"
+                      ? "bg-zinc-800 text-emerald-400 border border-zinc-700"
                       : isActive
-                        ? "bg-indigo-600 text-white ring-2 ring-indigo-400"
-                        : "bg-slate-800 text-slate-400"
+                        ? "bg-zinc-100 text-zinc-950 font-bold"
+                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
                   }`}
                 >
                   {isComplete ? "✓" : idx + 1}
                 </span>
 
-                <span className="text-[10px] font-medium">
+                <span className="text-[10px] font-medium tracking-tight">
                   {isComplete && (
-                    <span className="text-emerald-400 font-semibold">Selesai</span>
+                    <span className="text-emerald-400 font-medium">Selesai</span>
                   )}
                   {isActive && (
-                    <span className="text-indigo-400 font-semibold animate-pulse">
-                      ● Aktif
+                    <span className="text-zinc-200 font-semibold">
+                      Sedang Aktif
                     </span>
                   )}
-                  {isPending && <span className="text-slate-500">Menunggu</span>}
+                  {isPending && <span className="text-zinc-500">Antrian</span>}
                 </span>
               </div>
 
               <h4
-                className={`text-xs font-bold ${
+                className={`text-xs font-semibold ${
                   isActive
-                    ? "text-indigo-200"
+                    ? "text-zinc-100"
                     : isComplete
-                      ? "text-slate-200"
-                      : "text-slate-400"
+                      ? "text-zinc-200"
+                      : "text-zinc-400"
                 }`}
               >
                 {step.label}
               </h4>
-              <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">
+              <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
                 {step.description}
               </p>
             </div>

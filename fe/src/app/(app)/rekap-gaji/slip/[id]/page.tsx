@@ -47,10 +47,10 @@ export default function SlipPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
+      <div className="flex h-screen items-center justify-center bg-zinc-950">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="text-xs text-slate-400">Memuat slip gaji...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+          <p className="text-xs text-zinc-400">Memuat slip gaji...</p>
         </div>
       </div>
     );
@@ -58,16 +58,16 @@ export default function SlipPage() {
 
   if (!slip) {
     return (
-      <div className="min-h-screen bg-slate-950 p-8 flex flex-col items-center justify-center text-center">
+      <div className="min-h-screen bg-zinc-950 p-8 flex flex-col items-center justify-center text-center">
         <span className="text-4xl mb-3">📄</span>
-        <h2 className="text-lg font-bold text-slate-200">
+        <h2 className="text-lg font-bold text-zinc-200">
           Slip Gaji Tidak Ditemukan
         </h2>
-        <p className="text-xs text-slate-400 mt-1 mb-6">
+        <p className="text-xs text-zinc-400 mt-1 mb-6">
           Data slip gaji dengan ID #{id} tidak tersedia atau telah diperbarui.
         </p>
         <Link href="/rekap-gaji">
-          <Button className="bg-indigo-600 hover:bg-indigo-500 text-white">
+          <Button variant="primary">
             ← Kembali ke Rekap Gaji
           </Button>
         </Link>
@@ -76,16 +76,16 @@ export default function SlipPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 sm:p-6 print:bg-white print:p-0">
+    <div className="min-h-screen bg-zinc-950 p-4 sm:p-6 print:bg-white print:p-0">
       {/* HEADER NAVIGASI & KONTROL (Disembunyikan saat print) */}
       <div className="mx-auto max-w-4xl mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         {/* Tombol Kembali & Breadcrumb */}
         <div className="flex items-center gap-3">
           <Link href="/rekap-gaji">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
-              className="bg-slate-900/80 hover:bg-slate-800 text-slate-200 border-slate-700 text-xs flex items-center gap-1.5 shadow"
+              className="text-xs flex items-center gap-1.5"
             >
               <span>←</span>
               <span>Kembali ke Daftar Rekap Gaji</span>
@@ -98,10 +98,10 @@ export default function SlipPage() {
           {/* Pegawai Sebelumnya */}
           {prevRekap && (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => router.push(`/rekap-gaji/slip/${prevRekap.id_rekap}`)}
-              className="text-xs bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300"
+              className="text-xs"
               title={`Lihat slip ${prevRekap.nama_dan_tanggal_lahir}`}
             >
               ◀ Sebelumnya
@@ -111,10 +111,10 @@ export default function SlipPage() {
           {/* Pegawai Berikutnya */}
           {nextRekap && (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => router.push(`/rekap-gaji/slip/${nextRekap.id_rekap}`)}
-              className="text-xs bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300"
+              className="text-xs"
               title={`Lihat slip ${nextRekap.nama_dan_tanggal_lahir}`}
             >
               Berikutnya ▶
@@ -124,7 +124,9 @@ export default function SlipPage() {
           {/* Tombol Print / Cetak PDF */}
           <Button
             onClick={handlePrint}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-900/40 flex items-center gap-1.5"
+            variant="primary"
+            size="sm"
+            className="text-xs flex items-center gap-1.5"
           >
             <span>🖨️</span>
             <span>Cetak / Simpan PDF</span>
@@ -141,7 +143,7 @@ export default function SlipPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-slate-400 hover:text-slate-200 text-xs"
+            className="text-zinc-400 hover:text-zinc-200 text-xs"
           >
             ← Selesai & Kembali ke Tabel Rekap Gaji
           </Button>

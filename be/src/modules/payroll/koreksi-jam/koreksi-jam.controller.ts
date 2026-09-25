@@ -3,8 +3,11 @@ import * as koreksiJamService from "./koreksi-jam.service";
 
 export const getKoreksiJam = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id_periode = req.query.id_periode ? parseInt(req.query.id_periode as string, 10) : undefined;
-    const id_pegawai = req.query.id_pegawai ? parseInt(req.query.id_pegawai as string, 10) : undefined;
+    const rawPeriode = req.query.id_periode ? Number(req.query.id_periode) : undefined;
+    const rawPegawai = req.query.id_pegawai ? Number(req.query.id_pegawai) : undefined;
+
+    const id_periode = Number.isFinite(rawPeriode) ? rawPeriode : undefined;
+    const id_pegawai = Number.isFinite(rawPegawai) ? rawPegawai : undefined;
 
     const data = await koreksiJamService.getKoreksiJam({ id_periode, id_pegawai });
 
@@ -15,12 +18,14 @@ export const getKoreksiJam = async (req: Request, res: Response): Promise<void> 
       data,
     });
   } catch (error: any) {
+    console.error("❌ Error di getKoreksiJam Controller:", error);
     res.status(500).json({
       success: false,
       message: error.message || "Terjadi kesalahan saat mengambil log koreksi jam.",
     });
   }
 };
+
 
 export const createKoreksiJam = async (req: Request, res: Response): Promise<void> => {
   try {

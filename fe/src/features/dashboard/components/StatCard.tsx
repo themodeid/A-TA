@@ -8,23 +8,19 @@ interface StatCardProps {
 
 export function StatCard({ title, value, unit, icon }: StatCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/50 p-5 backdrop-blur-sm transition-all hover:border-slate-700/80">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-400">{title}</p>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold tracking-tight text-slate-100">
-              {value ?? "—"}
-            </span>
-            {unit && (
-              <span className="text-xs font-normal text-slate-400">{unit}</span>
-            )}
-          </div>
-        </div>
-        {icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-950/60 text-lg shadow-inner">
-            {icon}
-          </div>
+    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-5 transition-colors hover:border-zinc-700/80">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+          {title}
+        </p>
+        {icon && <span className="text-base opacity-60">{icon}</span>}
+      </div>
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-2xl font-bold tracking-tight text-zinc-100 tabular-nums font-mono">
+          {value ?? "—"}
+        </span>
+        {unit && (
+          <span className="text-xs font-normal text-zinc-500">{unit}</span>
         )}
       </div>
     </div>

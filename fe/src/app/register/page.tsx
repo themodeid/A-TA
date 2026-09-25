@@ -7,7 +7,6 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { UserRole } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
 
 const AVAILABLE_ROLES: { value: UserRole; label: string; desc: string }[] = [
   {
@@ -81,21 +80,21 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950/40 to-slate-950 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center text-white">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 ring-1 ring-indigo-500/30 mb-3">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-6 text-center text-white">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-850 border border-zinc-750 text-zinc-200 mb-3 shadow-none">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Daftar Akun Baru</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Sistem Informasi Payroll & Rekapitulasi Terpadu
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Daftar Akun Baru</h1>
+          <p className="mt-1 text-xs text-zinc-400">
+            Sistem Informasi Payroll & Rekapitulasi Terpadu — SMK PSKD 3
           </p>
         </div>
 
-        <Card className="shadow-2xl border-slate-800/80 bg-slate-900/90 backdrop-blur">
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-6 shadow-none">
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Username"
@@ -107,17 +106,17 @@ export default function RegisterPage() {
             />
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-200">
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">
                 Pilih Role / Hak Akses
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-850 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 transition"
               >
                 {AVAILABLE_ROLES.map((r) => (
-                  <option key={r.value} value={r.value} className="bg-slate-900 text-white">
-                    {r.label} - {r.desc}
+                  <option key={r.value} value={r.value} className="bg-zinc-900 text-zinc-100">
+                    {r.label} — {r.desc}
                   </option>
                 ))}
               </select>
@@ -142,31 +141,31 @@ export default function RegisterPage() {
             />
 
             {error && (
-              <div className="rounded-lg border border-red-800/50 bg-red-950/40 p-3 text-sm text-red-300">
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">
                 {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" isLoading={submitting}>
+            <Button type="submit" variant="primary" className="w-full mt-2" isLoading={submitting}>
               Daftarkan Akun
             </Button>
           </form>
 
-          <div className="mt-5 text-center border-t border-slate-800 pt-4">
-            <p className="text-sm text-slate-400">
+          <div className="mt-5 text-center border-t border-zinc-800/80 pt-4">
+            <p className="text-xs text-zinc-400">
               Sudah memiliki akun?{" "}
               <Link
                 href="/login"
-                className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
+                className="font-medium text-zinc-200 hover:text-white underline underline-offset-4"
               >
                 Masuk di sini
               </Link>
             </p>
           </div>
-        </Card>
+        </div>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          Semua password dienkripsi secara aman dengan algoritma Bcrypt (10 rounds)
+        <p className="mt-6 text-center text-[11px] text-zinc-500 font-mono">
+          Semua password dienkripsi dengan standar Bcrypt (10 salt rounds)
         </p>
       </div>
     </div>

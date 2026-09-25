@@ -240,13 +240,13 @@ export default function MasterKomponenPage() {
       description="Kelola komponen master tunjangan & potongan — tambah, sesuaikan besaran/formula, lihat detail, atau hapus komponen"
     >
       {message && (
-        <div className="rounded-lg bg-emerald-950/60 border border-emerald-700 px-4 py-3 text-sm text-emerald-200 mb-4">
+        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs text-emerald-300 mb-4">
           ✅ {message}
         </div>
       )}
 
       {errorMsg && (
-        <div className="rounded-lg bg-red-950/60 border border-red-700 px-4 py-3 text-sm text-red-200 mb-4">
+        <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs text-rose-300 mb-4">
           ⚠️ {errorMsg}
         </div>
       )}
@@ -256,7 +256,7 @@ export default function MasterKomponenPage() {
         <Card
           title="Master Tunjangan"
           action={
-            <Button size="sm" onClick={handleOpenCreateTunjangan}>
+            <Button size="sm" variant="primary" onClick={handleOpenCreateTunjangan}>
               + Tambah Tunjangan
             </Button>
           }
@@ -272,40 +272,40 @@ export default function MasterKomponenPage() {
             <TableBody>
               {tunjangan.map((t) => (
                 <TableRow key={t.id_tunjangan}>
-                  <TableCell className="text-slate-400 font-mono text-xs">{t.id_tunjangan}</TableCell>
-                  <TableCell className="font-semibold text-slate-100">{t.nama_tunjangan}</TableCell>
+                  <TableCell className="text-zinc-400 font-mono text-xs">{t.id_tunjangan}</TableCell>
+                  <TableCell className="font-medium text-zinc-100">{t.nama_tunjangan}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-semibold text-indigo-300">
+                      <span className="font-semibold text-zinc-200 font-mono tabular-nums">
                         {renderBesaran(t.nilai, t.jenis_tunjangan)}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-zinc-400">
                         {t.sifat_tunjangan || "BULANAN"}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[120px] truncate text-xs text-slate-300">
+                  <TableCell className="max-w-[120px] truncate text-xs text-zinc-300">
                     {t.kode_kondisi ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => setDetailTunjangan(t)}
-                        className="p-1 rounded text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
                         title="Lihat Detail"
                       >
                         👁️
                       </button>
                       <button
                         onClick={() => handleOpenEditTunjangan(t)}
-                        className="p-1 rounded text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
                         title="Edit Komponen"
                       >
                         ✏️
                       </button>
                       <button
                         onClick={() => setDeletingTunjangan(t)}
-                        className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
                         title="Hapus Komponen"
                       >
                         🗑️
@@ -322,7 +322,7 @@ export default function MasterKomponenPage() {
         <Card
           title="Master Potongan"
           action={
-            <Button size="sm" onClick={handleOpenCreatePotongan}>
+            <Button size="sm" variant="primary" onClick={handleOpenCreatePotongan}>
               + Tambah Potongan
             </Button>
           }
@@ -338,40 +338,40 @@ export default function MasterKomponenPage() {
             <TableBody>
               {potongan.map((p) => (
                 <TableRow key={p.id_master_potongan}>
-                  <TableCell className="text-slate-400 font-mono text-xs">{p.id_master_potongan}</TableCell>
-                  <TableCell className="font-semibold text-slate-100">{p.nama_potongan}</TableCell>
+                  <TableCell className="text-zinc-400 font-mono text-xs">{p.id_master_potongan}</TableCell>
+                  <TableCell className="font-medium text-zinc-100">{p.nama_potongan}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-semibold text-rose-300">
+                      <span className="font-semibold text-zinc-200 font-mono tabular-nums">
                         {renderBesaran(p.nilai, p.jenis_potongan)}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-zinc-400">
                         {p.sifat_potongan || "BULANAN"}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[120px] truncate text-xs text-slate-300 font-mono">
+                  <TableCell className="max-w-[120px] truncate text-xs text-zinc-300 font-mono">
                     {p.kode_potongan ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => setDetailPotongan(p)}
-                        className="p-1 rounded text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
                         title="Lihat Detail"
                       >
                         👁️
                       </button>
                       <button
                         onClick={() => handleOpenEditPotongan(p)}
-                        className="p-1 rounded text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
                         title="Edit Komponen"
                       >
                         ✏️
                       </button>
                       <button
                         onClick={() => setDeletingPotongan(p)}
-                        className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
                         title="Hapus Komponen"
                       >
                         🗑️
@@ -548,8 +548,8 @@ export default function MasterKomponenPage() {
               <span className="font-semibold text-slate-100">{detailTunjangan.nama_tunjangan}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-800">
-              <span className="text-slate-400">Besaran / Nilai:</span>
-              <span className="font-semibold text-indigo-300">
+              <span className="text-zinc-400">Besaran / Nilai:</span>
+              <span className="font-semibold text-zinc-200 font-mono">
                 {renderBesaran(detailTunjangan.nilai, detailTunjangan.jenis_tunjangan)}
               </span>
             </div>

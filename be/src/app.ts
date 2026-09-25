@@ -28,12 +28,22 @@ app.use(
 // 1. Cookie Parser
 app.use(cookieParser());
 
-// 2. Global Rate Limiter untuk mencegah DoS / Spam request
+// 2. Healthcheck (Ditempatkan sebelum rate limiter agar docker healthcheck tidak memakan kuota)
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Server is healthy",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// 3. Global Rate Limiter untuk mencegah DoS / Spam request
 const globalApiLimiter = rateLimit({
   windowMs: ENV.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
-  max: ENV.RATE_LIMIT_MAX || 300,
+  max: ENV.NODE_ENV === "development" ? 10000 : (ENV.RATE_LIMIT_MAX || 300),
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === "/api/health" || req.path === "/health",
   message: {
     status: "fail",
     message:
@@ -42,6 +52,7 @@ const globalApiLimiter = rateLimit({
   },
 });
 app.use("/api", globalApiLimiter);
+
 
 // 3. CORS Configuration (Diperbaiki agar dynamic origin & preflight lulus)
 const allowedOrigins = ENV.CORS_ORIGIN
@@ -107,17 +118,9 @@ app.use(
   },
 );
 
-// Healthcheck
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    message: "Server is healthy 1",
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // ======================================================
 // 🛣️ ROUTES & HANDLERS
+
 // ======================================================
 
 app.use("/api", routes);

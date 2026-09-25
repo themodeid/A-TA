@@ -274,19 +274,19 @@ export default function PeriodePage() {
       title="Periode Gaji"
       description="Kelola siklus penggajian — buka periode baru dengan cepat, lengkapi data transaksi, dan pantau alur kerja"
       action={
-        <Button onClick={handleOpenModal} className="shadow-lg shadow-indigo-600/30">
+        <Button onClick={handleOpenModal} variant="primary">
           + Buka Periode Baru
         </Button>
       }
     >
       {message && (
-        <div className="rounded-lg bg-emerald-950/60 border border-emerald-700 px-4 py-3 text-sm text-emerald-200">
+        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs text-emerald-300">
           {message}
         </div>
       )}
 
       {errorMsg && (
-        <div className="rounded-lg bg-red-950/60 border border-red-700 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs text-rose-300">
           ⚠️ {errorMsg}
         </div>
       )}
@@ -296,16 +296,16 @@ export default function PeriodePage() {
           <Card title={`Periode Aktif: ${selectedPeriode.bulan_gaji}`}>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <Badge status={selectedPeriode.status} />
-              <span className="text-sm font-medium text-slate-300">
+              <span className="text-sm font-medium text-zinc-300">
                 📅 {formatDate(selectedPeriode.tanggal_awal)} &nbsp;—&nbsp;{" "}
                 {formatDate(selectedPeriode.tanggal_akhir)}
               </span>
               {isPeriodeLocked(selectedPeriode.status) ? (
-                <span className="rounded-full bg-amber-950/70 border border-amber-700/60 px-2.5 py-0.5 text-xs text-amber-300">
+                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-xs text-amber-400">
                   🔒 Transaksi Terkunci
                 </span>
               ) : (
-                <span className="rounded-full bg-emerald-950/70 border border-emerald-700/60 px-2.5 py-0.5 text-xs text-emerald-300">
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs text-emerald-400">
                   ✏️ Siap Diisi / Diedit
                 </span>
               )}
@@ -316,17 +316,17 @@ export default function PeriodePage() {
             </div>
 
             {/* Penuntun Alur Kerja / Step-by-step Action Cards */}
-            <div className="mt-6 border-t border-slate-800 pt-6">
+            <div className="mt-6 border-t border-zinc-800/80 pt-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-                  📋 Checklist & Panduan Pengisian Data Transaksi:
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Checklist & Panduan Pengisian Data Transaksi:
                 </h3>
                 <div className="flex items-center gap-3">
                   {isEditable && !readiness?.isReady && (
                     <button
                       onClick={handleQuickInitActivePeriode}
                       disabled={initLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 hover:bg-indigo-600/50 transition-colors shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 hover:bg-zinc-750 transition-colors"
                       title="Isi otomatis absensi default, tunjangan master, dan potongan untuk seluruh pegawai"
                     >
                       {initLoading ? "⚡ Menyiapkan data..." : "⚡ Inisialisasi Cepat Semua Data"}
@@ -335,7 +335,7 @@ export default function PeriodePage() {
                   <button
                     onClick={loadReadinessAndLogs}
                     disabled={readinessLoading}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
                   >
                     {readinessLoading ? "Memeriksa data..." : "🔄 Perbarui Status Data"}
                   </button>
@@ -345,25 +345,25 @@ export default function PeriodePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {/* Langkah 1: Absensi */}
                 <div className={`p-4 rounded-xl border transition-all ${
-                  isEditable ? "bg-slate-800/60 border-slate-700 hover:border-indigo-500" : "bg-slate-900/40 border-slate-800 opacity-80"
+                  isEditable ? "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700" : "bg-zinc-900/30 border-zinc-850 opacity-80"
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 border border-indigo-700/50">
+                    <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Langkah 1
                     </span>
-                    <span className="text-lg">📊</span>
+                    <span className="text-base text-zinc-400">📊</span>
                   </div>
-                  <h4 className="font-semibold text-slate-100 text-sm mb-1">Absensi & Kehadiran</h4>
-                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                  <h4 className="font-semibold text-zinc-100 text-sm mb-1">Absensi & Kehadiran</h4>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
                     Rekap total kehadiran WFO/WFH, izin, sakit, dan alpha pegawai.
                   </p>
                   <div className="mb-4">
                     {readiness?.absensi.isComplete ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2 py-1 rounded border border-emerald-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                         ✓ {readiness.absensi.filledCount}/{readiness.absensi.totalCount} Pegawai Terisi
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-950/60 px-2 py-1 rounded border border-amber-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
                         ⚠️ {readiness?.absensi.filledCount ?? 0}/{readiness?.totalPegawai ?? 0} Pegawai Terisi
                       </span>
                     )}
@@ -377,25 +377,25 @@ export default function PeriodePage() {
 
                 {/* Langkah 2: Tunjangan */}
                 <div className={`p-4 rounded-xl border transition-all ${
-                  isEditable ? "bg-slate-800/60 border-slate-700 hover:border-indigo-500" : "bg-slate-900/40 border-slate-800 opacity-80"
+                  isEditable ? "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700" : "bg-zinc-900/30 border-zinc-850 opacity-80"
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 border border-indigo-700/50">
+                    <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Langkah 2
                     </span>
-                    <span className="text-lg">💰</span>
+                    <span className="text-base text-zinc-400">💰</span>
                   </div>
-                  <h4 className="font-semibold text-slate-100 text-sm mb-1">Tunjangan Bulanan</h4>
-                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                  <h4 className="font-semibold text-zinc-100 text-sm mb-1">Tunjangan Bulanan</h4>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
                     Input jam lembur dan honor bulanan tambahan per pegawai.
                   </p>
                   <div className="mb-4">
                     {readiness?.tunjangan.isComplete ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2 py-1 rounded border border-emerald-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                         ✓ {readiness.tunjangan.filledCount}/{readiness.tunjangan.totalCount} Pegawai Terisi
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-950/60 px-2 py-1 rounded border border-amber-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
                         ⚠️ {readiness?.tunjangan.filledCount ?? 0}/{readiness?.totalPegawai ?? 0} Pegawai Terisi
                       </span>
                     )}
@@ -409,25 +409,25 @@ export default function PeriodePage() {
 
                 {/* Langkah 3: Potongan */}
                 <div className={`p-4 rounded-xl border transition-all ${
-                  isEditable ? "bg-slate-800/60 border-slate-700 hover:border-indigo-500" : "bg-slate-900/40 border-slate-800 opacity-80"
+                  isEditable ? "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700" : "bg-zinc-900/30 border-zinc-850 opacity-80"
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 border border-indigo-700/50">
+                    <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Langkah 3
                     </span>
-                    <span className="text-lg">📉</span>
+                    <span className="text-base text-zinc-400">📉</span>
                   </div>
-                  <h4 className="font-semibold text-slate-100 text-sm mb-1">Potongan Bulanan</h4>
-                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                  <h4 className="font-semibold text-zinc-100 text-sm mb-1">Potongan Bulanan</h4>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
                     Input angsuran pinjaman, dana wajib, pelkes, dan potongan lainnya.
                   </p>
                   <div className="mb-4">
                     {readiness?.potongan.isComplete ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2 py-1 rounded border border-emerald-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                         ✓ {readiness.potongan.filledCount}/{readiness.potongan.totalCount} Pegawai Terisi
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-950/60 px-2 py-1 rounded border border-amber-800/60">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
                         ⚠️ {readiness?.potongan.filledCount ?? 0}/{readiness?.totalPegawai ?? 0} Pegawai Terisi
                       </span>
                     )}
@@ -442,13 +442,13 @@ export default function PeriodePage() {
 
               {/* Status Action Banner */}
               {selectedPeriode.status === "Ditolak" && (
-                <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950 to-slate-900 border-2 border-rose-600 flex flex-col gap-3 shadow-xl shadow-rose-950/60">
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-3 shadow-none">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">❌</span>
+                      <span className="text-xl">❌</span>
                       <div>
-                        <h4 className="font-bold text-rose-200 text-sm mb-0.5">
-                          Pengajuan Approval Ditolak oleh Kepala Sekolah (Pak Thomas)
+                        <h4 className="font-semibold text-rose-200 text-sm mb-0.5">
+                          Pengajuan Approval Ditolak oleh Kepala Sekolah
                         </h4>
                         <p className="text-xs text-rose-300/80">
                           Kepala Sekolah mengembalikan periode ini ke staf gaji untuk dilakukan perbaikan data.
@@ -457,51 +457,55 @@ export default function PeriodePage() {
                     </div>
                     <Button
                       onClick={handleOpenVerification}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white whitespace-nowrap shadow-md text-xs"
+                      variant="primary"
+                      size="sm"
+                      className="whitespace-nowrap text-xs"
                     >
-                      🔍 Periksa & Ajukan Ulang ➔
+                      Periksa & Ajukan Ulang ➔
                     </Button>
                   </div>
 
-                  <div className="p-3 bg-slate-950 border border-rose-800/80 rounded-lg text-xs">
-                    <span className="font-bold text-rose-300 block mb-1 text-xs">
-                      💬 Catatan & Alasan Penolakan dari Kepala Sekolah:
+                  <div className="p-3 bg-zinc-950/80 border border-rose-500/30 rounded-lg text-xs">
+                    <span className="font-semibold text-rose-300 block mb-1 text-xs">
+                      Catatan & Alasan Penolakan dari Kepala Sekolah:
                     </span>
-                    <p className="text-white font-semibold text-sm bg-rose-950/70 p-2.5 rounded border border-rose-800/70">
-                      "{selectedPeriode.catatan_approval ||
+                    <p className="text-rose-200 font-medium text-xs bg-rose-950/40 p-2.5 rounded border border-rose-800/40">
+                      &quot;{selectedPeriode.catatan_approval ||
                         approvalLogs.find((l) => l.status === "Rejected")?.catatan ||
-                        "potongan untuk pak rian tolong diperbaiki"}"
+                        "potongan untuk pegawai tolong diperiksa kembali"}&quot;
                     </p>
                   </div>
                 </div>
               )}
 
               {selectedPeriode.status === "Pengisian Absensi" && (
-                <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/80 to-slate-900 border border-indigo-700/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-slate-100 text-sm mb-1">
+                    <h4 className="font-semibold text-zinc-100 text-sm mb-1">
                       Siap Mengajukan Periode ke Approver?
                     </h4>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-zinc-400">
                       Sistem akan memverifikasi kelengkapan Absensi, Tunjangan, dan Potongan sebelum diserahkan ke Pimpinan.
                     </p>
                   </div>
                   <Button
                     onClick={handleOpenVerification}
-                    className="whitespace-nowrap shadow-lg shadow-indigo-600/30"
+                    variant="primary"
+                    size="sm"
+                    className="whitespace-nowrap text-xs"
                   >
-                    🔍 Periksa Kesiapan & Ajukan Approval
+                    Periksa Kesiapan & Ajukan Approval ➔
                   </Button>
                 </div>
               )}
 
               {selectedPeriode.status === "Menunggu Approval" && (
-                <div className="p-4 rounded-xl bg-orange-950/50 border border-orange-700/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-orange-200 text-sm mb-1">
+                    <h4 className="font-semibold text-amber-200 text-sm mb-1">
                       ⏳ Menunggu Verifikasi & Approval Pimpinan
                     </h4>
-                    <p className="text-xs text-orange-300/80">
+                    <p className="text-xs text-amber-300/80">
                       Periode ini telah diajukan dan sedang menunggu persetujuan dari akun Approver.
                     </p>
                   </div>
@@ -514,17 +518,17 @@ export default function PeriodePage() {
               )}
 
               {selectedPeriode.status === "Disetujui" && (
-                <div className="p-4 rounded-xl bg-emerald-950/50 border border-emerald-700/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
                     <h4 className="font-semibold text-emerald-200 text-sm mb-1">
-                      ✅ Periode Telah Disetujui!
+                      ✅ Periode Telah Disetujui
                     </h4>
                     <p className="text-xs text-emerald-300/80">
                       Langkah selanjutnya: Hitung dan kunci kalkulasi slip gaji pada menu Rekap Gaji.
                     </p>
                   </div>
                   <Link href="/rekap-gaji">
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                    <Button variant="primary" size="sm">
                       Proses Rekap Gaji ➔
                     </Button>
                   </Link>
@@ -532,12 +536,12 @@ export default function PeriodePage() {
               )}
 
               {selectedPeriode.status === "Selesai" && (
-                <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-slate-200 text-sm mb-1">
-                      🎉 Periode Penggajian Selesai
+                    <h4 className="font-semibold text-zinc-200 text-sm mb-1">
+                      Periode Penggajian Selesai
                     </h4>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-zinc-400">
                       Seluruh rekapitulasi dan slip gaji pegawai sudah dicatat secara permanen.
                     </p>
                   </div>
@@ -576,15 +580,15 @@ export default function PeriodePage() {
                     <span
                       className={`inline-block max-w-xs text-xs font-semibold px-2 py-1 rounded border truncate ${
                         p.status === "Ditolak"
-                          ? "bg-rose-950/60 text-rose-300 border-rose-800/60"
-                          : "bg-emerald-950/60 text-emerald-300 border-emerald-800/60"
+                          ? "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                          : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
                       }`}
                       title={p.catatan_approval}
                     >
                       💬 {p.catatan_approval}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-500 italic">—</span>
+                    <span className="text-xs text-zinc-500 italic">—</span>
                   )}
                 </TableCell>
               </TableRow>
@@ -607,9 +611,9 @@ export default function PeriodePage() {
             <Button
               onClick={handleCreate}
               isLoading={loading}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30"
+              variant="primary"
             >
-              🚀 Buka Periode Sekarang
+              Buka Periode Sekarang
             </Button>
           </>
         }
@@ -617,21 +621,21 @@ export default function PeriodePage() {
         <div className="space-y-5">
           {/* Quick Presets */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
               Pilihan Cepat (Presets):
             </label>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={applyPresetNextMonth}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-900/60 border border-indigo-700 text-indigo-200 hover:bg-indigo-800 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-zinc-750 transition-colors flex items-center gap-1.5"
               >
                 ⚡ Bulan Berikutnya (+1 Bulan)
               </button>
               <button
                 type="button"
                 onClick={applyPresetThisMonth}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-850 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center gap-1.5"
               >
                 📅 Bulan Ini
               </button>
@@ -640,9 +644,9 @@ export default function PeriodePage() {
 
           {/* Month & Year Selectors */}
           {!isCustomDate ? (
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-800/50 border border-slate-700">
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-zinc-850/60 border border-zinc-800">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                   Bulan
                 </label>
                 <select
@@ -650,7 +654,7 @@ export default function PeriodePage() {
                   onChange={(e) =>
                     handleMonthYearChange(Number(e.target.value), selectedYear)
                   }
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
                 >
                   {MONTH_NAMES.map((name, idx) => (
                     <option key={idx} value={idx}>
@@ -661,7 +665,7 @@ export default function PeriodePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                   Tahun
                 </label>
                 <select
@@ -669,7 +673,7 @@ export default function PeriodePage() {
                   onChange={(e) =>
                     handleMonthYearChange(selectedMonth, Number(e.target.value))
                   }
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
                 >
                   {yearOptions.map((year) => (
                     <option key={year} value={year}>
@@ -680,16 +684,16 @@ export default function PeriodePage() {
               </div>
 
               {/* Live Preview Box */}
-              <div className="col-span-2 pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Rentang Tanggal Otomatis:</span>
-                <span className="font-semibold text-indigo-300">
+              <div className="col-span-2 pt-2 border-t border-zinc-750 flex items-center justify-between text-xs">
+                <span className="text-zinc-400">Rentang Tanggal Otomatis:</span>
+                <span className="font-mono font-medium text-zinc-200">
                   {form.tanggal_awal} s/d {form.tanggal_akhir}
                 </span>
               </div>
             </div>
           ) : (
             /* Custom Manual Date Inputs */
-            <div className="space-y-3 p-3.5 rounded-xl bg-slate-800/50 border border-slate-700">
+            <div className="space-y-3 p-3.5 rounded-xl bg-zinc-850/60 border border-zinc-800">
               <Input
                 label="Nama Bulan Gaji"
                 placeholder="Misal: Agustus 2026"
@@ -724,7 +728,7 @@ export default function PeriodePage() {
             <button
               type="button"
               onClick={() => setIsCustomDate(!isCustomDate)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+              className="text-xs text-zinc-400 hover:text-zinc-200 underline underline-offset-4"
             >
               {isCustomDate
                 ? "← Kembali ke Pemilih Bulan Otomatis"
@@ -733,24 +737,24 @@ export default function PeriodePage() {
           </div>
 
           {/* Automation & Setup Checkboxes */}
-          <div className="space-y-2.5 pt-2 border-t border-slate-800">
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          <div className="space-y-2.5 pt-2 border-t border-zinc-800">
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
               Opsi Inisialisasi Otomatis (1-Klik Siap Pakai):
             </label>
 
             {/* Checkbox 1: Auto-Init */}
-            <label className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/70 border border-slate-700 hover:border-slate-600 cursor-pointer transition-all">
+            <label className="flex items-start gap-3 p-3 rounded-lg bg-zinc-850/70 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition-all">
               <input
                 type="checkbox"
                 checked={autoInit}
                 onChange={(e) => setAutoInit(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
+                className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-900 text-zinc-100 focus:ring-zinc-500 focus:ring-offset-zinc-900"
               />
               <div className="text-xs">
-                <span className="font-semibold text-slate-100 block">
+                <span className="font-semibold text-zinc-200 block">
                   ⚡ Inisialisasi Otomatis Data Seluruh Pegawai (Direkomendasikan)
                 </span>
-                <span className="text-slate-400 block mt-0.5">
+                <span className="text-zinc-400 block mt-0.5">
                   Menyiapkan absensi hadir default, menghitung tunjangan master (jabatan, keluarga, transport WFO), dan menyiapkan wadah potongan.
                 </span>
               </div>
@@ -758,18 +762,18 @@ export default function PeriodePage() {
 
             {/* Checkbox 2: Copy Potongan */}
             {periodeList.length > 0 && autoInit && (
-              <label className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/70 border border-slate-700 hover:border-slate-600 cursor-pointer transition-all">
+              <label className="flex items-start gap-3 p-3 rounded-lg bg-zinc-850/70 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition-all">
                 <input
                   type="checkbox"
                   checked={copyPotongan}
                   onChange={(e) => setCopyPotongan(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-900 text-zinc-100 focus:ring-zinc-500 focus:ring-offset-zinc-900"
                 />
                 <div className="text-xs">
-                  <span className="font-semibold text-slate-100 block">
+                  <span className="font-semibold text-zinc-200 block">
                     📋 Salin Potongan Rutin dari Periode Terakhir
                   </span>
-                  <span className="text-slate-400 block mt-0.5">
+                  <span className="text-zinc-400 block mt-0.5">
                     Menyalin angsuran pinjaman, dana wajib, dan potongan rutin bulan lalu agar tidak perlu input ulang dari nol.
                   </span>
                 </div>
@@ -797,7 +801,7 @@ export default function PeriodePage() {
               onClick={handleConfirmSubmitApproval}
               isLoading={loading}
               disabled={!readiness?.isReady || readinessLoading}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              variant="primary"
             >
               {readiness?.isReady
                 ? "Konfirmasi & Kirim ke Approver"
@@ -807,9 +811,9 @@ export default function PeriodePage() {
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-300">
+          <p className="text-xs text-zinc-400">
             Berikut adalah hasil pengecekan kelengkapan data untuk{" "}
-            <strong>{readiness?.totalPegawai ?? 0} Pegawai</strong> pada periode ini sebelum diajukan ke Pimpinan:
+            <strong className="text-zinc-200">{readiness?.totalPegawai ?? 0} Pegawai</strong> pada periode ini sebelum diajukan ke Pimpinan:
           </p>
 
           {/* Checklist Items */}
@@ -817,14 +821,14 @@ export default function PeriodePage() {
             {/* Absensi */}
             <div className={`p-3.5 rounded-lg border flex items-center justify-between ${
               readiness?.absensi.isComplete
-                ? "bg-emerald-950/30 border-emerald-800/60"
-                : "bg-amber-950/30 border-amber-800/60"
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-amber-500/10 border-amber-500/20"
             }`}>
               <div className="flex items-center gap-3">
-                <span className="text-xl">{readiness?.absensi.isComplete ? "✅" : "⚠️"}</span>
+                <span className="text-base">{readiness?.absensi.isComplete ? "✅" : "⚠️"}</span>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-100">Rekapitulasi Absensi & Kehadiran</h4>
-                  <p className="text-xs text-slate-400">
+                  <h4 className="text-xs font-semibold text-zinc-200">Rekapitulasi Absensi & Kehadiran</h4>
+                  <p className="text-[11px] text-zinc-400">
                     {readiness?.absensi.filledCount} dari {readiness?.absensi.totalCount} pegawai terdata
                   </p>
                 </div>
@@ -839,14 +843,14 @@ export default function PeriodePage() {
             {/* Tunjangan */}
             <div className={`p-3.5 rounded-lg border flex items-center justify-between ${
               readiness?.tunjangan.isComplete
-                ? "bg-emerald-950/30 border-emerald-800/60"
-                : "bg-amber-950/30 border-amber-800/60"
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-amber-500/10 border-amber-500/20"
             }`}>
               <div className="flex items-center gap-3">
-                <span className="text-xl">{readiness?.tunjangan.isComplete ? "✅" : "⚠️"}</span>
+                <span className="text-base">{readiness?.tunjangan.isComplete ? "✅" : "⚠️"}</span>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-100">Tunjangan Bulanan & Honor</h4>
-                  <p className="text-xs text-slate-400">
+                  <h4 className="text-xs font-semibold text-zinc-200">Tunjangan Bulanan & Honor</h4>
+                  <p className="text-[11px] text-zinc-400">
                     {readiness?.tunjangan.filledCount} dari {readiness?.tunjangan.totalCount} pegawai terdata
                   </p>
                 </div>
@@ -861,14 +865,14 @@ export default function PeriodePage() {
             {/* Potongan */}
             <div className={`p-3.5 rounded-lg border flex items-center justify-between ${
               readiness?.potongan.isComplete
-                ? "bg-emerald-950/30 border-emerald-800/60"
-                : "bg-amber-950/30 border-amber-800/60"
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-amber-500/10 border-amber-500/20"
             }`}>
               <div className="flex items-center gap-3">
-                <span className="text-xl">{readiness?.potongan.isComplete ? "✅" : "⚠️"}</span>
+                <span className="text-base">{readiness?.potongan.isComplete ? "✅" : "⚠️"}</span>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-100">Potongan Bulanan</h4>
-                  <p className="text-xs text-slate-400">
+                  <h4 className="text-xs font-semibold text-zinc-200">Potongan Bulanan</h4>
+                  <p className="text-[11px] text-zinc-400">
                     {readiness?.potongan.filledCount} dari {readiness?.potongan.totalCount} pegawai terdata
                   </p>
                 </div>
@@ -883,8 +887,8 @@ export default function PeriodePage() {
 
           {/* Warning / Error Reasons */}
           {!readiness?.isReady && readiness?.reasons && readiness.reasons.length > 0 && (
-            <div className="p-3.5 rounded-lg bg-red-950/40 border border-red-800 text-xs text-red-300 space-y-1">
-              <p className="font-semibold text-red-200">Perhatian sebelum mengajukan approval:</p>
+            <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 space-y-1">
+              <p className="font-semibold text-rose-200">Perhatian sebelum mengajukan approval:</p>
               <ul className="list-disc list-inside space-y-0.5">
                 {readiness.reasons.map((r, i) => (
                   <li key={i}>{r}</li>
@@ -894,7 +898,7 @@ export default function PeriodePage() {
           )}
 
           {readiness?.isReady && (
-            <div className="p-3.5 rounded-lg bg-indigo-950/40 border border-indigo-800/80 text-xs text-indigo-200">
+            <div className="p-3.5 rounded-lg bg-zinc-850 border border-zinc-800 text-xs text-zinc-300">
               💡 <strong>Catatan:</strong> Setelah diajukan, status periode akan berubah menjadi <strong>&quot;Menunggu Approval&quot;</strong> dan seluruh data transaksi akan <strong>dikunci (read-only)</strong> hingga Approver memberikan keputusan persetujuan.
             </div>
           )}

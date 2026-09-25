@@ -280,7 +280,7 @@ export default function MasterPegawaiPage() {
       action={
         <Button
           onClick={openCreateModal}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-900/30"
+          variant="primary"
         >
           + Tambah Pegawai
         </Button>
@@ -288,10 +288,10 @@ export default function MasterPegawaiPage() {
     >
       {feedback && (
         <div
-          className={`mb-4 flex items-center justify-between rounded-lg p-4 text-sm font-medium border ${
+          className={`mb-4 flex items-center justify-between rounded-lg p-4 text-xs font-medium border ${
             feedback.type === "success"
-              ? "bg-emerald-950/50 border-emerald-800 text-emerald-300"
-              : "bg-rose-950/50 border-rose-800 text-rose-300"
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+              : "bg-rose-500/10 border-rose-500/20 text-rose-300"
           }`}
         >
           <span>{feedback.text}</span>
@@ -311,21 +311,21 @@ export default function MasterPegawaiPage() {
               placeholder="Cari nama, jabatan, atau golongan..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-slate-900 border-slate-700 text-xs"
+              className="bg-zinc-850 border-zinc-800 text-xs"
             />
           </div>
-          <div className="text-xs text-slate-400">
-            Total: <span className="font-semibold text-slate-200">{filteredList.length}</span> Pegawai
+          <div className="text-xs text-zinc-400">
+            Total: <span className="font-semibold text-zinc-200">{filteredList.length}</span> Pegawai
           </div>
         </div>
 
         {loading ? (
-          <div className="py-12 text-center text-slate-400">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent mx-auto mb-2" />
+          <div className="py-12 text-center text-zinc-400">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent mx-auto mb-2" />
             <p className="text-xs">Memuat data master pegawai...</p>
           </div>
         ) : error ? (
-          <div className="p-4 bg-rose-950/40 border border-rose-800 rounded-lg text-rose-300 flex items-center justify-between">
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-300 flex items-center justify-between text-xs">
             <span className="text-sm">{error}</span>
             <Button size="sm" variant="secondary" onClick={loadData}>
               Coba Lagi
@@ -382,7 +382,7 @@ export default function MasterPegawaiPage() {
                           variant="secondary"
                           size="sm"
                           onClick={() => openDetailModal(p.id_pegawai)}
-                          className="text-xs py-1 px-2 bg-slate-800 hover:bg-slate-700 text-slate-300"
+                          className="text-xs py-1 px-2"
                         >
                           Detail
                         </Button>
@@ -390,7 +390,7 @@ export default function MasterPegawaiPage() {
                           variant="secondary"
                           size="sm"
                           onClick={() => openEditModal(p)}
-                          className="text-xs py-1 px-2 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60"
+                          className="text-xs py-1 px-2"
                         >
                           Edit
                         </Button>
@@ -398,7 +398,7 @@ export default function MasterPegawaiPage() {
                           variant="danger"
                           size="sm"
                           onClick={() => openDeleteModal(p)}
-                          className="text-xs py-1 px-2 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
+                          className="text-xs py-1 px-2"
                         >
                           Hapus
                         </Button>
@@ -432,7 +432,7 @@ export default function MasterPegawaiPage() {
               type="submit"
               form="form-pegawai"
               isLoading={submitting}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              variant="primary"
             >
               {editingPegawai ? "Simpan Perubahan" : "Tambahkan Pegawai"}
             </Button>
@@ -540,7 +540,6 @@ export default function MasterPegawaiPage() {
                   openEditModal(selectedPegawai);
                 }
               }}
-              className="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-800"
             >
               ✏️ Edit Pegawai Ini
             </Button>
@@ -551,27 +550,27 @@ export default function MasterPegawaiPage() {
         }
       >
         {detailLoading ? (
-          <div className="py-8 text-center text-slate-400">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent mx-auto mb-2" />
+          <div className="py-8 text-center text-zinc-400">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent mx-auto mb-2" />
             <p className="text-xs">Memuat data pegawai...</p>
           </div>
         ) : selectedPegawai ? (
           <div className="space-y-3 text-sm">
-            <div className="grid grid-cols-3 gap-2 border-b border-slate-800/80 pb-2.5">
-              <span className="text-slate-400">ID Pegawai</span>
-              <span className="col-span-2 font-mono font-medium text-slate-200">
+            <div className="grid grid-cols-3 gap-2 border-b border-zinc-800/80 pb-2.5">
+              <span className="text-zinc-400">ID Pegawai</span>
+              <span className="col-span-2 font-mono font-medium text-zinc-200">
                 #{selectedPegawai.id_pegawai}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-2 border-b border-slate-800/80 pb-2.5">
-              <span className="text-slate-400">Nama Lengkap & TTL</span>
-              <span className="col-span-2 font-semibold text-white">
+            <div className="grid grid-cols-3 gap-2 border-b border-zinc-800/80 pb-2.5">
+              <span className="text-zinc-400">Nama Lengkap & TTL</span>
+              <span className="col-span-2 font-semibold text-zinc-100">
                 {selectedPegawai.nama_dan_tanggal_lahir}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-2 border-b border-slate-800/80 pb-2.5">
-              <span className="text-slate-400">Jabatan</span>
-              <span className="col-span-2 font-medium text-indigo-300">
+            <div className="grid grid-cols-3 gap-2 border-b border-zinc-800/80 pb-2.5">
+              <span className="text-zinc-400">Jabatan</span>
+              <span className="col-span-2 font-medium text-zinc-200">
                 {selectedPegawai.nama_jabatan || "—"}
               </span>
             </div>
