@@ -1,0 +1,21 @@
+meta {
+  name: 01-Get Dashboard Summary
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/dashboard/summary/periode/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

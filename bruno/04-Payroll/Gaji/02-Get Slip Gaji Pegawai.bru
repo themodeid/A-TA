@@ -1,0 +1,15 @@
+meta {
+  name: 02-Get Slip Gaji Pegawai
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/payroll/gaji/periode/1/pegawai/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

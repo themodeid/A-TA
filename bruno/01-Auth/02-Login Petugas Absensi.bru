@@ -1,0 +1,22 @@
+meta {
+  name: 02-Login Petugas Absensi
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "absensi",
+    "password": "absensi123"
+  }
+}
+
+vars:post-response {
+  authToken: res.body.data.token
+}

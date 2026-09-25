@@ -1,0 +1,22 @@
+meta {
+  name: 04-Login Staf Gaji
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "gaji",
+    "password": "gaji123"
+  }
+}
+
+vars:post-response {
+  authToken: res.body.data.token
+}

@@ -1,0 +1,15 @@
+meta {
+  name: 01-Get All Jabatan
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/master/jabatan
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

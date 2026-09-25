@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "A-TA Penggajian PSKD 3",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

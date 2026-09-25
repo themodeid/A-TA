@@ -1,0 +1,15 @@
+meta {
+  name: 02-Get Periode Readiness
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/payroll/periode/1/readiness
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

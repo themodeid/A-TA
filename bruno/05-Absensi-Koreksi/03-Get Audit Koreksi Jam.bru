@@ -1,0 +1,15 @@
+meta {
+  name: 03-Get Audit Koreksi Jam
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/payroll/koreksi-jam
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

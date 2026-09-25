@@ -1,0 +1,15 @@
+meta {
+  name: 01-Get Master Potongan
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/payroll/potongan-master
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

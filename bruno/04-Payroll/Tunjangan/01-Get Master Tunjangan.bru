@@ -1,0 +1,15 @@
+meta {
+  name: 01-Get Master Tunjangan
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/payroll/tunjangan-master
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
