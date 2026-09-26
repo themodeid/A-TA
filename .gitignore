@@ -27,6 +27,9 @@ pnpm-debug.log*
 # Build / output
 dist/
 build/
+.next/
+**/.next/
+out/
 public/
 .cache/
 .tmp/
@@ -58,3 +61,10 @@ be/src/config/env.ts
 be/src/database/migrations/1782132168426_membuat_up.sql
 fe/next.config.ts
 .aider*
+
+# Data riil instansi & privasi sekolah (HARAM bocor ke publik)
+arsip-data-lapangan/
+**/arsip-data-lapangan/
+*.xlsx
+*.xls
+*.csv
