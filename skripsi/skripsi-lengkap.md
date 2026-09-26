@@ -1735,121 +1735,250 @@ sequenceDiagram
 
 #### d. Class Diagram
 
-*Class Diagram* memodelkan rancangan basis data (*database*) relasional yang akan diimplementasikan pada PostgreSQL, menggambarkan struktur tabel, atribut, operasi, dan relasi/kardinalitas antartabel.
+*Class Diagram* memodelkan rancangan basis data (*database*) relasional yang diimplementasikan pada PostgreSQL, menggambarkan struktur tabel, atribut, dan kardinalitas relasi antartabel. Rancangan ini telah mengadopsi pola arsitektur *Dynamic Master-Detail Component (Line-Item)* pada pengelolaan tunjangan (`tb_tunjangan`, `tb_tunjangan_bulanan_detail`) dan potongan (`tb_master_potongan`, `tb_potongan_bulanan_detail`). Pendekatan ini memenuhi prinsip *Open-Closed Principle* (SOLID) dan *Third Normal Form* (3NF), di mana penambahan jenis tunjangan atau potongan baru oleh pihak sekolah dapat dilakukan secara dinamis melalui antarmuka web tanpa memerlukan modifikasi skema tabel (*DDL alteration*) ataupun penulisan ulang kode program.
 
 ```mermaid
 classDiagram
     class tb_pengguna {
         +int id_pengguna [PK]
         +varchar username
-        +varchar password_hash
+        +varchar password
         +varchar role
-        +datetime last_login
+        +datetime deleted_at
     }
 
     class tb_pegawai {
         +int id_pegawai [PK]
         +varchar nip
-        +varchar nama_lengkap
-        +varchar status_kawin
-        +int jumlah_anak
+        +varchar nama
+        +date tanggal_lahir
+        +varchar status_kepegawaian
         +int id_jabatan [FK]
         +int id_golongan [FK]
-        +int id_pengguna [FK]
+        +varchar status_perkawinan
+        +int jumlah_anak
+        +decimal gaji_pokok_dasar
+        +varchar kontak
+        +datetime deleted_at
     }
 
     class tb_jabatan {
         +int id_jabatan [PK]
         +varchar nama_jabatan
-        +decimal tunjangan_jabatan
+        +decimal tunjangan_jabatan_struktural
+        +decimal tunjangan_jabatan_fungsional
+        +datetime deleted_at
     }
 
     class tb_golongan {
         +int id_golongan [PK]
         +varchar nama_golongan
+        +decimal gaji_pokok_standar
+        +datetime deleted_at
     }
 
     class tb_gaji_pokok {
         +int id_gaji_pokok [PK]
-        +int id_golongan [FK]
-        +int masa_kerja_tahun
-        +decimal nominal_gaji
+        +int id_pegawai [FK]
+        +varchar golongan_ruang
+        +varchar status_kawin
+        +int jumlah_anak
+        +decimal gaji_pokok_pp
+        +decimal tunjangan_suami_istri
+        +decimal tunjangan_anak
+        +decimal total_potongan_tetap
+        +decimal gaji_bersih_tetap
     }
 
     class tb_periode {
         +int id_periode [PK]
-        +varchar bulan_tahun
-        +date tanggal_cutoff_awal
-        +date tanggal_cutoff_akhir
+        +varchar bulan_gaji
+        +int bulan
+        +int tahun
+        +date tanggal_awal
+        +date tanggal_akhir
         +varchar status
+        +datetime deleted_at
     }
 
-    class tb_absensi {
-        +int id_absensi [PK]
+    class tb_absensi_summary {
+        +int id_absensi_summary [PK]
+        +int id_periode [FK]
+        +int id_pegawai [FK]
+        +int total_hadir_ops_wfo
+        +int total_hadir_ops_wfh
+        +int total_izin
+        +int total_sakit
+        +int total_alpha
+    }
+
+    class tb_jam_mengajar {
+        +int id_jam_mengajar [PK]
         +int id_pegawai [FK]
         +int id_periode [FK]
-        +int jumlah_hadir
-        +int jumlah_absen
-        +int jam_mengajar_riil
+        +varchar keterangan_tugas
+        +decimal total_jam
+        +decimal jam_wajib
+        +decimal jam_lebih
+        +decimal jam_tidak_hadir
+        +int hari_hadir_honor
     }
 
-    class tb_tunjangan_periode {
+    class tb_tunjangan {
         +int id_tunjangan [PK]
-        +int id_pegawai [FK]
+        +varchar nama_tunjangan
+        +decimal nilai
+        +varchar jenis_tunjangan
+        +varchar sifat_tunjangan
+        +text keterangan
+        +varchar kode_kondisi
+        +varchar formula_type
+        +datetime deleted_at
+    }
+
+    class tb_tunjangan_bulanan {
+        +int id_tunjangan_bulanan [PK]
         +int id_periode [FK]
-        +decimal tunjangan_kesra
-        +decimal potongan_koperasi
-        +decimal potongan_kasbon
+        +int id_pegawai [FK]
+        +decimal total_jam_lebih
+        +decimal honor_bulan
+        +decimal total_tunjangan_terhitung
+    }
+
+    class tb_tunjangan_bulanan_detail {
+        +int id_tunjangan_detail [PK]
+        +int id_periode [FK]
+        +int id_pegawai [FK]
+        +int id_tunjangan [FK]
+        +decimal nilai_terhitung
+    }
+
+    class tb_master_potongan {
+        +int id_master_potongan [PK]
+        +varchar nama_potongan
+        +decimal nilai
+        +varchar jenis_potongan
+        +varchar sifat_potongan
+        +text keterangan
+        +varchar kode_potongan
+        +varchar formula_type
+        +datetime deleted_at
+    }
+
+    class tb_potongan_bulanan {
+        +int id_potongan_bulanan [PK]
+        +int id_periode [FK]
+        +int id_pegawai [FK]
+        +decimal total_potongan_terhitung
+    }
+
+    class tb_potongan_bulanan_detail {
+        +int id_potongan_detail [PK]
+        +int id_periode [FK]
+        +int id_pegawai [FK]
+        +int id_master_potongan [FK]
+        +decimal nilai_potongan
     }
 
     class tb_rekap_gaji {
         +int id_rekap [PK]
         +int id_periode [FK]
-        +datetime tgl_dibuat
-        +varchar status_approval
+        +int id_pegawai [FK]
+        +varchar jabatan_snapshot
+        +varchar pangkat_golongan_snapshot
+        +decimal gaji_pokok_snapshot
+        +decimal total_penghasilan_bruto
+        +decimal total_potongan
+        +decimal total_penerimaan_clean
+        +int hari_hadir
+        +datetime created_at
     }
 
     class tb_rekap_gaji_detail {
-        +int id_detail [PK]
+        +int id_rekap_detail [PK]
         +int id_rekap [FK]
-        +int id_pegawai [FK]
-        +decimal gaji_pokok_final
-        +decimal honor_jam_lebih
-        +decimal total_pendapatan
+        +varchar jenis_komponen
+        +varchar nama_komponen_snapshot
+        +decimal nilai_snapshot
+        +varchar kode_kondisi_snapshot
+    }
+
+    class tb_permintaan_pembayaran {
+        +int id_permintaan [PK]
+        +int id_periode [FK]
+        +varchar nomor_dokumen
+        +varchar status
+        +decimal total_penghasilan_kotor
         +decimal total_potongan
-        +decimal take_home_pay
+        +decimal total_dana_dibayarkan
+        +varchar ditandatangani_kasek
+        +varchar ditandatangani_bendahara
+        +datetime tanggal_generate
+    }
+
+    class tb_permintaan_pembayaran_detail {
+        +int id_permintaan_detail [PK]
+        +int id_permintaan [FK]
+        +int id_pegawai [FK]
+        +varchar nama_pegawai
+        +varchar jabatan
+        +decimal total_penghasilan
+        +decimal potongan
+        +decimal jumlah_diterima
     }
 
     class tb_approval {
         +int id_approval [PK]
-        +int id_rekap [FK]
-        +int id_pengguna_approver [FK]
-        +datetime tgl_approval
-        +varchar catatan
+        +int id_periode [FK]
+        +int id_approver [FK]
+        +varchar status
+        +text catatan
+        +datetime created_at
     }
 
     class tb_notifikasi {
         +int id_notifikasi [PK]
-        +int id_pengguna_penerima [FK]
-        +varchar isi_pesan
+        +int id_pengguna [FK]
+        +varchar judul
+        +text pesan
+        +varchar tipe
+        +varchar tautan
         +boolean is_read
-        +datetime tgl_dikirim
+        +datetime created_at
     }
 
-    %% Relasi
-    tb_pengguna "1" -- "1" tb_pegawai : memiliki
-    tb_jabatan "1" -- "*" tb_pegawai : diisi_oleh
-    tb_golongan "1" -- "*" tb_pegawai : disandang_oleh
-    tb_golongan "1" -- "*" tb_gaji_pokok : acuan
-    tb_periode "1" -- "*" tb_absensi : mencatat
-    tb_pegawai "1" -- "*" tb_absensi : memiliki
-    tb_periode "1" -- "*" tb_tunjangan_periode : mencatat
-    tb_pegawai "1" -- "*" tb_tunjangan_periode : memiliki
-    tb_periode "1" -- "1" tb_rekap_gaji : menghasilkan
+    %% Relasi Antar Entitas
+    tb_jabatan "1" -- "*" tb_pegawai : ditempati
+    tb_golongan "1" -- "*" tb_pegawai : disandang
+    tb_pegawai "1" -- "1" tb_gaji_pokok : memiliki_dasar_pp85
+
+    tb_periode "1" -- "*" tb_absensi_summary : mencatat
+    tb_pegawai "1" -- "*" tb_absensi_summary : memiliki
+
+    tb_periode "1" -- "*" tb_jam_mengajar : mencatat
+    tb_pegawai "1" -- "*" tb_jam_mengajar : memiliki
+
+    tb_periode "1" -- "*" tb_tunjangan_bulanan : periode_tunjangan
+    tb_pegawai "1" -- "*" tb_tunjangan_bulanan : menerima_tunjangan
+    tb_tunjangan "1" -- "*" tb_tunjangan_bulanan_detail : rincian_tunjangan
+    tb_tunjangan_bulanan "1" -- "*" tb_tunjangan_bulanan_detail : terdiri_dari
+
+    tb_periode "1" -- "*" tb_potongan_bulanan : periode_potongan
+    tb_pegawai "1" -- "*" tb_potongan_bulanan : dikenakan_potongan
+    tb_master_potongan "1" -- "*" tb_potongan_bulanan_detail : rincian_potongan
+    tb_potongan_bulanan "1" -- "*" tb_potongan_bulanan_detail : terdiri_dari
+
+    tb_periode "1" -- "*" tb_rekap_gaji : menghasilkan
+    tb_pegawai "1" -- "*" tb_rekap_gaji : memiliki
     tb_rekap_gaji "1" -- "*" tb_rekap_gaji_detail : terdiri_dari
-    tb_pegawai "1" -- "*" tb_rekap_gaji_detail : rincian_milik
-    tb_rekap_gaji "1" -- "*" tb_approval : diajukan_ke
-    tb_pengguna "1" -- "*" tb_approval : menyetujui
+
+    tb_periode "1" -- "1" tb_permintaan_pembayaran : dokumen_resmi
+    tb_permintaan_pembayaran "1" -- "*" tb_permintaan_pembayaran_detail : rincian_transfer
+    tb_pegawai "1" -- "*" tb_permintaan_pembayaran_detail : tercantum_di
+
+    tb_periode "1" -- "*" tb_approval : diajukan_ke
+    tb_pengguna "1" -- "*" tb_approval : disahkan_oleh
+
     tb_pengguna "1" -- "*" tb_notifikasi : menerima
 ```
 
