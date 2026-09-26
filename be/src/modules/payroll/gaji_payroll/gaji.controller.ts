@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { pool } from "../../../config/database";
 import * as gajiService from "./service";
 
 // Helper konversi ID aman untuk string | string[] | undefined
@@ -34,7 +35,11 @@ export const processPayroll = async (
       data: result,
     });
   } catch (error: any) {
-    if (error?.message && (error.message.includes("Gagal Memproses Gaji") || error.message.includes("tidak ditemukan"))) {
+    if (
+      error?.message &&
+      (error.message.includes("Gagal Memproses Gaji") ||
+        error.message.includes("tidak ditemukan"))
+    ) {
       res.status(400).json({
         success: false,
         message: error.message,
@@ -45,8 +50,6 @@ export const processPayroll = async (
     next(error);
   }
 };
-
-import { pool } from "../../../config/database";
 
 // 2. Ambil Semua Rekap Gaji per Periode
 export const getRekapByPeriode = async (
