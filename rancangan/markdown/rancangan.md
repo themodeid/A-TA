@@ -323,40 +323,35 @@ pembulatan, jumlah bruto, dan potongan tetap
 (angsuran pinjaman, simpanan wajib, dana
 Chuk, premi kesehatan)
 
-9 tb_tunjangan_periode Komponen tunjangan bulanan per pegawai per
-periode: tunjangan kesra, supervisi Ka.Sek,
-tunjangan jabatan Ka.Sek, wali kelas, piket,
-rumpun jurusan/bidang, honor bulan, jumlah
-WFH & nominal potongannya, jumlah WFO &
-transport WFO, tunjangan khusus, total
-tunjangan
+9 tb_tunjangan & tb_tunjangan_bulanan_detail Komponen tunjangan bulanan dinamis (Line-Item
+Master-Detail): master tunjangan (nama, jenis, formula),
+header bulanan per pegawai, serta detail nominal
+terhitung tanpa perlu modifikasi kolom database (3NF).
 
-10 tb_rekap_gaji Hasil rekap gabungan per pegawai per periode:
-hari hadir, gaji kompetensi, tunjangan
-jabatan dll, transport/uang makan, total
-penghasilan, jumlah potongan, total
-penerimaan
+10 tb_master_potongan & tb_potongan_bulanan_detail Komponen potongan bulanan dinamis (Line-Item
+Master-Detail): simpanan koperasi, kasbon, BPJS, dll.
 
-11 tb_permintaan_pembayaran Riwayat dokumen permintaan pembayaran per
-periode: id periode, ringkasan per pegawai
-(gaji pokok, tunjangan, honorarium,
-transport, total penghasilan, potongan,
-jumlah diterima), status (draft/final),
-tanggal generate, ditandatangani oleh
+11 tb_rekap_gaji & tb_rekap_gaji_detail Hasil rekap gabungan per pegawai per periode:
+hari hadir, gaji pokok snapshot, tunjangan, potongan,
+total penerimaan (THP), dan breakdown slip gaji.
 
-12 tb_approval Riwayat approval: id periode, approver,
-status, tanggal approve
+12 tb_permintaan_pembayaran & _detail Riwayat dokumen permintaan pembayaran per
+periode: id periode, nomor surat, status, tanggal generate,
+pengesahan kasek & bendahara, serta rincian transfer pegawai.
 
-13 tb_notifikasi Log notifikasi in-app: id pengguna penerima,
-judul, pesan, status dibaca, tanggal dibuat
+13 tb_approval Riwayat approval: id periode, approver,
+status, catatan revisi, tanggal approve
+
+14 tb_notifikasi Log notifikasi in-app: id pengguna penerima,
+judul, pesan, tipe, tautan aksi, status dibaca
 
 ---
 
 > _Perubahan dari rancangan awal: tb_upload_absensi dihapus (tidak ada
 > lagi file yang diupload/diparse). Sebagai gantinya ditambahkan
-> tb_notifikasi untuk mencatat notifikasi in-app. tb_gaji_pokok dan
-> tb_tunjangan_periode diperinci mengikuti kolom-kolom yang benar-benar
-> ada pada data riil sekolah._
+> tb_notifikasi untuk mencatat notifikasi in-app. Komponen tunjangan dan
+> potongan direfaktor menggunakan pola Dynamic Master-Detail (Line-Item)
+> agar sekolah bebas menambah tunjangan baru tanpa perlu ALTER TABLE._
 
 7\. Alur Sistem Lengkap
 
