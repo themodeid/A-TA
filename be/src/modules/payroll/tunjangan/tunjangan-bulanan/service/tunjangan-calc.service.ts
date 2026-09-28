@@ -34,23 +34,24 @@ export const initialize = async (id_periode: number) => {
         $1 AS id_periode,
         p.id_pegawai,
         t.id_tunjangan,
-        CASE 
-          WHEN t.kode_kondisi = 'TRN_WFO' OR t.formula_type = 'HARIAN_HADIR_WFO' THEN 
-            COALESCE(abs.total_hadir_ops_wfo, 0) * t.nilai
-          WHEN t.kode_kondisi = 'TUNJ_ISTRI' OR t.formula_type = 'PERSEN_GAJI_JIKA_KAWIN' THEN 
-            CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * t.nilai) ELSE 0.00 END
-          WHEN t.kode_kondisi = 'TUNJ_ANAK' OR t.formula_type = 'PERSEN_GAJI_PER_ANAK' THEN 
-            CASE 
-              WHEN p.jumlah_anak > 0 THEN (p.gaji_pokok_dasar * (LEAST(p.jumlah_anak, 2) * t.nilai))
-              ELSE 0.00 
+        ROUND(
+          CASE 
+            WHEN t.kode_kondisi = 'TRN_WFO' OR t.formula_type = 'HARIAN_HADIR_WFO' THEN 
+              COALESCE(abs.total_hadir_ops_wfo, 0) * t.nilai
+            WHEN t.kode_kondisi = 'TUNJ_ISTRI' OR t.formula_type = 'PERSEN_GAJI_JIKA_KAWIN' THEN 
+              CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * t.nilai) ELSE 0.00 END
+            WHEN t.kode_kondisi = 'TUNJ_ANAK' OR t.formula_type = 'PERSEN_GAJI_PER_ANAK' THEN 
+              CASE 
+                WHEN p.jumlah_anak > 0 THEN (p.gaji_pokok_dasar * (LEAST(p.jumlah_anak, 2) * t.nilai))
+                ELSE 0.00 
+              END
+            ELSE CASE 
+              WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
+              ELSE t.nilai
             END
-          WHEN t.kode_kondisi = 'JABATAN' THEN 
-            COALESCE(j.tunjangan_jabatan_struktural, 0.00)
-          ELSE CASE 
-            WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
-            ELSE t.nilai
-          END
-        END AS nilai_terhitung
+          END,
+          0
+        ) AS nilai_terhitung
       FROM tb_pegawai p
       LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
       CROSS JOIN tb_tunjangan t
@@ -89,7 +90,7 @@ export const initialize = async (id_periode: number) => {
       UPDATE tb_tunjangan_bulanan tb
       SET 
         total_jam_lebih = COALESCE(rl.total_jam, 0.00),
-        honor_bulan = COALESCE(rl.total_jam, 0.00) * COALESCE((SELECT rate FROM tarif_lembur), 0.00)
+        honor_bulan = ROUND(COALESCE(rl.total_jam, 0.00) * COALESCE((SELECT rate FROM tarif_lembur), 0.00), 0)
       FROM tb_pegawai p
       LEFT JOIN rekap_lembur rl ON p.id_pegawai = rl.id_pegawai
       WHERE tb.id_pegawai = p.id_pegawai AND tb.id_periode = $1;
@@ -99,11 +100,11 @@ export const initialize = async (id_periode: number) => {
     // 4. Update Header total_tunjangan_terhitung
     const updateTotalQuery = `
       UPDATE tb_tunjangan_bulanan tb
-      SET total_tunjangan_terhitung = COALESCE(tb.honor_bulan, 0.00) + COALESCE((
+      SET total_tunjangan_terhitung = ROUND(COALESCE(tb.honor_bulan, 0.00) + COALESCE((
         SELECT SUM(nilai_terhitung)
         FROM tb_tunjangan_bulanan_detail tbd
         WHERE tbd.id_periode = tb.id_periode AND tbd.id_pegawai = tb.id_pegawai
-      ), 0.00)
+      ), 0.00), 0)
       WHERE tb.id_periode = $1;
     `;
     await client.query(updateTotalQuery, [id_periode]);
@@ -161,7 +162,7 @@ export const calculate = async (id_periode: number) => {
       UPDATE tb_tunjangan_bulanan tb
       SET 
         total_jam_lebih = COALESCE(rl.total_jam, 0.00),
-        honor_bulan = COALESCE(rl.total_jam, 0.00) * COALESCE((SELECT rate FROM tarif_lembur), 0.00)
+        honor_bulan = ROUND(COALESCE(rl.total_jam, 0.00) * COALESCE((SELECT rate FROM tarif_lembur), 0.00), 0)
       FROM tb_pegawai p
       LEFT JOIN rekap_lembur rl ON p.id_pegawai = rl.id_pegawai
       WHERE tb.id_pegawai = p.id_pegawai AND tb.id_periode = $1;
@@ -171,23 +172,24 @@ export const calculate = async (id_periode: number) => {
     // 2. Rekalkulasi Nilai Detail Berdasarkan Absensi, Status Perkawinan, Gaji Pokok
     const updateDetailQuery = `
       UPDATE tb_tunjangan_bulanan_detail tbd
-      SET nilai_terhitung = CASE 
-        WHEN t.kode_kondisi = 'TRN_WFO' OR t.formula_type = 'HARIAN_HADIR_WFO' THEN 
-          COALESCE(abs.total_hadir_ops_wfo, 0) * t.nilai
-        WHEN t.kode_kondisi = 'TUNJ_ISTRI' OR t.formula_type = 'PERSEN_GAJI_JIKA_KAWIN' THEN 
-          CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * t.nilai) ELSE 0.00 END
-        WHEN t.kode_kondisi = 'TUNJ_ANAK' OR t.formula_type = 'PERSEN_GAJI_PER_ANAK' THEN 
-          CASE 
-            WHEN p.jumlah_anak > 0 THEN (p.gaji_pokok_dasar * (LEAST(p.jumlah_anak, 2) * t.nilai))
-            ELSE 0.00 
+      SET nilai_terhitung = ROUND(
+        CASE 
+          WHEN t.kode_kondisi = 'TRN_WFO' OR t.formula_type = 'HARIAN_HADIR_WFO' THEN 
+            COALESCE(abs.total_hadir_ops_wfo, 0) * t.nilai
+          WHEN t.kode_kondisi = 'TUNJ_ISTRI' OR t.formula_type = 'PERSEN_GAJI_JIKA_KAWIN' THEN 
+            CASE WHEN p.status_perkawinan = 'K' THEN (p.gaji_pokok_dasar * t.nilai) ELSE 0.00 END
+          WHEN t.kode_kondisi = 'TUNJ_ANAK' OR t.formula_type = 'PERSEN_GAJI_PER_ANAK' THEN 
+            CASE 
+              WHEN p.jumlah_anak > 0 THEN (p.gaji_pokok_dasar * (LEAST(p.jumlah_anak, 2) * t.nilai))
+              ELSE 0.00 
+            END
+          ELSE CASE 
+            WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
+            ELSE t.nilai
           END
-        WHEN t.kode_kondisi = 'JABATAN' THEN 
-          COALESCE(j.tunjangan_jabatan_struktural, 0.00)
-        ELSE CASE 
-          WHEN t.jenis_tunjangan = 'PERSEN' OR t.jenis_tunjangan = 'PERSENTASE' THEN (p.gaji_pokok_dasar * t.nilai)
-          ELSE t.nilai
-        END
-      END
+        END,
+        0
+      )
       FROM tb_tunjangan t
       JOIN tb_pegawai p ON p.deleted_at IS NULL
       LEFT JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
@@ -203,11 +205,11 @@ export const calculate = async (id_periode: number) => {
     // 3. Update Total Header
     const updateTotalHeaderQuery = `
       UPDATE tb_tunjangan_bulanan tb
-      SET total_tunjangan_terhitung = COALESCE(tb.honor_bulan, 0.00) + COALESCE((
+      SET total_tunjangan_terhitung = ROUND(COALESCE(tb.honor_bulan, 0.00) + COALESCE((
         SELECT SUM(nilai_terhitung)
         FROM tb_tunjangan_bulanan_detail tbd
         WHERE tbd.id_periode = tb.id_periode AND tbd.id_pegawai = tb.id_pegawai
-      ), 0.00)
+      ), 0.00), 0)
       WHERE tb.id_periode = $1;
     `;
     await client.query(updateTotalHeaderQuery, [id_periode]);

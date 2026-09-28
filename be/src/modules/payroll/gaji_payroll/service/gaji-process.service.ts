@@ -59,22 +59,28 @@ export const executePayrollProcess = async (periodeId: number) => {
     COALESCE(p.gaji_pokok_dasar, 0) AS gaji_pokok_snapshot,
     
     -- Total Bruto = Gaji Pokok + Total Seluruh Tunjangan (Struktural, Honor, & Detail Variabel)
-    (
+    ROUND(
       COALESCE(p.gaji_pokok_dasar, 0) + 
       COALESCE(j.tunjangan_jabatan_struktural, 0) + 
       COALESCE(tb.honor_bulan, 0) +
-      COALESCE(t_var.total_tunj_var, 0)
+      COALESCE(t_var.total_tunj_var, 0),
+      0
     ) AS total_penghasilan_bruto,
 
-    COALESCE(p_var.total_pot, 0) AS total_potongan,
+    ROUND(COALESCE(p_var.total_pot, 0), 0) AS total_potongan,
 
-    (
-      (
-        COALESCE(p.gaji_pokok_dasar, 0) + 
-        COALESCE(j.tunjangan_jabatan_struktural, 0) + 
-        COALESCE(tb.honor_bulan, 0) +
-        COALESCE(t_var.total_tunj_var, 0)
-      ) - COALESCE(p_var.total_pot, 0)
+    -- Total Penerimaan Clean = GREATEST(Bruto - Potongan, 0) untuk proteksi gaji negatif
+    GREATEST(
+      ROUND(
+        (
+          COALESCE(p.gaji_pokok_dasar, 0) + 
+          COALESCE(j.tunjangan_jabatan_struktural, 0) + 
+          COALESCE(tb.honor_bulan, 0) +
+          COALESCE(t_var.total_tunj_var, 0)
+        ) - COALESCE(p_var.total_pot, 0),
+        0
+      ),
+      0.00
     ) AS total_penerimaan_clean
 
   FROM tb_pegawai p
