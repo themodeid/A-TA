@@ -76,13 +76,13 @@ export const initialize = async (id_periode: number) => {
 
     // Cek status periode
     const pCheck = await client.query(
-      "SELECT status FROM tb_periode WHERE id_periode = $1",
+      "SELECT status FROM tb_periode WHERE id_periode = $1 AND deleted_at IS NULL",
       [id_periode],
     );
     if (pCheck.rows.length === 0) throw new Error("Periode tidak ditemukan!");
-    if (pCheck.rows[0].status !== "Pengisian Absensi") {
+    if (["Dikunci", "Selesai", "Diproses Gaji"].includes(pCheck.rows[0].status)) {
       throw new Error(
-        "Gagal. Status periode ini bukan Pengisian Absensi atau sudah dikunci!",
+        "Gagal. Status periode sudah dikunci atau selesai diproses!",
       );
     }
 
