@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { SlipGaji } from "@/types";
 import { formatRupiah, parseNamaTanggalLahir, formatDate } from "@/lib/format";
 
@@ -38,20 +39,35 @@ export function SlipGajiView({ slip, periodeLabel }: SlipGajiViewProps) {
   return (
     <div className="mx-auto max-w-4xl border border-zinc-800 bg-zinc-900/90 text-zinc-100 p-8 rounded-xl shadow-none font-sans print:border-black print:bg-white print:text-black print:p-6 print:rounded-none print:shadow-none">
       {/* KOP RESMI SEKOLAH */}
-      <div className="border-b border-zinc-800 print:border-zinc-800 pb-5 text-center">
-        <h2 className="text-xs font-semibold tracking-widest uppercase text-zinc-400 print:text-zinc-800">
-          YAYASAN PSKD
-        </h2>
-        <h1 className="text-xl font-bold tracking-wide text-zinc-100 print:text-black mt-0.5">
-          SMK PSKD 3 JAKARTA
-        </h1>
-        <p className="text-[11px] text-zinc-400 print:text-zinc-600 mt-0.5">
-          Jl. Kramat Raya No. 67, Jakarta Pusat • Telp. (021) 3902345
-        </p>
-        <div className="mt-3 inline-block px-3.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 print:bg-zinc-100 print:border-zinc-300">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-200 print:text-black">
-            SLIP GAJI PEGAWAI {periodeLabel ? `— ${periodeLabel}` : ""}
-          </span>
+      <div className="border-b border-zinc-800 print:border-zinc-800 pb-5">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <div className="relative h-12 w-12 shrink-0 rounded-lg bg-white/95 p-1 border border-zinc-700/60 print:border-none print:p-0">
+            <Image
+              src="/logo-pskd.png"
+              alt="Logo SMK PSKD 3"
+              width={48}
+              height={48}
+              className="object-contain"
+            />
+          </div>
+          <div className="text-left">
+            <h2 className="text-xs font-semibold tracking-widest uppercase text-zinc-400 print:text-zinc-800">
+              YAYASAN PSKD
+            </h2>
+            <h1 className="text-xl font-bold tracking-wide text-zinc-100 print:text-black leading-none mt-0.5">
+              SMK PSKD 3 JAKARTA
+            </h1>
+            <p className="text-[11px] text-zinc-400 print:text-zinc-600 mt-1">
+              Jl. Kramat Raya No. 67, Jakarta Pusat • Telp. (021) 3902345
+            </p>
+          </div>
+        </div>
+        <div className="text-center mt-3">
+          <div className="inline-block px-3.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 print:bg-zinc-100 print:border-zinc-300">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-200 print:text-black">
+              SLIP GAJI PEGAWAI {periodeLabel ? `— ${periodeLabel}` : ""}
+            </span>
+          </div>
         </div>
       </div>
 

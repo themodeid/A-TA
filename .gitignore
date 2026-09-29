@@ -30,7 +30,8 @@ build/
 .next/
 **/.next/
 out/
-public/
+be/public/
+!fe/public/
 .cache/
 .tmp/
 

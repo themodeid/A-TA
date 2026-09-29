@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { canAccessRoute } from "@/lib/permissions";
@@ -40,12 +41,19 @@ export function Sidebar() {
     <aside className="flex h-screen w-64 flex-col border-r border-zinc-800/80 bg-zinc-950 text-zinc-100 shrink-0 print:hidden">
       <div className="border-b border-zinc-800/80 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-850 border border-zinc-750 font-semibold text-zinc-100 text-xs tracking-tight">
-            SIP
+          <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 p-1 border border-zinc-700/60 shadow-sm shrink-0">
+            <Image
+              src="/logo-pskd.png"
+              alt="Logo SMK PSKD 3"
+              width={26}
+              height={26}
+              className="object-contain"
+              priority
+            />
           </div>
           <div>
             <h1 className="text-xs font-semibold tracking-tight text-zinc-100">SIP Payroll</h1>
-            <p className="text-[10px] text-zinc-500">SMK PSKD 3 Jakarta</p>
+            <p className="text-[10px] text-zinc-400">SMK PSKD 3 Jakarta</p>
           </div>
         </div>
       </div>

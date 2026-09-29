@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { DEMO_USERS } from "@/features/auth/auth.constants";
 import { Button } from "@/components/ui/Button";
@@ -45,10 +46,15 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center text-white">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-850 border border-zinc-750 text-zinc-200 mb-3 shadow-none">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/95 p-2 border border-zinc-700/60 mb-3 shadow-md">
+            <Image
+              src="/logo-pskd.png"
+              alt="Logo SMK PSKD 3"
+              width={48}
+              height={48}
+              className="object-contain"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-100">SIP Payroll</h1>
           <p className="mt-1 text-xs text-zinc-400">
