@@ -6,27 +6,42 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { canAccessRoute } from "@/lib/permissions";
 import { UserRole } from "@/types";
+import {
+  IconDashboard,
+  IconUsers,
+  IconBriefcase,
+  IconAward,
+  IconSliders,
+  IconCalendar,
+  IconCheckCircle,
+  IconCoins,
+  IconTrendingDown,
+  IconShieldCheck,
+  IconFileText,
+  IconScale,
+  IconLogOut,
+} from "@/components/ui/Icons";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   roles: UserRole[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊", roles: ["Admin", "Petugas Absensi", "Approver", "Staf Gaji"] },
-  { href: "/master/pegawai", label: "Master Pegawai", icon: "👥", roles: ["Admin"] },
-  { href: "/master/jabatan", label: "Master Jabatan", icon: "💼", roles: ["Admin"] },
-  { href: "/master/golongan", label: "Master Golongan", icon: "🎖️", roles: ["Admin"] },
-  { href: "/master/komponen", label: "Master Komponen", icon: "⚙️", roles: ["Admin"] },
-  { href: "/periode", label: "Periode Gaji", icon: "📅", roles: ["Admin", "Staf Gaji"] },
-  { href: "/transaksi/absensi", label: "Absensi", icon: "✅", roles: ["Admin", "Petugas Absensi", "Staf Gaji"] },
-  { href: "/transaksi/tunjangan", label: "Tunjangan", icon: "💰", roles: ["Admin", "Staf Gaji"] },
-  { href: "/transaksi/potongan", label: "Potongan", icon: "📉", roles: ["Admin", "Staf Gaji"] },
-  { href: "/approval", label: "Approval", icon: "✔️", roles: ["Admin", "Approver"] },
-  { href: "/rekap-gaji", label: "Rekap Gaji", icon: "📋", roles: ["Admin", "Staf Gaji"] },
-  { href: "/audit/koreksi-jam", label: "Audit Koreksi Jam", icon: "🔍", roles: ["Admin", "Staf Gaji"] },
+  { href: "/dashboard", label: "Dashboard", icon: IconDashboard, roles: ["Admin", "Petugas Absensi", "Approver", "Staf Gaji"] },
+  { href: "/master/pegawai", label: "Master Pegawai", icon: IconUsers, roles: ["Admin"] },
+  { href: "/master/jabatan", label: "Master Jabatan", icon: IconBriefcase, roles: ["Admin"] },
+  { href: "/master/golongan", label: "Master Golongan", icon: IconAward, roles: ["Admin"] },
+  { href: "/master/komponen", label: "Master Komponen", icon: IconSliders, roles: ["Admin"] },
+  { href: "/periode", label: "Periode Gaji", icon: IconCalendar, roles: ["Admin", "Staf Gaji"] },
+  { href: "/transaksi/absensi", label: "Absensi", icon: IconCheckCircle, roles: ["Admin", "Petugas Absensi", "Staf Gaji"] },
+  { href: "/transaksi/tunjangan", label: "Tunjangan", icon: IconCoins, roles: ["Admin", "Staf Gaji"] },
+  { href: "/transaksi/potongan", label: "Potongan", icon: IconTrendingDown, roles: ["Admin", "Staf Gaji"] },
+  { href: "/approval", label: "Approval", icon: IconShieldCheck, roles: ["Admin", "Approver"] },
+  { href: "/rekap-gaji", label: "Rekap Gaji", icon: IconFileText, roles: ["Admin", "Staf Gaji"] },
+  { href: "/audit/koreksi-jam", label: "Audit Koreksi Jam", icon: IconScale, roles: ["Admin", "Staf Gaji"] },
 ];
 
 export function Sidebar() {
@@ -65,6 +80,7 @@ export function Sidebar() {
         {visibleItems.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
+          const IconComp = item.icon;
           return (
             <Link
               key={item.href}
@@ -75,7 +91,7 @@ export function Sidebar() {
                   : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
               }`}
             >
-              <span className="text-sm opacity-70">{item.icon}</span>
+              <IconComp size={16} className={active ? "text-zinc-100" : "text-zinc-400"} />
               {item.label}
             </Link>
           );
@@ -91,7 +107,7 @@ export function Sidebar() {
           onClick={logout}
           className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-rose-500/10 hover:text-rose-400 border border-zinc-800 hover:border-rose-500/20"
         >
-          <span>🚪</span> Keluar
+          <IconLogOut size={14} /> Keluar
         </button>
       </div>
     </aside>
