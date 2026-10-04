@@ -35,6 +35,16 @@ function requiredOptionalInt(name: string, defaultValue: number): number {
   return num;
 }
 
+function requiredSecret(name: string, minLength: number = 32): string {
+  const value = required(name);
+  if (value.length < minLength) {
+    throw new Error(
+      `❌ Environment variable ${name} must be at least ${minLength} characters long for production security. Current length: ${value.length}.`,
+    );
+  }
+  return value;
+}
+
 // Diekspor dengan nama ENV (Kapital) agar konsisten
 export const ENV = {
   NODE_ENV: required("NODE_ENV"),
@@ -51,6 +61,6 @@ export const ENV = {
   ),
   RATE_LIMIT_MAX: requiredOptionalInt("RATE_LIMIT_MAX", 100),
   DB_WAIT_ATTEMPTS: requiredInt("DB_WAIT_ATTEMPTS"),
-  JWT_SECRET: process.env.JWT_SECRET?.trim() || "ta_payroll_secret_jwt_key_2026_super_secure_99",
+  JWT_SECRET: requiredSecret("JWT_SECRET", 32),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN?.trim() || "1d",
 } as const;
