@@ -290,3 +290,31 @@ with open(html_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print("HTML generated successfully! File size:", len(html_content))
+
+# Also write to SKRIPSI_A_TA_FINAL.doc (Word-compatible HTML format)
+doc_final_path = os.path.join(skripsi_dir, "SKRIPSI_A_TA_FINAL.doc")
+with open(doc_final_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+print("SKRIPSI_A_TA_FINAL.doc generated successfully!")
+
+# Automatically compile to SKRIPSI_A_TA_FINAL.pdf using Microsoft Edge headless
+import subprocess
+pdf_final_path = os.path.join(skripsi_dir, "SKRIPSI_A_TA_FINAL.pdf")
+edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+if os.path.exists(edge_path):
+    print("Mencetak SKRIPSI_A_TA_FINAL.pdf via Edge headless...")
+    cmd = [
+        edge_path,
+        "--headless=new",
+        "--disable-gpu",
+        "--no-pdf-header-footer",
+        f"--print-to-pdf={pdf_final_path}",
+        f"file:///{html_path.replace(os.sep, '/')}"
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if os.path.exists(pdf_final_path):
+        print(f"SUKSES! SKRIPSI_A_TA_FINAL.pdf berhasil dibuat ({os.path.getsize(pdf_final_path)} bytes)")
+    else:
+        print("Gagal generate PDF via Edge:", res.stderr)
+else:
+    print("Path Microsoft Edge tidak ditemukan.")

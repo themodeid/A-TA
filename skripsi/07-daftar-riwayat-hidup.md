@@ -17,7 +17,7 @@
   </tr>
   <tr>
     <td style="border: none; padding: 4px 0;">Tempat, Tanggal Lahir</td>
-    <td style="border: none; padding: 4px 0;">: Jakarta, 12 Mei 2001</td>
+    <td style="border: none; padding: 4px 0;">: Jakarta, 5 April 2005</td>
   </tr>
   <tr>
     <td style="border: none; padding: 4px 0;">Jenis Kelamin</td>

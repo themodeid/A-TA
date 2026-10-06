@@ -2138,9 +2138,9 @@ Berdasarkan hasil analisis, perancangan, implementasi, serta pengujian Sistem In
 3. Hasil pengujian fungsionalitas dan keandalan sistem menggunakan kombinasi metode *Black Box Testing* dan *White Box Testing* (*Automated Unit Testing* berbasis Jest) membuktikan bahwa seluruh 20 skenario fungsional antarmuka serta 15 skenario komputasi logika bisnis penggajian (tunjangan keluarga, honor jam lebih, transport WFO, dan potongan kasbon) terverifikasi lulus 100% (*all passed*). Pengujian ini menjamin bahwa sistem beroperasi secara akurat, bebas dari cacat logika matematis (*zero logical bug*), dan sangat layak untuk diterapkan pada operasional SMK PSKD 3 Jakarta.
 
 ## B. Saran
-Kami memiliki harapan besar agar implementasi aplikasi penggajian ini mampu memperkuat transformasi tata kelola administrasi di lingkungan SMK PSKD 3 Jakarta. Namun, kami menyadari sistem ini belum terintegrasi secara *real-time* berbasis API (*Application Programming Interface*) dengan mesin *fingerprint* biometrik serta belum terhubung langsung ke layanan *payment gateway* perbankan untuk fungsi pencairan otomatis (transfer). 
+Penulis memiliki harapan besar agar implementasi sistem informasi penggajian ini mampu memperkuat tata kelola administrasi di lingkungan SMK PSKD 3 Jakarta. Namun, penulis menyadari sistem ini belum terintegrasi secara *real-time* berbasis API (*Application Programming Interface*) dengan mesin *fingerprint* biometrik serta belum terhubung langsung ke layanan *payment gateway* perbankan untuk fungsi pencairan otomatis (transfer). 
 
-Oleh karena itu, kami menyarankan bagi instansi dan pihak peneliti selanjutnya agar dapat melakukan pengembangan riset dengan menambahkan modul perhitungan otomatis Pajak Penghasilan (PPh Pasal 21) bagi pegawai tetap dan tidak tetap. Selain itu, kami juga sangat merekomendasikan pembangunan versi *mobile app* berbasis Android dan iOS, guna memperluas jangkauan portabilitas pengguna dalam mengakses rincian slip gaji bulanan mereka kapan pun dengan lebih efisien.
+Oleh karena itu, penulis menyarankan bagi instansi dan pihak peneliti selanjutnya agar dapat melakukan pengembangan riset dengan menambahkan modul perhitungan otomatis Pajak Penghasilan (PPh Pasal 21) bagi pegawai tetap dan tidak tetap. Selain itu, penulis juga merekomendasikan pembangunan versi *mobile app* berbasis Android dan iOS, guna memperluas jangkauan pengguna dalam mengakses rincian slip gaji bulanan mereka secara lebih praktis kapan saja.
 
 ---
 
@@ -2247,7 +2247,7 @@ Wieruch, R. (2022). *The Road to React: Your Journey to Master Plain Yet Pragmat
   </tr>
   <tr>
     <td style="border: none; padding: 4px 0;">Tempat, Tanggal Lahir</td>
-    <td style="border: none; padding: 4px 0;">: Jakarta, 12 Mei 2001</td>
+    <td style="border: none; padding: 4px 0;">: Jakarta, 5 April 2005</td>
   </tr>
   <tr>
     <td style="border: none; padding: 4px 0;">Jenis Kelamin</td>
