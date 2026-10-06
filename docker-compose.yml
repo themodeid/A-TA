@@ -41,6 +41,7 @@ services:
     build:
       context: ./be
       dockerfile: Dockerfile
+      target: development
       args:
         - BACKEND_PORT=${BACKEND_PORT}
     container_name: ${BACKEND_CONTAINER_NAME}
@@ -64,6 +65,7 @@ services:
     build:
       context: ./fe
       dockerfile: dockerfile
+      target: development
       args:
         - FRONTEND_PORT=${FRONTEND_PORT}
         - NEXT_PUBLIC_API_URL=http://${APP_PUBLIC_HOST}:${BACKEND_PORT}${API_KONTAK_PATH}

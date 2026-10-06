@@ -1,16 +1,67 @@
-FROM node:20-alpine
-
+# -------------------------------------------------------------
+# 1. Base Stage
+# -------------------------------------------------------------
+FROM node:20-alpine AS base
 WORKDIR /app
+ARG FRONTEND_PORT=3041
+ENV PORT=${FRONTEND_PORT}
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Cache & install dependencies
+# -------------------------------------------------------------
+# 2. Development Stage: Koding Harian & Hot-Reload
+# -------------------------------------------------------------
+FROM base AS development
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+COPY . .
+EXPOSE ${PORT}
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["npm", "run", "dev"]
+
+# -------------------------------------------------------------
+# 3. Dependencies Stage: Full deps untuk compile Next.js
+# -------------------------------------------------------------
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
+# -------------------------------------------------------------
+# 4. Builder Stage: Build Next.js standalone
+# -------------------------------------------------------------
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG INTERNAL_API_URL
+ENV INTERNAL_API_URL=${INTERNAL_API_URL}
+RUN npm run build
 
-# Healthcheck menggunakan fallback port jika process.env.PORT kosong
+# -------------------------------------------------------------
+# 5. Production Runner Stage: Minimalis & Non-Root
+# -------------------------------------------------------------
+FROM base AS runner
+ENV NODE_ENV=production
+
+# Non-root user setup
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Salin aset publik dan server standalone
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE ${PORT}
+ENV HOSTNAME="0.0.0.0"
+
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3041)).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT).then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["npm", "run", "dev"]
+CMD ["node", "server.js"]

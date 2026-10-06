@@ -1,0 +1,122 @@
+# =============================================================================
+# A-TA (SISTEM PENGGAJIAN SMK PSKD 3 JAKARTA) - PRODUCTION DOCKER COMPOSE
+# Standar Keamanan Enterprise:
+# - Zero DB / Redis port exposure ke internet publik (internal network only)
+# - Container non-root execution (USER node di backend, USER nextjs di frontend)
+# - Resource limits RAM untuk stabilitas VPS 4 GB (Hostinger KVM 1)
+# - Multi-stage runner image minimalis (< 200 MB)
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ta-postgres-prod
+    restart: always
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ta_payroll_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ta_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ta_postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - ta_internal_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: ta-redis-prod
+    restart: always
+    env_file:
+      - .env.production
+    volumes:
+      - ta_redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - ta_internal_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  backend:
+    build:
+      context: ./be
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        - BACKEND_PORT=3040
+    container_name: ta-backend-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3040
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ta_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ta_payroll_db}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3041}
+    networks:
+      - ta_internal_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./fe
+      dockerfile: dockerfile
+      target: runner
+      args:
+        - FRONTEND_PORT=3041
+        - INTERNAL_API_URL=http://backend:3040/api
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3040/api}
+    container_name: ta-frontend-prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_started
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3041
+      HOSTNAME: 0.0.0.0
+      INTERNAL_API_URL: http://backend:3040/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3040/api}
+    networks:
+      - ta_internal_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+networks:
+  ta_internal_network:
+    driver: bridge
+
+volumes:
+  ta_postgres_prod_data:
+  ta_redis_prod_data:

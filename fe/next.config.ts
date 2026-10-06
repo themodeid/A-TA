@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const defaultPublicApiUrl = "http://localhost:3040/api";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL?.trim() || defaultPublicApiUrl,
