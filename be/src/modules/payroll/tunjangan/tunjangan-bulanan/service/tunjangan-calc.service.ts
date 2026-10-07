@@ -39,9 +39,17 @@ const executeTunjanganSync = async (
   `;
   await client.query(initHeaderQuery, [id_periode]);
 
-  // 2. Sinkronisasi jam lembur dan honor_bulan jika terdapat data di tb_koreksi_jam
+  // 2. Sinkronisasi jam lembur & honor_bulan (Menyatukan jam lebih guru tb_jam_mengajar dan lembur staf tb_koreksi_jam)
   const updateLemburQuery = `
-    WITH rekap_lembur AS (
+    WITH jam_guru AS (
+      SELECT 
+        id_pegawai,
+        COALESCE(SUM(jam_lebih), 0.00) AS total_jam_guru
+      FROM tb_jam_mengajar
+      WHERE id_periode = $1
+      GROUP BY id_pegawai
+    ),
+    rekap_koreksi AS (
       SELECT 
         id_pegawai,
         COALESCE(SUM(
@@ -50,10 +58,19 @@ const executeTunjanganSync = async (
             WHEN jenis_koreksi = 'SUBTRACT' THEN -jam_koreksi 
             ELSE 0 
           END
-        ), 0.00) AS total_jam
+        ), 0.00) AS total_jam_koreksi
       FROM tb_koreksi_jam
       WHERE id_periode = $1
       GROUP BY id_pegawai
+    ),
+    rekap_lembur AS (
+      SELECT 
+        p.id_pegawai,
+        (COALESCE(jg.total_jam_guru, 0.00) + COALESCE(rk.total_jam_koreksi, 0.00)) AS total_jam
+      FROM tb_pegawai p
+      LEFT JOIN jam_guru jg ON p.id_pegawai = jg.id_pegawai
+      LEFT JOIN rekap_koreksi rk ON p.id_pegawai = rk.id_pegawai
+      WHERE p.deleted_at IS NULL
     ),
     tarif_lembur AS (
       SELECT COALESCE(nilai, 0.00) AS rate 
@@ -110,6 +127,13 @@ const executeTunjanganSync = async (
     DO UPDATE SET nilai_terhitung = EXCLUDED.nilai_terhitung;
   `;
   await client.query(upsertDetailQuery, [id_periode]);
+
+  // 3b. Anti-Zombie Record: Bersihkan baris detail untuk master tunjangan yang telah di-soft delete
+  await client.query(`
+    DELETE FROM tb_tunjangan_bulanan_detail
+    WHERE id_periode = $1
+      AND id_tunjangan IN (SELECT id_tunjangan FROM tb_tunjangan WHERE deleted_at IS NOT NULL);
+  `, [id_periode]);
 
   // 4. Update Header total_tunjangan_terhitung (Agregasi Lembur + Seluruh Detail)
   const updateTotalHeaderQuery = `

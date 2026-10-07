@@ -92,28 +92,43 @@ export const createAbsensiBulk = async (
   try {
     await client.query("BEGIN");
 
-    // 2. Ambil jumlah hari maksimal periode ini
+    // 2. Ambil jumlah hari maksimal periode ini & cek status periode
     const periodeResult = await client.query(
-      `SELECT (tanggal_akhir - tanggal_awal + 1) AS jumlah_hari 
-       FROM tb_periode WHERE id_periode = $1`,
+      `SELECT status, (tanggal_akhir - tanggal_awal + 1) AS jumlah_hari 
+       FROM tb_periode WHERE id_periode = $1 AND deleted_at IS NULL`,
       [idPeriode],
     );
-    const jumlahHariPeriode = periodeResult.rows[0]?.jumlah_hari;
+    const periodeRow = periodeResult.rows[0];
 
-    if (!jumlahHariPeriode) {
+    if (!periodeRow || !periodeRow.jumlah_hari) {
       throw new Error(
         `Periode ID ${idPeriode} tidak ditemukan atau tanggal periode belum diset.`,
       );
     }
 
-    // 3. Validasi tiap pegawai: total tidak boleh melebihi jumlah hari periode
+    if (["Dikunci", "Selesai", "Diproses Gaji"].includes(periodeRow.status)) {
+      throw new Error(
+        `Gagal. Periode berstatus '${periodeRow.status}' sehingga absensi tidak dapat diubah.`,
+      );
+    }
+
+    const jumlahHariPeriode = Number(periodeRow.jumlah_hari);
+
+    // 3. Validasi tiap pegawai: tolak angka negatif & total tidak boleh melebihi jumlah hari periode
     for (const data of validDataList) {
-      const total =
-        Number(data.total_hadir_ops_wfo || 0) +
-        Number(data.total_hadir_ops_wfh || 0) +
-        Number(data.total_izin || 0) +
-        Number(data.total_sakit || 0) +
-        Number(data.total_alpha || 0);
+      const wfo = Number(data.total_hadir_ops_wfo || 0);
+      const wfh = Number(data.total_hadir_ops_wfh || 0);
+      const izin = Number(data.total_izin || 0);
+      const sakit = Number(data.total_sakit || 0);
+      const alpha = Number(data.total_alpha || 0);
+
+      if (wfo < 0 || wfh < 0 || izin < 0 || sakit < 0 || alpha < 0) {
+        throw new Error(
+          `Pegawai ID ${data.id_pegawai}: Nilai absensi tidak boleh bernilai negatif.`,
+        );
+      }
+
+      const total = wfo + wfh + izin + sakit + alpha;
 
       if (total > jumlahHariPeriode) {
         throw new Error(
@@ -132,11 +147,11 @@ export const createAbsensiBulk = async (
           values.push(
             idPeriode,
             Number(data.id_pegawai),
-            Number(data.total_hadir_ops_wfo || 0),
-            Number(data.total_hadir_ops_wfh || 0),
-            Number(data.total_izin || 0),
-            Number(data.total_sakit || 0),
-            Number(data.total_alpha || 0),
+            Math.max(0, Number(data.total_hadir_ops_wfo || 0)),
+            Math.max(0, Number(data.total_hadir_ops_wfh || 0)),
+            Math.max(0, Number(data.total_izin || 0)),
+            Math.max(0, Number(data.total_sakit || 0)),
+            Math.max(0, Number(data.total_alpha || 0)),
           );
 
           return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
@@ -211,6 +226,37 @@ export const updateAbsensi = async (id: number, data: any) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // Langkah 0: Cek status periode & validasi nilai negatif
+    const checkPeriode = await client.query(
+      `SELECT p.status 
+       FROM tb_periode p
+       JOIN tb_absensi_summary a ON a.id_periode = p.id_periode
+       WHERE a.id_absensi_summary = $1 AND p.deleted_at IS NULL`,
+      [id],
+    );
+    if (checkPeriode.rows.length === 0) {
+      await client.query("ROLLBACK");
+      throw new Error("Data absensi atau periode tidak ditemukan!");
+    }
+    const currentStatus = checkPeriode.rows[0].status;
+    if (["Dikunci", "Selesai", "Diproses Gaji"].includes(currentStatus)) {
+      await client.query("ROLLBACK");
+      throw new Error(
+        `Gagal. Periode berstatus '${currentStatus}' sehingga absensi tidak dapat diubah.`,
+      );
+    }
+
+    if (
+      (data.total_hadir_ops_wfo !== undefined && Number(data.total_hadir_ops_wfo) < 0) ||
+      (data.total_hadir_ops_wfh !== undefined && Number(data.total_hadir_ops_wfh) < 0) ||
+      (data.total_izin !== undefined && Number(data.total_izin) < 0) ||
+      (data.total_sakit !== undefined && Number(data.total_sakit) < 0) ||
+      (data.total_alpha !== undefined && Number(data.total_alpha) < 0)
+    ) {
+      await client.query("ROLLBACK");
+      throw new Error("Nilai absensi tidak boleh bernilai negatif.");
+    }
 
     // Langkah A: Update data summary absensinya dulu
     const updateQuery = `

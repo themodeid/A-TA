@@ -66,14 +66,15 @@ export const getPegawaiDataForPayroll = async (
         COALESCE(tunj_b.honor_bulan, 0) AS honor_bulan,
         COALESCE(tunj_b.total_jam_lebih, 0) AS total_jam_lebih,
         
-        COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 2 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_istri_snapshot,
-        COALESCE(MAX(CASE WHEN t_detail.id_tunjangan = 3 THEN t_detail.nilai_terhitung END), 0) AS tunjangan_anak_snapshot,
+        COALESCE(MAX(CASE WHEN t.kode_kondisi = 'TUNJ_ISTRI' OR t.formula_type = 'PERSEN_GAJI_JIKA_KAWIN' THEN t_detail.nilai_terhitung END), 0) AS tunjangan_istri_snapshot,
+        COALESCE(MAX(CASE WHEN t.kode_kondisi = 'TUNJ_ANAK' OR t.formula_type = 'PERSEN_GAJI_PER_ANAK' THEN t_detail.nilai_terhitung END), 0) AS tunjangan_anak_snapshot,
 
-        COALESCE(pot.potongan_angsuran, 0) AS potongan_angsuran,
-        COALESCE(pot.potongan_dana_wajib, 0) AS potongan_dana_wajib,
-        COALESCE(pot.potongan_s_pskd, 0) AS potongan_s_pskd,
-        COALESCE(pot.potongan_pelkes, 0) AS potongan_pelkes,
-        COALESCE(pot.potongan_lainnya, 0) AS potongan_lainnya
+        COALESCE(MAX(CASE WHEN mp.kode_potongan IN ('POT_ANGSURAN', 'POT_TAKEN_LIST') THEN pbd.nilai_potongan END), 0) AS potongan_angsuran,
+        COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_DANA_WAJIB' THEN pbd.nilai_potongan END), 0) AS potongan_dana_wajib,
+        COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_S_PSKD' THEN pbd.nilai_potongan END), 0) AS potongan_s_pskd,
+        COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_PELKES' THEN pbd.nilai_potongan END), 0) AS potongan_pelkes,
+        COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_LAINNYA' THEN pbd.nilai_potongan END), 0) AS potongan_lainnya,
+        COALESCE(pot.total_potongan_terhitung, 0) AS total_potongan
 
       FROM tb_pegawai p
       INNER JOIN tb_jabatan j ON p.id_jabatan = j.id_jabatan
@@ -85,14 +86,20 @@ export const getPegawaiDataForPayroll = async (
         ON p.id_pegawai = tunj_b.id_pegawai AND tunj_b.id_periode = $1
       LEFT JOIN tb_tunjangan_bulanan_detail t_detail
         ON p.id_pegawai = t_detail.id_pegawai AND t_detail.id_periode = $1
+      LEFT JOIN tb_tunjangan t
+        ON t_detail.id_tunjangan = t.id_tunjangan
       LEFT JOIN tb_potongan_bulanan pot 
         ON p.id_pegawai = pot.id_pegawai AND pot.id_periode = $1
+      LEFT JOIN tb_potongan_bulanan_detail pbd
+        ON pot.id_periode = pbd.id_periode AND pot.id_pegawai = pbd.id_pegawai
+      LEFT JOIN tb_master_potongan mp
+        ON pbd.id_master_potongan = mp.id_master_potongan
 
       WHERE p.id_pegawai = $2 AND p.deleted_at IS NULL
       
       GROUP BY 
         p.id_pegawai, j.nama_jabatan, j.tunjangan_jabatan_struktural, g.nama_golongan, 
-        abs.id_absensi_summary, tunj_b.id_tunjangan_bulanan, pot.id_potongan_bulanan;
+        abs.id_absensi_summary, tunj_b.id_tunjangan_bulanan, pot.id_potongan_bulanan, pot.total_potongan_terhitung;
     `;
 
     const result = await client.query(query, [idPeriode, idPegawai]);
