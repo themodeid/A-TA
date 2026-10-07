@@ -86,7 +86,7 @@ export const initialize = async (id_periode: number) => {
       );
     }
 
-    // Insert Header Potongan untuk semua pegawai aktif
+    // 1. Insert Header Potongan untuk semua pegawai aktif
     const initHeaderQuery = `
       INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
       SELECT $1, id_pegawai, 0.00
@@ -96,8 +96,35 @@ export const initialize = async (id_periode: number) => {
     `;
     await client.query(initHeaderQuery, [id_periode]);
 
+    // 2. Insert Default Detail untuk Potongan yang bersifat 'BULANAN' dan memiliki nilai > 0
+    const initDetailQuery = `
+      INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+      SELECT $1, p.id_pegawai, mp.id_master_potongan, mp.nilai
+      FROM tb_pegawai p
+      CROSS JOIN tb_master_potongan mp
+      WHERE p.deleted_at IS NULL
+        AND mp.deleted_at IS NULL
+        AND mp.sifat_potongan = 'BULANAN'
+        AND mp.nilai > 0
+      ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
+    `;
+    await client.query(initDetailQuery, [id_periode]);
+
+    // 3. Sinkronisasi Header total_potongan_terhitung
+    const syncHeaderQuery = `
+      UPDATE tb_potongan_bulanan pb
+      SET total_potongan_terhitung = COALESCE(
+        (SELECT SUM(pbd.nilai_potongan) 
+         FROM tb_potongan_bulanan_detail pbd 
+         WHERE pbd.id_periode = pb.id_periode AND pbd.id_pegawai = pb.id_pegawai),
+        0.00
+      )
+      WHERE pb.id_periode = $1;
+    `;
+    await client.query(syncHeaderQuery, [id_periode]);
+
     await client.query("COMMIT");
-    return { message: "Inisialisasi wadah potongan bulanan berhasil!" };
+    return { message: "Inisialisasi wadah potongan bulanan beserta komponen rutin berhasil!" };
   } catch (error: any) {
     await client.query("ROLLBACK");
     throw error;
