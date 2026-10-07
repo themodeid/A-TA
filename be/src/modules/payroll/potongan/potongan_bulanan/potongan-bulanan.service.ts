@@ -49,14 +49,14 @@ export const getAllByPeriode = async (id_periode: number) => {
             'kode_potongan', mp.kode_potongan,
             'nilai_potongan', pbd.nilai_potongan
           )
-        ) FILTER (WHERE pbd.id_potongan_detail IS NOT NULL), '[]'
+        ) FILTER (WHERE pbd.id_potongan_detail IS NOT NULL AND mp.id_master_potongan IS NOT NULL), '[]'
       ) AS details
     FROM tb_potongan_bulanan pb
     JOIN tb_pegawai p ON pb.id_pegawai = p.id_pegawai
     LEFT JOIN tb_potongan_bulanan_detail pbd 
       ON pb.id_periode = pbd.id_periode AND pb.id_pegawai = pbd.id_pegawai
     LEFT JOIN tb_master_potongan mp 
-      ON pbd.id_master_potongan = mp.id_master_potongan
+      ON pbd.id_master_potongan = mp.id_master_potongan AND mp.deleted_at IS NULL
     WHERE pb.id_periode = $1
     GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir, pb.total_potongan_terhitung
     ORDER BY p.nama_dan_tanggal_lahir ASC;

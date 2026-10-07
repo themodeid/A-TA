@@ -124,12 +124,55 @@ export const updateMasterPotongan = async (
  * Soft delete master potongan (Set column deleted_at)
  */
 export const deleteMasterPotongan = async (id: number) => {
-  const query = `
-    UPDATE tb_master_potongan 
-    SET deleted_at = NOW() 
-    WHERE id_master_potongan = $1 AND deleted_at IS NULL
-    RETURNING id_master_potongan;
-  `;
-  const result = await pool.query(query, [id]);
-  return result.rows.length > 0;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Soft delete master potongan
+    const updateMaster = await client.query(
+      `UPDATE tb_master_potongan 
+       SET deleted_at = NOW() 
+       WHERE id_master_potongan = $1 AND deleted_at IS NULL
+       RETURNING id_master_potongan;`,
+      [id],
+    );
+
+    if (updateMaster.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    // 2. Cascade Purge: Bersihkan baris detail di periode aktif yang belum dikunci
+    await client.query(
+      `DELETE FROM tb_potongan_bulanan_detail 
+       WHERE id_master_potongan = $1 
+         AND id_periode IN (
+           SELECT id_periode FROM tb_periode 
+           WHERE status NOT IN ('Dikunci', 'Selesai', 'Diproses Gaji')
+         );`,
+    );
+
+    // 3. Recalculate: Sinkronisasi ulang header total_potongan_terhitung untuk periode aktif
+    await client.query(
+      `UPDATE tb_potongan_bulanan pb
+       SET total_potongan_terhitung = COALESCE(
+         (SELECT SUM(pbd.nilai_potongan) 
+          FROM tb_potongan_bulanan_detail pbd 
+          WHERE pbd.id_periode = pb.id_periode AND pbd.id_pegawai = pb.id_pegawai),
+         0.00
+       )
+       WHERE id_periode IN (
+         SELECT id_periode FROM tb_periode 
+         WHERE status NOT IN ('Dikunci', 'Selesai', 'Diproses Gaji')
+       );`,
+    );
+
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };

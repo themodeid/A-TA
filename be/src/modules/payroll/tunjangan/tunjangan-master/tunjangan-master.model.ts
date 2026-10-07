@@ -127,11 +127,48 @@ export const updateTunjanganMaster = async (
 export const softDeleteTunjanganMaster = async (id: number) => {
   const client = await pool.connect();
   try {
-    await client.query(
-      `UPDATE tb_tunjangan SET deleted_at = NOW() WHERE id_tunjangan = $1`,
+    await client.query("BEGIN");
+
+    // 1. Soft delete master tunjangan
+    const res = await client.query(
+      `UPDATE tb_tunjangan SET deleted_at = NOW() WHERE id_tunjangan = $1 AND deleted_at IS NULL RETURNING id_tunjangan;`,
       [id],
     );
+
+    if (res.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    // 2. Cascade Purge: Bersihkan baris detail di periode aktif yang belum dikunci
+    await client.query(
+      `DELETE FROM tb_tunjangan_bulanan_detail
+       WHERE id_tunjangan = $1
+         AND id_periode IN (
+           SELECT id_periode FROM tb_periode 
+           WHERE status NOT IN ('Dikunci', 'Selesai', 'Diproses Gaji')
+         );`,
+    );
+
+    // 3. Recalculate: Sinkronisasi ulang header total_tunjangan_terhitung untuk periode aktif
+    await client.query(
+      `UPDATE tb_tunjangan_bulanan tb
+       SET total_tunjangan_terhitung = ROUND(COALESCE(tb.honor_bulan, 0.00) + COALESCE((
+         SELECT SUM(nilai_terhitung)
+         FROM tb_tunjangan_bulanan_detail tbd
+         WHERE tbd.id_periode = tb.id_periode AND tbd.id_pegawai = tb.id_pegawai
+       ), 0.00), 0)
+       WHERE id_periode IN (
+         SELECT id_periode FROM tb_periode 
+         WHERE status NOT IN ('Dikunci', 'Selesai', 'Diproses Gaji')
+       );`,
+    );
+
+    await client.query("COMMIT");
     return true;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }
