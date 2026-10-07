@@ -190,7 +190,42 @@ export const saveBulk = async (
       }
     }
 
-    // 2. QUERY BATCH 1: Bulk Upsert Detail sekaligus dalam 1 Kali Hit Query
+    // 2. CIRCUIT BREAKER: Validasi mutlak agar total potongan tidak melebihi Gaji Pokok pegawai
+    const uniquePegawaiIds = Array.from(new Set(arrPegawai));
+    if (uniquePegawaiIds.length > 0) {
+      const pegRes = await client.query(
+        `SELECT id_pegawai, nama_dan_tanggal_lahir, COALESCE(gaji_pokok_dasar, 0)::float AS gaji_pokok_dasar
+         FROM tb_pegawai
+         WHERE id_pegawai = ANY($1::int[]) AND deleted_at IS NULL;`,
+        [uniquePegawaiIds],
+      );
+      const pegMap = new Map<number, { nama: string; gapok: number }>();
+      pegRes.rows.forEach((r: any) => {
+        pegMap.set(r.id_pegawai, {
+          nama: r.nama_dan_tanggal_lahir,
+          gapok: Number(r.gaji_pokok_dasar) || 0,
+        });
+      });
+
+      // Hitung total potongan per pegawai dari payload
+      const totalPerPegawai = new Map<number, number>();
+      for (let i = 0; i < arrPegawai.length; i++) {
+        const pId = arrPegawai[i];
+        const val = arrNilaiPot[i] || 0;
+        totalPerPegawai.set(pId, (totalPerPegawai.get(pId) || 0) + val);
+      }
+
+      for (const [pId, totalPot] of totalPerPegawai.entries()) {
+        const peg = pegMap.get(pId);
+        if (peg && peg.gapok > 0 && totalPot > peg.gapok) {
+          throw new Error(
+            `Gagal validasi: Total potongan untuk "${peg.nama}" (Rp ${Math.round(totalPot).toLocaleString("id-ID")}) melampaui Gaji Pokok (Rp ${Math.round(peg.gapok).toLocaleString("id-ID")}). Pemotongan upah tidak boleh menghasilkan nilai negatif!`,
+          );
+        }
+      }
+    }
+
+    // 3. QUERY BATCH 1: Bulk Upsert Detail sekaligus dalam 1 Kali Hit Query
     if (arrPegawai.length > 0) {
       const upsertDetailBulk = `
         INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)

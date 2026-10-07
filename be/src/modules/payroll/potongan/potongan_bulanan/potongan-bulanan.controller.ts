@@ -61,7 +61,7 @@ export const saveBulkPotongan = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error: any) {
-    return res.status(500).json({
+    return res.status(400).json({
       status: "error",
       message: error.message || "Gagal menyimpan data potongan massal",
     });

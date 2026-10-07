@@ -251,11 +251,22 @@ export default function ApprovalPage() {
     0,
   );
 
+  const negativeEmployees = useMemo(() => {
+    return mergedEmployees.filter((e) => e.estimasi_thp < 0);
+  }, [mergedEmployees]);
+  const hasNegativeSalary = negativeEmployees.length > 0;
+
   const handleApprove = async () => {
     if (!selectedPeriodeId) return;
     if (!isAbsensiComplete) {
       setErrorMsg(
         "Gagal Approve: Absensi semua pegawai belum terisi lengkap. Harap minta staf gaji melengkapi data absensi terlebih dahulu.",
+      );
+      return;
+    }
+    if (hasNegativeSalary) {
+      setErrorMsg(
+        `Gagal Approve: Ditemukan ${negativeEmployees.length} pegawai dengan Take Home Pay negatif/minus (${negativeEmployees.map((e) => e.nama).join(", ")}). Harap tolak periode ini agar staf TU mengoreksi cicilan kasbon terlebih dahulu.`,
       );
       return;
     }
@@ -480,9 +491,22 @@ export default function ApprovalPage() {
                       </TableCell>
 
                       <TableCell>
-                        <span className="font-bold text-emerald-300">
-                          {formatRupiah(emp.estimasi_thp)}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`font-mono tabular-nums font-bold ${
+                              emp.estimasi_thp < 0
+                                ? "text-[#f85149]"
+                                : "text-[#3fb950]"
+                            }`}
+                          >
+                            {formatRupiah(emp.estimasi_thp)}
+                          </span>
+                          {emp.estimasi_thp < 0 && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40">
+                              🚨 Minus
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -691,7 +715,22 @@ export default function ApprovalPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-4">
+            {/* Anomali Gaji Minus Alert Banner (GitHub Primer Style) */}
+            {hasNegativeSalary && (
+              <div className="p-4 rounded-md bg-[#da3633]/15 border border-[#da3633]/50 text-[#f85149] flex items-start gap-3">
+                <span className="text-xl leading-none">⛔</span>
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-[#f85149]">
+                    Ditemukan Anomali Penggajian: Gaji Bersih Minus ({negativeEmployees.length} Pegawai)!
+                  </h4>
+                  <p className="text-xs text-[#c9d1d9] leading-relaxed">
+                    Terdapat pegawai (<strong>{negativeEmployees.map((e) => e.nama).join(", ")}</strong>) dengan total potongan yang melampaui seluruh penghasilan kotor. Sistem melarang pengesahan gaji minus. Silakan tolak draft ini agar staf TU merevisi potongan kasbon.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Status Absensi Banner */}
             <div
               className={`p-4 rounded-xl border flex items-center justify-between ${
@@ -734,10 +773,19 @@ export default function ApprovalPage() {
               <Button
                 onClick={handleApprove}
                 isLoading={loading}
-                disabled={!isAbsensiComplete}
-                className={`bg-emerald-600 hover:bg-emerald-500 text-white ${
-                  !isAbsensiComplete ? "opacity-50 cursor-not-allowed" : ""
+                disabled={!isAbsensiComplete || hasNegativeSalary}
+                className={`bg-[#238636] hover:bg-[#2ea043] text-white border border-[#2ea043]/30 ${
+                  !isAbsensiComplete || hasNegativeSalary
+                    ? "opacity-40 cursor-not-allowed"
+                    : ""
                 }`}
+                title={
+                  hasNegativeSalary
+                    ? "Ditolak: Ditemukan pegawai dengan Take Home Pay minus"
+                    : !isAbsensiComplete
+                    ? "Absensi belum lengkap"
+                    : "Setujui periode"
+                }
               >
                 ✅ Setujui Periode (Approve)
               </Button>
@@ -766,54 +814,54 @@ export default function ApprovalPage() {
         }
       >
         {selectedDetail && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {/* Header Data Pegawai */}
-            <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-md grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-slate-400">Jabatan:</span>
-                <p className="font-semibold text-slate-200 mt-0.5">{selectedDetail.jabatan}</p>
+                <span className="text-[#8b949e]">Jabatan:</span>
+                <p className="font-semibold text-[#f0f6fc] mt-0.5">{selectedDetail.jabatan}</p>
               </div>
               <div>
-                <span className="text-slate-400">Golongan:</span>
-                <p className="font-semibold text-slate-200 mt-0.5">{selectedDetail.golongan}</p>
+                <span className="text-[#8b949e]">Golongan:</span>
+                <p className="font-semibold text-[#f0f6fc] mt-0.5">{selectedDetail.golongan}</p>
               </div>
               <div>
-                <span className="text-slate-400">Status Nikah:</span>
-                <p className="font-semibold text-slate-200 mt-0.5">
+                <span className="text-[#8b949e]">Status Nikah:</span>
+                <p className="font-semibold text-[#f0f6fc] mt-0.5">
                   {selectedDetail.status_nikah === "K" ? "Kawin" : "Tidak Kawin"}
                 </p>
               </div>
               <div>
-                <span className="text-slate-400">Jumlah Anak:</span>
-                <p className="font-semibold text-slate-200 mt-0.5">{selectedDetail.jumlah_anak} Anak</p>
+                <span className="text-[#8b949e]">Jumlah Anak:</span>
+                <p className="font-semibold text-[#f0f6fc] mt-0.5">{selectedDetail.jumlah_anak} Anak</p>
               </div>
             </div>
 
             {/* Rincian Kehadiran */}
-            <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-              <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                📋 Rekap Kehadiran Operasional
+            <div className="p-3 bg-[#161b22] border border-[#30363d] rounded-md">
+              <h5 className="text-[11px] font-semibold text-[#8b949e] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span>📋 Rekap Kehadiran Operasional</span>
               </h5>
               <div className="grid grid-cols-5 gap-2 text-center text-xs">
-                <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60">
-                  <span className="text-slate-400 text-[10px]">Hadir WFO</span>
-                  <p className="font-bold text-emerald-300 text-sm mt-0.5">{selectedDetail.hadir_wfo}</p>
+                <div className="p-2 rounded bg-[#21262d] border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[10px] block">Hadir WFO</span>
+                  <p className="font-mono font-bold text-[#3fb950] text-sm mt-0.5">{selectedDetail.hadir_wfo}</p>
                 </div>
-                <div className="p-2 rounded-lg bg-cyan-950/40 border border-cyan-800/60">
-                  <span className="text-slate-400 text-[10px]">Hadir WFH</span>
-                  <p className="font-bold text-cyan-300 text-sm mt-0.5">{selectedDetail.hadir_wfh}</p>
+                <div className="p-2 rounded bg-[#21262d] border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[10px] block">Hadir WFH</span>
+                  <p className="font-mono font-bold text-[#58a6ff] text-sm mt-0.5">{selectedDetail.hadir_wfh}</p>
                 </div>
-                <div className="p-2 rounded-lg bg-amber-950/40 border border-amber-800/60">
-                  <span className="text-slate-400 text-[10px]">Izin</span>
-                  <p className="font-bold text-amber-300 text-sm mt-0.5">{selectedDetail.izin}</p>
+                <div className="p-2 rounded bg-[#21262d] border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[10px] block">Izin</span>
+                  <p className="font-mono font-bold text-[#d29922] text-sm mt-0.5">{selectedDetail.izin}</p>
                 </div>
-                <div className="p-2 rounded-lg bg-blue-950/40 border border-blue-800/60">
-                  <span className="text-slate-400 text-[10px]">Sakit</span>
-                  <p className="font-bold text-blue-300 text-sm mt-0.5">{selectedDetail.sakit}</p>
+                <div className="p-2 rounded bg-[#21262d] border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[10px] block">Sakit</span>
+                  <p className="font-mono font-bold text-[#bc8cff] text-sm mt-0.5">{selectedDetail.sakit}</p>
                 </div>
-                <div className="p-2 rounded-lg bg-rose-950/40 border border-rose-800/60">
-                  <span className="text-slate-400 text-[10px]">Alpha</span>
-                  <p className="font-bold text-rose-300 text-sm mt-0.5">{selectedDetail.alpha}</p>
+                <div className="p-2 rounded bg-[#21262d] border border-[#30363d]">
+                  <span className="text-[#8b949e] text-[10px] block">Alpha</span>
+                  <p className="font-mono font-bold text-[#f85149] text-sm mt-0.5">{selectedDetail.alpha}</p>
                 </div>
               </div>
             </div>
@@ -821,63 +869,73 @@ export default function ApprovalPage() {
             {/* Breakdown Finansial: Penerimaan vs Potongan */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Kolom Penerimaan */}
-              <div className="p-3.5 bg-indigo-950/30 border border-indigo-800/60 rounded-xl flex flex-col justify-between">
+              <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-md flex flex-col justify-between">
                 <div>
-                  <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2 flex items-center justify-between">
-                    <span>➕ Penerimaan Gaji & Tunjangan</span>
-                  </h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-[11px] font-semibold text-[#8b949e] uppercase tracking-wider">
+                      ➕ Penerimaan Gaji & Tunjangan
+                    </h5>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#238636]/15 border border-[#238636]/40 text-[#3fb950]">
+                      + Bruto
+                    </span>
+                  </div>
                   <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between py-1 border-b border-indigo-900/50">
-                      <span className="text-slate-300">Gaji Pokok Dasar:</span>
-                      <span className="font-semibold text-slate-100">{formatRupiah(selectedDetail.gaji_pokok)}</span>
+                    <div className="flex justify-between py-1 border-b border-[#21262d]">
+                      <span className="text-[#8b949e]">Gaji Pokok Dasar:</span>
+                      <span className="font-mono tabular-nums text-[#f0f6fc] font-medium">{formatRupiah(selectedDetail.gaji_pokok)}</span>
                     </div>
 
                     {selectedDetail.total_jam_lebih > 0 && (
-                      <div className="flex justify-between py-1 border-b border-indigo-900/50">
-                        <span className="text-slate-300">Jam Lembur ({selectedDetail.total_jam_lebih} Jam):</span>
-                        <span className="font-semibold text-amber-300">
+                      <div className="flex justify-between py-1 border-b border-[#21262d]">
+                        <span className="text-[#8b949e]">Jam Lembur ({selectedDetail.total_jam_lebih} Jam):</span>
+                        <span className="font-mono tabular-nums text-[#d29922] font-medium">
                           {formatRupiah(selectedDetail.total_jam_lebih * 25000)}
                         </span>
                       </div>
                     )}
 
                     {selectedDetail.honor_bulan > 0 && (
-                      <div className="flex justify-between py-1 border-b border-indigo-900/50">
-                        <span className="text-slate-300">Honor Bulan:</span>
-                        <span className="font-semibold text-slate-100">{formatRupiah(selectedDetail.honor_bulan)}</span>
+                      <div className="flex justify-between py-1 border-b border-[#21262d]">
+                        <span className="text-[#8b949e]">Honor Bulan:</span>
+                        <span className="font-mono tabular-nums text-[#f0f6fc] font-medium">{formatRupiah(selectedDetail.honor_bulan)}</span>
                       </div>
                     )}
 
                     {selectedDetail.tunjangan_details.map((d: any, i: number) => (
-                      <div key={i} className="flex justify-between py-1 border-b border-indigo-900/50">
-                        <span className="text-slate-300">{d.nama_tunjangan || "Tunjangan"}:</span>
-                        <span className="font-semibold text-slate-100">{formatRupiah(Number(d.nilai_terhitung))}</span>
+                      <div key={i} className="flex justify-between py-1 border-b border-[#21262d]">
+                        <span className="text-[#8b949e]">{d.nama_tunjangan || "Tunjangan"}:</span>
+                        <span className="font-mono tabular-nums text-[#f0f6fc] font-medium">{formatRupiah(Number(d.nilai_terhitung))}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="pt-3 mt-2 border-t border-indigo-700/60 flex justify-between text-xs font-bold text-indigo-200">
-                  <span>Total Penghasilan Kotor:</span>
-                  <span>{formatRupiah(selectedDetail.gaji_pokok + selectedDetail.total_tunjangan)}</span>
+                <div className="pt-2.5 mt-2 border-t border-[#30363d] flex justify-between text-xs font-semibold">
+                  <span className="text-[#8b949e]">Total Penghasilan Kotor:</span>
+                  <span className="font-mono tabular-nums text-[#3fb950]">{formatRupiah(selectedDetail.gaji_pokok + selectedDetail.total_tunjangan)}</span>
                 </div>
               </div>
 
               {/* Kolom Potongan */}
-              <div className="p-3.5 bg-rose-950/30 border border-rose-800/60 rounded-xl flex flex-col justify-between">
+              <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-md flex flex-col justify-between">
                 <div>
-                  <h5 className="text-xs font-bold text-rose-300 uppercase tracking-wider mb-2">
-                    ➖ Potongan (Taken List)
-                  </h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-[11px] font-semibold text-[#8b949e] uppercase tracking-wider">
+                      ➖ Potongan (Taken List & Kasbon)
+                    </h5>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#da3633]/15 border border-[#da3633]/40 text-[#f85149]">
+                      - Deduksi
+                    </span>
+                  </div>
                   <div className="space-y-1.5 text-xs">
                     {selectedDetail.total_potongan === 0 ? (
-                      <p className="text-slate-400 py-3 text-center italic">
+                      <p className="text-[#8b949e] py-3 text-center italic">
                         Tidak ada potongan pinjaman / kas pada periode ini.
                       </p>
                     ) : (
-                      <div className="flex justify-between py-1 border-b border-rose-900/50">
-                        <span className="text-slate-300">Taken List / Kas Pinjaman:</span>
-                        <span className="font-semibold text-rose-300">
+                      <div className="flex justify-between py-1 border-b border-[#21262d]">
+                        <span className="text-[#8b949e]">Taken List / Kas Pinjaman:</span>
+                        <span className="font-mono tabular-nums text-[#f85149] font-medium">
                           - {formatRupiah(selectedDetail.total_potongan)}
                         </span>
                       </div>
@@ -885,25 +943,48 @@ export default function ApprovalPage() {
                   </div>
                 </div>
 
-                <div className="pt-3 mt-2 border-t border-rose-700/60 flex justify-between text-xs font-bold text-rose-200">
-                  <span>Total Potongan:</span>
-                  <span>- {formatRupiah(selectedDetail.total_potongan)}</span>
+                <div className="pt-2.5 mt-2 border-t border-[#30363d] flex justify-between text-xs font-semibold">
+                  <span className="text-[#8b949e]">Total Potongan:</span>
+                  <span className="font-mono tabular-nums text-[#f85149]">- {formatRupiah(selectedDetail.total_potongan)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Total Estimasi THP Pegawai */}
-            <div className="p-4 bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-700 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="text-xs text-emerald-300">Estimasi Gaji Bersih Diterima (Take Home Pay):</span>
-                <h4 className="text-xl font-black text-emerald-200 mt-0.5">
-                  {formatRupiah(selectedDetail.estimasi_thp)}
-                </h4>
+            {/* Total Estimasi THP Pegawai (Dynamic Warning vs Green) */}
+            {selectedDetail.estimasi_thp < 0 ? (
+              <div className="p-3.5 bg-[#da3633]/10 border border-[#da3633]/50 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#f85149]">
+                      Estimasi Gaji Bersih Diterima (Take Home Pay):
+                    </span>
+                  </div>
+                  <h4 className="text-xl font-black font-mono tabular-nums text-[#f85149] mt-0.5">
+                    {formatRupiah(selectedDetail.estimasi_thp)}
+                  </h4>
+                  <p className="text-[11px] text-[#f85149]/90 mt-1">
+                    ⚠️ Total potongan melampaui penghasilan kotor. Periode dikunci otomatis dari pengesahan pimpinan sampai disesuaikan.
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/50 rounded-md text-xs font-bold shrink-0 self-start sm:self-center">
+                  🚨 Anomali: Gaji Minus (Ditolak)
+                </span>
               </div>
-              <span className="px-3 py-1 bg-emerald-900/60 text-emerald-300 border border-emerald-700 rounded-lg text-xs font-bold">
-                💵 Siap Dibayarkan
-              </span>
-            </div>
+            ) : (
+              <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-[#8b949e]">
+                    Estimasi Gaji Bersih Diterima (Take Home Pay):
+                  </span>
+                  <h4 className="text-xl font-black font-mono tabular-nums text-[#3fb950] mt-0.5">
+                    {formatRupiah(selectedDetail.estimasi_thp)}
+                  </h4>
+                </div>
+                <span className="px-2.5 py-1 bg-[#238636]/15 text-[#3fb950] border border-[#238636]/40 rounded-md text-xs font-bold shrink-0 self-start sm:self-center">
+                  💵 Siap Dibayarkan
+                </span>
+              </div>
+            )}
           </div>
         )}
       </Modal>

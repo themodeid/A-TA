@@ -274,6 +274,16 @@ export default function PotonganPage() {
     0,
   );
 
+  const editingGajiPokok = Number(editingRow?.gaji_pokok_dasar ?? 0);
+  const isEditingOver100Percent =
+    editingGajiPokok > 0 && modalCurrentTotal > editingGajiPokok;
+  const isEditingOver50Percent =
+    editingGajiPokok > 0 &&
+    modalCurrentTotal > editingGajiPokok * 0.5 &&
+    !isEditingOver100Percent;
+  const editingPercentage =
+    editingGajiPokok > 0 ? (modalCurrentTotal / editingGajiPokok) * 100 : 0;
+
   return (
     <PageContainer
       title="Transaksi Potongan (Taken List)"
@@ -467,7 +477,7 @@ export default function PotonganPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`font-bold ${
+                          className={`font-bold font-mono tabular-nums ${
                             total > 0 ? "text-rose-300" : "text-slate-500"
                           }`}
                         >
@@ -479,8 +489,8 @@ export default function PotonganPage() {
                             <span
                               className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
                                 total > row.gaji_pokok_dasar
-                                  ? "bg-red-950/80 text-red-300 border-red-700/80"
-                                  : "bg-amber-950/80 text-amber-300 border-amber-700/80"
+                                  ? "bg-[#da3633]/20 text-[#f85149] border-[#da3633]/50"
+                                  : "bg-[#d29922]/20 text-[#d29922] border-[#d29922]/50"
                               }`}
                               title={
                                 total > row.gaji_pokok_dasar
@@ -515,7 +525,7 @@ export default function PotonganPage() {
         )}
       </Card>
 
-      {/* MODAL INPUT / SESUAIKAN POTONGAN PEGAWAI (100% DINAMIS DARI MASTER POTONGAN) */}
+      {/* MODAL INPUT / SESUAIKAN POTONGAN PEGAWAI (GITHUB PRIMER STYLE + HARD GUARDRAIL) */}
       <Modal
         isOpen={!!editingRow}
         onClose={() => setEditingRow(null)}
@@ -523,13 +533,19 @@ export default function PotonganPage() {
         size="md"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setEditingRow(null)}>
+            <Button variant="secondary" onClick={() => setEditingRow(null)}>
               Batal
             </Button>
             <Button
               isLoading={saving}
+              disabled={saving || isEditingOver100Percent}
               onClick={handleSaveModal}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              className="bg-[#238636] hover:bg-[#2ea043] text-white disabled:bg-[#238636]/40 disabled:cursor-not-allowed border border-[#2ea043]/30 font-medium text-xs transition-colors"
+              title={
+                isEditingOver100Percent
+                  ? "Ditolak: Total potongan melampaui 100% Gaji Pokok"
+                  : "Simpan data potongan pegawai"
+              }
             >
               Simpan Potongan
             </Button>
@@ -537,55 +553,42 @@ export default function PotonganPage() {
         }
       >
         <div className="space-y-3.5">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[#8b949e]">
             Masukkan nominal potongan untuk pegawai ini pada periode{" "}
-            <strong>{selectedPeriode?.bulan_gaji}</strong>. Komponen yang muncul di bawah mengikuti data di <strong>Master Komponen Potongan</strong>.
+            <strong className="text-[#f0f6fc]">{selectedPeriode?.bulan_gaji}</strong>. Komponen yang muncul di bawah mengikuti data di <strong>Master Komponen Potongan</strong>.
           </p>
 
-          {/* GUARDRAIL OVER-DEDUCTION WARNINGS */}
-          {(() => {
-            const gajiPokok = Number(editingRow?.gaji_pokok_dasar ?? 0);
-            if (gajiPokok <= 0) return null;
-
-            const percentage = (modalCurrentTotal / gajiPokok) * 100;
-
-            if (modalCurrentTotal > gajiPokok) {
-              return (
-                <div className="rounded-lg border border-red-700 bg-red-950/80 p-3 text-xs text-red-200 flex items-start gap-2.5">
-                  <span className="text-base leading-none">🚨</span>
-                  <div>
-                    <div className="font-bold text-red-100">
-                      BAHAYA: Total Potongan Melebihi Gaji Pokok ({percentage.toFixed(1)}%)
-                    </div>
-                    <p className="mt-1 text-red-300/90 leading-relaxed">
-                      Total potongan ({formatRupiah(modalCurrentTotal)}) lebih besar dari Gaji Pokok ({formatRupiah(gajiPokok)}). Pegawai berisiko memiliki Take Home Pay Rp 0 atau minus!
-                    </p>
-                  </div>
+          {/* GITHUB PRIMER OVER-DEDUCTION GUARDRAIL WARNINGS */}
+          {isEditingOver100Percent && (
+            <div className="rounded-md border border-[#da3633]/60 bg-[#da3633]/15 p-3.5 text-xs text-[#f85149] flex items-start gap-2.5">
+              <span className="text-base leading-none">⛔</span>
+              <div>
+                <div className="font-bold text-[#f85149]">
+                  DIBLOKIR: Total Potongan Melebihi 100% Gaji Pokok ({editingPercentage.toFixed(1)}%)
                 </div>
-              );
-            }
+                <p className="mt-1 text-[#f85149]/90 leading-relaxed">
+                  Total potongan (<span className="font-mono tabular-nums">{formatRupiah(modalCurrentTotal)}</span>) lebih besar dari Gaji Pokok (<span className="font-mono tabular-nums">{formatRupiah(editingGajiPokok)}</span>). Sistem melarang pemotongan upah yang menghasilkan Take Home Pay minus! Silakan jadwalkan pinjaman/kasbon ini sebagai cicilan bulanan agar tidak melampaui batas upah.
+                </p>
+              </div>
+            </div>
+          )}
 
-            if (modalCurrentTotal > gajiPokok * 0.5) {
-              return (
-                <div className="rounded-lg border border-amber-600/70 bg-amber-950/70 p-3 text-xs text-amber-200 flex items-start gap-2.5">
-                  <span className="text-base leading-none">⚠️</span>
-                  <div>
-                    <div className="font-bold text-amber-100">
-                      PERINGATAN: Potongan Melebihi 50% Gaji Pokok ({percentage.toFixed(1)}%)
-                    </div>
-                    <p className="mt-1 text-amber-300/90 leading-relaxed">
-                      Sesuai PP No. 36/2021 Pasal 65, total pemotongan upah dianjurkan tidak melebihi 50% dari gaji pokok ({formatRupiah(gajiPokok)}) demi kelangsungan hidup pekerja.
-                    </p>
-                  </div>
+          {isEditingOver50Percent && (
+            <div className="rounded-md border border-[#d29922]/50 bg-[#d29922]/15 p-3.5 text-xs text-[#d29922] flex items-start gap-2.5">
+              <span className="text-base leading-none">⚠️</span>
+              <div>
+                <div className="font-bold text-[#d29922]">
+                  PERINGATAN: Potongan Melebihi 50% Gaji Pokok ({editingPercentage.toFixed(1)}%)
                 </div>
-              );
-            }
-
-            return null;
-          })()}
+                <p className="mt-1 text-[#d29922]/90 leading-relaxed">
+                  Sesuai PP No. 36/2021 Pasal 65, total pemotongan upah dianjurkan tidak melebihi 50% dari gaji pokok (<span className="font-mono tabular-nums">{formatRupiah(editingGajiPokok)}</span>) demi kelangsungan hidup pekerja.
+                </p>
+              </div>
+            </div>
+          )}
 
           {masterList.length === 0 ? (
-            <p className="text-xs text-slate-400 py-3 text-center">
+            <p className="text-xs text-[#8b949e] py-3 text-center">
               Belum ada komponen master potongan aktif di Master Data.
             </p>
           ) : (
@@ -608,43 +611,34 @@ export default function PotonganPage() {
             ))
           )}
 
-          <div className="pt-3 border-t border-slate-800 space-y-1.5">
-            {Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 && (
-              <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="pt-3 border-t border-[#30363d] space-y-1.5 bg-[#161b22]/60 p-3 rounded-md">
+            {editingGajiPokok > 0 && (
+              <div className="flex items-center justify-between text-xs text-[#8b949e]">
                 <span>Gaji Pokok Pegawai:</span>
-                <span className="font-medium text-slate-200">
-                  {formatRupiah(Number(editingRow?.gaji_pokok_dasar ?? 0))}
+                <span className="font-mono tabular-nums font-medium text-[#f0f6fc]">
+                  {formatRupiah(editingGajiPokok)}
                 </span>
               </div>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-300">
+              <span className="text-sm font-semibold text-[#f0f6fc]">
                 Total Potongan Pegawai:
               </span>
               <div className="text-right">
                 <span
-                  className={`text-base font-bold ${
-                    Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 &&
-                    modalCurrentTotal > Number(editingRow?.gaji_pokok_dasar ?? 0)
-                      ? "text-red-400"
-                      : Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 &&
-                        modalCurrentTotal >
-                          Number(editingRow?.gaji_pokok_dasar ?? 0) * 0.5
-                      ? "text-amber-400"
-                      : "text-rose-300"
+                  className={`text-base font-bold font-mono tabular-nums ${
+                    isEditingOver100Percent
+                      ? "text-[#f85149]"
+                      : isEditingOver50Percent
+                      ? "text-[#d29922]"
+                      : "text-[#f0f6fc]"
                   }`}
                 >
                   {formatRupiah(modalCurrentTotal)}
                 </span>
-                {Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 && (
-                  <span className="text-xs text-slate-400 ml-1.5">
-                    (
-                    {(
-                      (modalCurrentTotal /
-                        Number(editingRow?.gaji_pokok_dasar ?? 0)) *
-                      100
-                    ).toFixed(1)}
-                    % GP)
+                {editingGajiPokok > 0 && (
+                  <span className="text-xs text-[#8b949e] font-mono ml-1.5">
+                    ({editingPercentage.toFixed(1)}% GP)
                   </span>
                 )}
               </div>
