@@ -6,6 +6,7 @@ import {
   getPotonganByPeriode,
   initPotonganPeriode,
   savePotonganBulk,
+  copyPreviousPotongan,
 } from "@/features/potongan/api/potongan.api";
 import { getPotonganMaster } from "@/features/master/api/master.api";
 import { MasterPotongan, PotonganBulanan } from "@/types";
@@ -44,6 +45,7 @@ export default function PotonganPage() {
   const [masterList, setMasterList] = useState<MasterPotongan[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -99,6 +101,7 @@ export default function PotonganPage() {
         id_potongan_bulanan: item.id_potongan_bulanan,
         id_pegawai: item.id_pegawai,
         nama_dan_tanggal_lahir: item.nama_dan_tanggal_lahir,
+        gaji_pokok_dasar: Number(item.gaji_pokok_dasar ?? 0),
         total_potongan_terhitung: Number(item.total_potongan_terhitung ?? 0),
         potongan_angsuran: Number(item.potongan_angsuran ?? 0),
         potongan_dana_wajib: Number(item.potongan_dana_wajib ?? 0),
@@ -237,6 +240,35 @@ export default function PotonganPage() {
     }
   };
 
+  const handleCopyPrevious = async () => {
+    if (!selectedPeriodeId) return;
+    if (
+      !confirm(
+        `Salin rincian potongan dari periode sebelumnya ke periode ${selectedPeriode?.bulan_gaji}? Data potongan pada periode ini akan disinkronkan dengan bulan lalu.`,
+      )
+    ) {
+      return;
+    }
+
+    setCopying(true);
+    setErrorMsg(null);
+    dismissSuccess();
+
+    try {
+      const msg = await copyPreviousPotongan(selectedPeriodeId);
+      showSuccess(msg);
+      load();
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.message ||
+          err.message ||
+          "Gagal menyalin data potongan dari periode sebelumnya.",
+      );
+    } finally {
+      setCopying(false);
+    }
+  };
+
   const modalCurrentTotal = Object.values(dynamicForm).reduce(
     (sum, val) => sum + (Number(val) || 0),
     0,
@@ -247,11 +279,25 @@ export default function PotonganPage() {
       title="Transaksi Potongan (Taken List)"
       description="Kelola daftar potongan bulanan / taken list kas & pinjaman pegawai secara dinamis"
       action={
-        <div className="flex gap-2">
-          {!locked && rows.length === 0 && (
-            <Button variant="outline" onClick={handleInit}>
-              Inisialisasi Data
-            </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {!locked && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyPrevious}
+                isLoading={copying}
+                className="border-indigo-500/50 text-indigo-300 hover:bg-indigo-950/40 text-xs font-semibold"
+                title="Salin rincian potongan (SPP, kasbon, dll) dari periode sebelumnya"
+              >
+                ⚡ Salin dari Periode Sebelumnya
+              </Button>
+              {rows.length === 0 && (
+                <Button variant="secondary" size="sm" onClick={handleInit}>
+                  Inisialisasi Data
+                </Button>
+              )}
+            </>
           )}
         </div>
       }
@@ -344,9 +390,19 @@ export default function PotonganPage() {
               Belum ada data potongan untuk periode ini.
             </p>
             {!locked && (
-              <Button onClick={handleInit} variant="secondary">
-                ⚡ Inisialisasi Data Potongan
-              </Button>
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  onClick={handleCopyPrevious}
+                  variant="outline"
+                  isLoading={copying}
+                  className="border-indigo-500/50 text-indigo-300 hover:bg-indigo-950/40"
+                >
+                  ⚡ Salin dari Periode Sebelumnya
+                </Button>
+                <Button onClick={handleInit} variant="secondary">
+                  ⚡ Inisialisasi Data Baru
+                </Button>
+              </div>
             )}
           </div>
         ) : filteredRows.length === 0 ? (
@@ -409,13 +465,35 @@ export default function PotonganPage() {
                     </TableCell>
 
                     <TableCell>
-                      <span
-                        className={`font-bold ${
-                          total > 0 ? "text-rose-300" : "text-slate-500"
-                        }`}
-                      >
-                        {formatRupiah(total)}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`font-bold ${
+                            total > 0 ? "text-rose-300" : "text-slate-500"
+                          }`}
+                        >
+                          {formatRupiah(total)}
+                        </span>
+                        {row.gaji_pokok_dasar &&
+                          row.gaji_pokok_dasar > 0 &&
+                          total > row.gaji_pokok_dasar * 0.5 && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                total > row.gaji_pokok_dasar
+                                  ? "bg-red-950/80 text-red-300 border-red-700/80"
+                                  : "bg-amber-950/80 text-amber-300 border-amber-700/80"
+                              }`}
+                              title={
+                                total > row.gaji_pokok_dasar
+                                  ? "Total potongan melebihi 100% Gaji Pokok!"
+                                  : "Total potongan melebihi 50% Gaji Pokok (PP 36/2021)"
+                              }
+                            >
+                              {total > row.gaji_pokok_dasar
+                                ? "🚨 >100% GP"
+                                : "⚠️ >50% GP"}
+                            </span>
+                          )}
+                      </div>
                     </TableCell>
 
                     <TableCell className="text-right">
@@ -464,6 +542,48 @@ export default function PotonganPage() {
             <strong>{selectedPeriode?.bulan_gaji}</strong>. Komponen yang muncul di bawah mengikuti data di <strong>Master Komponen Potongan</strong>.
           </p>
 
+          {/* GUARDRAIL OVER-DEDUCTION WARNINGS */}
+          {(() => {
+            const gajiPokok = Number(editingRow?.gaji_pokok_dasar ?? 0);
+            if (gajiPokok <= 0) return null;
+
+            const percentage = (modalCurrentTotal / gajiPokok) * 100;
+
+            if (modalCurrentTotal > gajiPokok) {
+              return (
+                <div className="rounded-lg border border-red-700 bg-red-950/80 p-3 text-xs text-red-200 flex items-start gap-2.5">
+                  <span className="text-base leading-none">🚨</span>
+                  <div>
+                    <div className="font-bold text-red-100">
+                      BAHAYA: Total Potongan Melebihi Gaji Pokok ({percentage.toFixed(1)}%)
+                    </div>
+                    <p className="mt-1 text-red-300/90 leading-relaxed">
+                      Total potongan ({formatRupiah(modalCurrentTotal)}) lebih besar dari Gaji Pokok ({formatRupiah(gajiPokok)}). Pegawai berisiko memiliki Take Home Pay Rp 0 atau minus!
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            if (modalCurrentTotal > gajiPokok * 0.5) {
+              return (
+                <div className="rounded-lg border border-amber-600/70 bg-amber-950/70 p-3 text-xs text-amber-200 flex items-start gap-2.5">
+                  <span className="text-base leading-none">⚠️</span>
+                  <div>
+                    <div className="font-bold text-amber-100">
+                      PERINGATAN: Potongan Melebihi 50% Gaji Pokok ({percentage.toFixed(1)}%)
+                    </div>
+                    <p className="mt-1 text-amber-300/90 leading-relaxed">
+                      Sesuai PP No. 36/2021 Pasal 65, total pemotongan upah dianjurkan tidak melebihi 50% dari gaji pokok ({formatRupiah(gajiPokok)}) demi kelangsungan hidup pekerja.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
+
           {masterList.length === 0 ? (
             <p className="text-xs text-slate-400 py-3 text-center">
               Belum ada komponen master potongan aktif di Master Data.
@@ -488,13 +608,47 @@ export default function PotonganPage() {
             ))
           )}
 
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-300">
-              Total Potongan Pegawai:
-            </span>
-            <span className="text-base font-bold text-rose-300">
-              {formatRupiah(modalCurrentTotal)}
-            </span>
+          <div className="pt-3 border-t border-slate-800 space-y-1.5">
+            {Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 && (
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>Gaji Pokok Pegawai:</span>
+                <span className="font-medium text-slate-200">
+                  {formatRupiah(Number(editingRow?.gaji_pokok_dasar ?? 0))}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-300">
+                Total Potongan Pegawai:
+              </span>
+              <div className="text-right">
+                <span
+                  className={`text-base font-bold ${
+                    Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 &&
+                    modalCurrentTotal > Number(editingRow?.gaji_pokok_dasar ?? 0)
+                      ? "text-red-400"
+                      : Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 &&
+                        modalCurrentTotal >
+                          Number(editingRow?.gaji_pokok_dasar ?? 0) * 0.5
+                      ? "text-amber-400"
+                      : "text-rose-300"
+                  }`}
+                >
+                  {formatRupiah(modalCurrentTotal)}
+                </span>
+                {Number(editingRow?.gaji_pokok_dasar ?? 0) > 0 && (
+                  <span className="text-xs text-slate-400 ml-1.5">
+                    (
+                    {(
+                      (modalCurrentTotal /
+                        Number(editingRow?.gaji_pokok_dasar ?? 0)) *
+                      100
+                    ).toFixed(1)}
+                    % GP)
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Modal>

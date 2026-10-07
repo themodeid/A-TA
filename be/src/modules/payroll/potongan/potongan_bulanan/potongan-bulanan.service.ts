@@ -34,6 +34,7 @@ export const getAllByPeriode = async (id_periode: number) => {
       pb.id_periode,
       pb.id_pegawai,
       p.nama_dan_tanggal_lahir,
+      COALESCE(p.gaji_pokok_dasar, 0)::float AS gaji_pokok_dasar,
       pb.total_potongan_terhitung,
       COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_ANGSURAN' THEN pbd.nilai_potongan END), 0)::float AS potongan_angsuran,
       COALESCE(MAX(CASE WHEN mp.kode_potongan = 'POT_DANA_WAJIB' THEN pbd.nilai_potongan END), 0)::float AS potongan_dana_wajib,
@@ -58,7 +59,7 @@ export const getAllByPeriode = async (id_periode: number) => {
     LEFT JOIN tb_master_potongan mp 
       ON pbd.id_master_potongan = mp.id_master_potongan AND mp.deleted_at IS NULL
     WHERE pb.id_periode = $1
-    GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir, pb.total_potongan_terhitung
+    GROUP BY pb.id_potongan_bulanan, pb.id_periode, pb.id_pegawai, p.nama_dan_tanggal_lahir, p.gaji_pokok_dasar, pb.total_potongan_terhitung
     ORDER BY p.nama_dan_tanggal_lahir ASC;
   `;
 
@@ -222,6 +223,108 @@ export const saveBulk = async (
     await client.query("COMMIT");
     return {
       message: "Data potongan bulanan berhasil disimpan dan disinkronkan!",
+    };
+  } catch (error: any) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// ==========================================
+// 4. SALIN POTONGAN DARI PERIODE SEBELUMNYA
+// ==========================================
+export const copyFromPrevious = async (id_periode: number) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Cek periode saat ini
+    const curRes = await client.query(
+      "SELECT id_periode, bulan_gaji, tanggal_awal, status FROM tb_periode WHERE id_periode = $1 AND deleted_at IS NULL",
+      [id_periode],
+    );
+    if (curRes.rows.length === 0) throw new Error("Periode tidak ditemukan!");
+    const currentPeriode = curRes.rows[0];
+    if (["Dikunci", "Selesai", "Diproses Gaji"].includes(currentPeriode.status)) {
+      throw new Error("Gagal. Status periode sudah dikunci atau selesai diproses!");
+    }
+
+    // 2. Cari periode sebelumnya yang terdekat
+    const prevRes = await client.query(
+      `SELECT id_periode, bulan_gaji 
+       FROM tb_periode 
+       WHERE (tanggal_awal < $1 OR (tanggal_awal = $1 AND id_periode < $2))
+         AND deleted_at IS NULL
+       ORDER BY tanggal_awal DESC, id_periode DESC
+       LIMIT 1;`,
+      [currentPeriode.tanggal_awal, id_periode],
+    );
+
+    if (prevRes.rows.length === 0) {
+      throw new Error("Tidak ditemukan periode sebelumnya untuk menyalin data potongan.");
+    }
+    const prevPeriode = prevRes.rows[0];
+
+    // 3. Pastikan header potongan di periode target sudah ada untuk semua pegawai aktif
+    const initHeaderQuery = `
+      INSERT INTO tb_potongan_bulanan (id_periode, id_pegawai, total_potongan_terhitung)
+      SELECT $1, id_pegawai, 0.00
+      FROM tb_pegawai
+      WHERE deleted_at IS NULL
+      ON CONFLICT (id_periode, id_pegawai) DO NOTHING;
+    `;
+    await client.query(initHeaderQuery, [id_periode]);
+
+    // 4. Salin detail potongan dari periode sebelumnya (hanya master potongan yang masih aktif)
+    const copyDetailQuery = `
+      INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+      SELECT $1, pbd.id_pegawai, pbd.id_master_potongan, pbd.nilai_potongan
+      FROM tb_potongan_bulanan_detail pbd
+      JOIN tb_pegawai p ON p.id_pegawai = pbd.id_pegawai AND p.deleted_at IS NULL
+      JOIN tb_master_potongan mp ON mp.id_master_potongan = pbd.id_master_potongan AND mp.deleted_at IS NULL
+      WHERE pbd.id_periode = $2
+      ON CONFLICT (id_periode, id_pegawai, id_master_potongan)
+      DO UPDATE SET nilai_potongan = EXCLUDED.nilai_potongan;
+    `;
+    const copyRes = await client.query(copyDetailQuery, [
+      id_periode,
+      prevPeriode.id_periode,
+    ]);
+
+    // 5. Inisialisasi komponen 'BULANAN' wajib jika belum ada
+    const initUniversalDetailQuery = `
+      INSERT INTO tb_potongan_bulanan_detail (id_periode, id_pegawai, id_master_potongan, nilai_potongan)
+      SELECT $1, p.id_pegawai, mp.id_master_potongan, mp.nilai
+      FROM tb_pegawai p
+      CROSS JOIN tb_master_potongan mp
+      WHERE p.deleted_at IS NULL
+        AND mp.deleted_at IS NULL
+        AND mp.sifat_potongan = 'BULANAN'
+        AND mp.nilai > 0
+      ON CONFLICT (id_periode, id_pegawai, id_master_potongan) DO NOTHING;
+    `;
+    await client.query(initUniversalDetailQuery, [id_periode]);
+
+    // 6. Sinkronisasi Header total_potongan_terhitung
+    const syncHeaderQuery = `
+      UPDATE tb_potongan_bulanan pb
+      SET total_potongan_terhitung = COALESCE(
+        (SELECT SUM(pbd.nilai_potongan) 
+         FROM tb_potongan_bulanan_detail pbd 
+         WHERE pbd.id_periode = pb.id_periode AND pbd.id_pegawai = pb.id_pegawai),
+        0.00
+      )
+      WHERE pb.id_periode = $1;
+    `;
+    await client.query(syncHeaderQuery, [id_periode]);
+
+    await client.query("COMMIT");
+    return {
+      message: `Berhasil menyalin data potongan dari periode ${prevPeriode.bulan_gaji}!`,
+      copiedCount: copyRes.rowCount || 0,
+      previousPeriode: prevPeriode.bulan_gaji,
     };
   } catch (error: any) {
     await client.query("ROLLBACK");

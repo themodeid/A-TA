@@ -11,6 +11,7 @@ export interface PotonganBulanan {
   id_periode?: number;
   id_pegawai: number;
   nama_dan_tanggal_lahir?: string;
+  gaji_pokok_dasar?: number;
   total_potongan_terhitung?: number;
   potongan_angsuran?: number;
   potongan_dana_wajib?: number;

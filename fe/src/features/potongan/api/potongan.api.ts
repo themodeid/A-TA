@@ -37,3 +37,14 @@ export async function savePotonganBulk(
   );
   return res.data.message ?? "Data potongan berhasil disimpan!";
 }
+
+// 4. Salin potongan dari periode sebelumnya
+export async function copyPreviousPotongan(idPeriode: number): Promise<string> {
+  const res = await api.post<ApiResponse<any>>(
+    "/payroll/potongan-bulanan/copy-previous",
+    {
+      id_periode: idPeriode,
+    },
+  );
+  return res.data.message ?? "Data potongan berhasil disalin dari periode sebelumnya!";
+}

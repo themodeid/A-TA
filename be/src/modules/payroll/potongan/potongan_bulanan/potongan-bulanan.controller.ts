@@ -67,3 +67,24 @@ export const saveBulkPotongan = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const copyPreviousPotongan = async (req: Request, res: Response) => {
+  try {
+    const { id_periode } = req.body;
+    if (!id_periode) {
+      return res.status(400).json({ message: "ID Periode wajib diisi!" });
+    }
+
+    const result = await potonganService.copyFromPrevious(Number(id_periode));
+    return res.status(200).json({
+      status: "success",
+      message: result.message,
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      status: "error",
+      message: error.message || "Gagal menyalin potongan dari periode sebelumnya",
+    });
+  }
+};
