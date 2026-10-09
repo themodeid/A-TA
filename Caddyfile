@@ -1,0 +1,30 @@
+# =============================================================================
+# CADDY REVERSE PROXY CONFIGURATION (A-TA SMK PSKD 3 JAKARTA)
+# =============================================================================
+# Menggunakan domain dinamis via env {$APP_DOMAIN:localhost}
+# - Pada VPS Produksi: otomatis HTTPS via Let's Encrypt jika domain publik disetel
+# - Pada Pengujian Lokal: berjalan aman di localhost (HTTP port 80 / 8080)
+# =============================================================================
+
+{$APP_DOMAIN::8080} {
+    # Logging akses Caddy ke stdout
+    log {
+        output stdout
+        format console
+    }
+
+    # 1. Seluruh rute API diteruskan ke Backend Express
+    handle /api/* {
+        reverse_proxy backend:3040
+    }
+
+    # 2. File statis uploads diteruskan ke Backend
+    handle /uploads/* {
+        reverse_proxy backend:3040
+    }
+
+    # 3. Seluruh rute antarmuka pengguna diteruskan ke Frontend Next.js
+    handle {
+        reverse_proxy frontend:3041
+    }
+}

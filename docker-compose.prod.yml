@@ -113,6 +113,30 @@ services:
         limits:
           memory: 512M
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: ta-caddy-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ta_caddy_prod_data:/data
+      - ta_caddy_prod_config:/config
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    networks:
+      - ta_internal_network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
 networks:
   ta_internal_network:
     driver: bridge
@@ -120,3 +144,5 @@ networks:
 volumes:
   ta_postgres_prod_data:
   ta_redis_prod_data:
+  ta_caddy_prod_data:
+  ta_caddy_prod_config:

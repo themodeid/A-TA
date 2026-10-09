@@ -17,8 +17,13 @@ export const app = express();
 // 🛠️ MIDDLEWARES KEAMANAN & UTILITAS
 // ======================================================
 
-// 0. Disable X-Powered-By header & Gunakan Helmet untuk HTTP Security Headers
+// 0. Disable X-Powered-By header & Konfigurasi Reverse Proxy
 app.disable("x-powered-by");
+
+// Percayai 1 lapis proxy di depan Express (Caddy Reverse Proxy)
+// Ini membuat req.ip membaca header X-Forwarded-For asli dari client luar
+app.set("trust proxy", 1);
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -34,6 +39,17 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     message: "Server is healthy",
     timestamp: new Date().toISOString(),
+  });
+});
+
+// 2b. Diagnostik Reverse Proxy & IP Client (Untuk pengujian pra-deploy)
+app.get("/api/debug-ip", (req, res) => {
+  res.status(200).json({
+    clientIp: req.ip,
+    ips: req.ips,
+    forwardedFor: req.headers["x-forwarded-for"] || null,
+    trustProxySetting: app.get("trust proxy"),
+    userAgent: req.headers["user-agent"] || null,
   });
 });
 
